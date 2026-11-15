@@ -98,30 +98,27 @@
                     }, 1000);
 
                 } else {
+                    // Sign Up with metadata username for trigger
                     const { data, error } = await supabaseClient.auth.signUp({
                         email: email,
-                        password: password
+                        password: password,
+                        options: {
+                            data: {
+                                username: username
+                            }
+                        }
                     });
 
                     if (error) throw error;
 
-                    const user = data.user;
-                    if (user) {
-                        const { error: profileError } = await supabaseClient
-                            .from('profiles')
-                            .insert([{ id: user.id, username: username }]);
-
-                        if (profileError) throw profileError;
-
-                        msgDiv.className = 'success';
-                        msgDiv.textContent = 'အကောင့်ဖွင့်ခြင်း အောင်မြင်ပါသည်။';
-                        
-                        setTimeout(() => {
-                            document.getElementById('auth-form').style.display = 'none';
-                            document.getElementById('chat-section').style.display = 'block';
-                            document.getElementById('user-display').textContent = username;
-                        }, 1000);
-                    }
+                    msgDiv.className = 'success';
+                    msgDiv.textContent = 'အကောင့်ဖွင့်ခြင်း အောင်မြင်ပါသည်။';
+                    
+                    setTimeout(() => {
+                        document.getElementById('auth-form').style.display = 'none';
+                        document.getElementById('chat-section').style.display = 'block';
+                        document.getElementById('user-display').textContent = username;
+                    }, 1000);
                 }
             } catch (err) {
                 msgDiv.textContent = err.message;
