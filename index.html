@@ -34,9 +34,9 @@
     <!-- Auth Container (Login / Register) -->
     <div id="auth-container" class="flex items-center justify-center min-h-screen p-4">
         <div class="bg-white dark:bg-facebook-darkcard p-6 rounded-xl shadow-lg w-full max-w-md border border-gray-200 dark:border-gray-700 text-center">
-            <!-- App Logo -->
+            <!-- App Logo from user upload -->
             <div class="flex justify-center mb-3">
-                <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80" alt="Logo" class="w-20 h-20 rounded-2xl object-cover shadow-md border-2 border-pink-500">
+                <img src="353AF8A7-54E2-442D-9C22-FE59E405618E.png" alt="DC Logo" class="w-24 h-24 rounded-2xl object-cover shadow-md border-2 border-pink-500" onerror="this.src='https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80'">
             </div>
             <h1 class="text-3xl font-bold text-pink-500 mb-6">Dating Chat</h1>
             <div id="auth-error" class="hidden bg-red-100 text-red-600 p-3 rounded-lg mb-4 text-sm"></div>
@@ -58,7 +58,7 @@
             </form>
             
             <div class="text-center mt-4">
-                <button onclick="toggleAuthMode()" id="auth-toggle-btn" class="text-sm text-pink-500 hover:underline">Create new account</button>
+                <button type="button" onclick="toggleAuthMode()" id="auth-toggle-btn" class="text-sm text-pink-500 hover:underline">Create new account</button>
             </div>
         </div>
     </div>
@@ -68,6 +68,7 @@
         <!-- Top Navbar -->
         <header class="bg-white dark:bg-facebook-darkcard border-b dark:border-gray-700 px-4 py-2 flex items-center justify-between sticky top-0 z-50">
             <div class="flex items-center space-x-2">
+                <img src="353AF8A7-54E2-442D-9C22-FE59E405618E.png" alt="Logo" class="w-8 h-8 rounded-lg object-cover">
                 <span class="text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">Dating Chat</span>
             </div>
             <div class="flex items-center space-x-3">
@@ -127,12 +128,25 @@
             icon.classList.toggle('fa-sun');
         }
 
-        // Toggle Auth Form
+        // Toggle Auth Form (Sign Up / Log In)
         function toggleAuthMode() {
             isSignUp = !isSignUp;
-            document.getElementById('username-field').classList.toggle('hidden');
-            document.getElementById('auth-btn').innerText = isSignUp ? 'Sign Up' : 'Log In';
-            document.getElementById('auth-toggle-btn').innerText = isSignUp ? 'Already have an account? Log In' : 'Create new account';
+            const usernameField = document.getElementById('username-field');
+            const authBtn = document.getElementById('auth-btn');
+            const authToggleBtn = document.getElementById('auth-toggle-btn');
+            const usernameInput = document.getElementById('username');
+
+            if (isSignUp) {
+                usernameField.classList.remove('hidden');
+                usernameInput.setAttribute('required', 'true');
+                authBtn.innerText = 'Sign Up';
+                authToggleBtn.innerText = 'Already have an account? Log In';
+            } else {
+                usernameField.classList.add('hidden');
+                usernameInput.removeAttribute('required');
+                authBtn.innerText = 'Log In';
+                authToggleBtn.innerText = 'Create new account';
+            }
         }
 
         // Auth Handler
@@ -140,11 +154,11 @@
             e.preventDefault();
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            const username = document.getElementById('username').value;
             const errorDiv = document.getElementById('auth-error');
             errorDiv.classList.add('hidden');
 
             if (isSignUp) {
+                const username = document.getElementById('username').value;
                 const { data, error } = await supabase.auth.signUp({ email, password });
                 if (error) { errorDiv.innerText = error.message; errorDiv.classList.remove('hidden'); return; }
                 if (data.user) {
