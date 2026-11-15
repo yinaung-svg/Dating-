@@ -39,7 +39,7 @@
     <script>
         // Supabase Configuration
         const SUPABASE_URL = 'https://dwwubrcbwmxckeklfkan.supabase.co';
-        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE'; // သင်၏ Supabase Anon Key ကို ထည့်ရန်
+        const SUPABASE_ANON_KEY = 'sb_publishable_p1sRpKZnPVyyc-KkEbHWPQ_tkyRTfCu'; 
         
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let isLoginMode = false;
@@ -82,7 +82,6 @@
 
             try {
                 if (isLoginMode) {
-                    // Login
                     const { data, error } = await supabaseClient.auth.signInWithPassword({
                         email: email,
                         password: password
@@ -99,7 +98,6 @@
                     }, 1000);
 
                 } else {
-                    // Sign Up
                     const { data, error } = await supabaseClient.auth.signUp({
                         email: email,
                         password: password
