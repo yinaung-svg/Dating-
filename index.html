@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Social Chat App</title>
+    <title>Dating Chat App</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -33,28 +33,32 @@
 
     <!-- Auth Container (Login / Register) -->
     <div id="auth-container" class="flex items-center justify-center min-h-screen p-4">
-        <div class="bg-white dark:bg-facebook-darkcard p-6 rounded-xl shadow-lg w-full max-w-md border border-gray-200 dark:border-gray-700">
-            <h1 class="text-3xl font-bold text-facebook-blue text-center mb-6">facebook</h1>
+        <div class="bg-white dark:bg-facebook-darkcard p-6 rounded-xl shadow-lg w-full max-w-md border border-gray-200 dark:border-gray-700 text-center">
+            <!-- App Logo -->
+            <div class="flex justify-center mb-3">
+                <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80" alt="Logo" class="w-20 h-20 rounded-2xl object-cover shadow-md border-2 border-pink-500">
+            </div>
+            <h1 class="text-3xl font-bold text-pink-500 mb-6">Dating Chat</h1>
             <div id="auth-error" class="hidden bg-red-100 text-red-600 p-3 rounded-lg mb-4 text-sm"></div>
             
-            <form id="auth-form" onsubmit="handleAuth(event)">
+            <form id="auth-form" onsubmit="handleAuth(event)" class="text-left">
                 <div id="username-field" class="mb-4 hidden">
                     <label class="block text-sm font-medium mb-1">Username</label>
-                    <input type="text" id="username" class="w-full p-3 rounded-lg border dark:border-gray-700 dark:bg-facebook-darkbg focus:outline-none focus:border-facebook-blue">
+                    <input type="text" id="username" class="w-full p-3 rounded-lg border dark:border-gray-700 dark:bg-facebook-darkbg focus:outline-none focus:border-pink-500">
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm font-medium mb-1">Email</label>
-                    <input type="email" id="email" required class="w-full p-3 rounded-lg border dark:border-gray-700 dark:bg-facebook-darkbg focus:outline-none focus:border-facebook-blue">
+                    <input type="email" id="email" required class="w-full p-3 rounded-lg border dark:border-gray-700 dark:bg-facebook-darkbg focus:outline-none focus:border-pink-500">
                 </div>
                 <div class="mb-4">
                     <label class="block text-sm font-medium mb-1">Password</label>
-                    <input type="password" id="password" required class="w-full p-3 rounded-lg border dark:border-gray-700 dark:bg-facebook-darkbg focus:outline-none focus:border-facebook-blue">
+                    <input type="password" id="password" required class="w-full p-3 rounded-lg border dark:border-gray-700 dark:bg-facebook-darkbg focus:outline-none focus:border-pink-500">
                 </div>
-                <button type="submit" id="auth-btn" class="w-full bg-facebook-blue hover:bg-facebook-hover text-white font-bold p-3 rounded-lg transition">Log In</button>
+                <button type="submit" id="auth-btn" class="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:opacity-90 text-white font-bold p-3 rounded-lg transition">Log In</button>
             </form>
             
             <div class="text-center mt-4">
-                <button onclick="toggleAuthMode()" id="auth-toggle-btn" class="text-sm text-facebook-blue hover:underline">Create new account</button>
+                <button onclick="toggleAuthMode()" id="auth-toggle-btn" class="text-sm text-pink-500 hover:underline">Create new account</button>
             </div>
         </div>
     </div>
@@ -64,7 +68,7 @@
         <!-- Top Navbar -->
         <header class="bg-white dark:bg-facebook-darkcard border-b dark:border-gray-700 px-4 py-2 flex items-center justify-between sticky top-0 z-50">
             <div class="flex items-center space-x-2">
-                <span class="text-2xl font-bold text-facebook-blue">facebook</span>
+                <span class="text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">Dating Chat</span>
             </div>
             <div class="flex items-center space-x-3">
                 <button onclick="toggleDarkMode()" class="w-10 h-10 rounded-full bg-gray-200 dark:bg-facebook-darkhover flex items-center justify-center">
@@ -89,15 +93,15 @@
             <!-- Chat Box Area -->
             <div id="chat-box-area" class="hidden md:flex flex-1 flex-col bg-gray-50 dark:bg-facebook-darkbg">
                 <div id="active-chat-header" class="p-4 bg-white dark:bg-facebook-darkcard border-b dark:border-gray-700 font-bold flex items-center space-x-3">
-                    <i class="fa-solid fa-user-circle text-2xl"></i>
+                    <div class="w-8 h-8 rounded-full bg-pink-500 text-white flex items-center justify-center font-bold text-sm" id="active-user-avatar">?</div>
                     <span id="active-chat-username">Select a chat</span>
                 </div>
                 <div id="messages-container" class="flex-1 p-4 overflow-y-auto space-y-3">
                     <!-- Messages will load here -->
                 </div>
                 <div class="p-3 bg-white dark:bg-facebook-darkcard border-t dark:border-gray-700 flex items-center space-x-2">
-                    <input type="text" id="message-input" placeholder="Aa" class="flex-1 p-2 rounded-full border dark:border-gray-700 dark:bg-facebook-darkbg focus:outline-none px-4">
-                    <button onclick="sendMessage()" class="bg-facebook-blue text-white w-10 h-10 rounded-full flex items-center justify-center hover:bg-facebook-hover">
+                    <input type="text" id="message-input" placeholder="Type a message..." class="flex-1 p-2 rounded-full border dark:border-gray-700 dark:bg-facebook-darkbg focus:outline-none px-4">
+                    <button onclick="sendMessage()" class="bg-pink-500 text-white w-10 h-10 rounded-full flex items-center justify-center hover:bg-pink-600">
                         <i class="fa-solid fa-paper-plane"></i>
                     </button>
                 </div>
@@ -176,21 +180,24 @@
             const { data, error } = await supabase.from('profiles').select('*').neq('id', currentUser.id);
             const chatList = document.getElementById('chat-list');
             chatList.innerHTML = '';
-            if (data) {
+            if (data && data.length > 0) {
                 data.forEach(user => {
                     const div = document.createElement('div');
                     div.className = 'p-3 flex items-center space-x-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-facebook-darkhover transition';
-                    div.innerHTML = `<div class="w-10 h-10 rounded-full bg-facebook-blue text-white flex items-center justify-center font-bold">${user.username[0].toUpperCase()}</div>
+                    div.innerHTML = `<div class="w-10 h-10 rounded-full bg-pink-500 text-white flex items-center justify-center font-bold">${user.username[0].toUpperCase()}</div>
                                      <div><div class="font-semibold">${user.username}</div></div>`;
                     div.onclick = () => selectChatUser(user.id, user.username);
                     chatList.appendChild(div);
                 });
+            } else {
+                chatList.innerHTML = '<div class="p-4 text-center text-gray-500 text-sm">No other users found yet.</div>';
             }
         }
 
         function selectChatUser(userId, username) {
             activeChatUserId = userId;
             document.getElementById('active-chat-username').innerText = username;
+            document.getElementById('active-user-avatar').innerText = username[0].toUpperCase();
             loadMessages();
         }
 
@@ -209,7 +216,7 @@
                     const isMe = msg.sender_id === currentUser.id;
                     const div = document.createElement('div');
                     div.className = `flex ${isMe ? 'justify-end' : 'justify-start'}`;
-                    div.innerHTML = `<div class="p-3 rounded-2xl max-w-xs ${isMe ? 'bg-facebook-blue text-white' : 'bg-gray-200 dark:bg-facebook-darkhover'}">${msg.content}</div>`;
+                    div.innerHTML = `<div class="p-3 rounded-2xl max-w-xs ${isMe ? 'bg-pink-500 text-white' : 'bg-gray-200 dark:bg-facebook-darkhover'}">${msg.content}</div>`;
                     container.appendChild(div);
                 });
                 container.scrollTop = container.scrollHeight;
