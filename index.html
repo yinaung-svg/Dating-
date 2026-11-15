@@ -10,8 +10,10 @@
         body { font-family: Arial, sans-serif; background: #f4f4f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 300px; text-align: center; }
         input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; background: #ff4b5c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button { width: 100%; padding: 10px; background: #ff4b5c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 5px; }
         button:hover { background: #ff2a40; }
+        .toggle-btn { background: none; color: #ff4b5c; border: none; cursor: pointer; margin-top: 15px; font-size: 14px; }
+        .toggle-btn:hover { text-decoration: underline; }
         .error { color: red; font-size: 14px; margin-top: 10px; }
         .success { color: green; font-size: 14px; margin-top: 10px; }
     </style>
@@ -19,12 +21,13 @@
 <body>
 
     <div class="container">
-        <h2>Dating Chat</h2>
+        <h2 id="form-title">Dating Chat - Sign Up</h2>
         <div id="auth-form">
             <input type="text" id="username" placeholder="Username" required>
             <input type="email" id="email" placeholder="Email" required>
             <input type="password" id="password" placeholder="Password" required>
-            <button id="signup-btn">Create new account</button>
+            <button id="action-btn">Create new account</button>
+            <button class="toggle-btn" id="toggle-mode-btn" onclick="toggleMode()">Already have an account? Login</button>
             <div id="message" class="error"></div>
         </div>
         <div id="chat-section" style="display: none;">
@@ -39,47 +42,88 @@
         const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE'; // သင်၏ Supabase Anon Key ကို ထည့်ရန်
         
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let isLoginMode = false;
 
-        document.getElementById('signup-btn').addEventListener('click', async () => {
-            const username = document.getElementById('username').value.trim();
+        function toggleMode() {
+            isLoginMode = !isLoginMode;
+            const usernameInput = document.getElementById('username');
+            const formTitle = document.getElementById('form-title');
+            const actionBtn = document.getElementById('action-btn');
+            const toggleBtn = document.getElementById('toggle-mode-btn');
+            const msgDiv = document.getElementById('message');
+
+            msgDiv.textContent = '';
+            if (isLoginMode) {
+                usernameInput.style.display = 'none';
+                formTitle.textContent = 'Dating Chat - Login';
+                actionBtn.textContent = 'Login';
+                toggleBtn.textContent = "Don't have an account? Sign Up";
+            } else {
+                usernameInput.style.display = 'block';
+                formTitle.textContent = 'Dating Chat - Sign Up';
+                actionBtn.textContent = 'Create new account';
+                toggleBtn.textContent = 'Already have an account? Login';
+            }
+        }
+
+        document.getElementById('action-btn').addEventListener('click', async () => {
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value.trim();
+            const username = document.getElementById('username').value.trim();
             const msgDiv = document.getElementById('message');
 
             msgDiv.textContent = '';
             msgDiv.className = 'error';
 
-            if (!username || !email || !password) {
+            if (!email || !password || (!isLoginMode && !username)) {
                 msgDiv.textContent = 'ကျေးဇူးပြု၍ အချက်အလက်အားလုံး ဖြည့်ပါ။';
                 return;
             }
 
             try {
-                // 1. Sign up user with Supabase Auth
-                const { data, error } = await supabaseClient.auth.signUp({
-                    email: email,
-                    password: password
-                });
+                if (isLoginMode) {
+                    // Login
+                    const { data, error } = await supabaseClient.auth.signInWithPassword({
+                        email: email,
+                        password: password
+                    });
 
-                if (error) throw error;
-
-                const user = data.user;
-                if (user) {
-                    // 2. Insert username into profiles table
-                    const { error: profileError } = await supabaseClient
-                        .from('profiles')
-                        .insert([{ id: user.id, username: username }]);
-
-                    if (profileError) throw profileError;
+                    if (error) throw error;
 
                     msgDiv.className = 'success';
-                    msgDiv.textContent = 'အကောင့်ဖွင့်ခြင်း အောင်မြင်ပါသည်။';
-                    
+                    msgDiv.textContent = 'လော့ဂ်အင်ဝင်ခြင်း အောင်မြင်ပါသည်။';
                     setTimeout(() => {
                         document.getElementById('auth-form').style.display = 'none';
                         document.getElementById('chat-section').style.display = 'block';
-                        document.getElementById('user-display').textContent = username;
+                        document.getElementById('user-display').textContent = email;
                     }, 1000);
+
+                } else {
+                    // Sign Up
+                    const { data, error } = await supabaseClient.auth.signUp({
+                        email: email,
+                        password: password
+                    });
+
+                    if (error) throw error;
+
+                    const user = data.user;
+                    if (user) {
+                        const { error: profileError } = await supabaseClient
+                            .from('profiles')
+                            .insert([{ id: user.id, username: username }]);
+
+                        if (profileError) throw profileError;
+
+                        msgDiv.className = 'success';
+                        msgDiv.textContent = 'အကောင့်ဖွင့်ခြင်း အောင်မြင်ပါသည်။';
+                        
+                        setTimeout(() => {
+                            document.getElementById('auth-form').style.display = 'none';
+                            document.getElementById('chat-section').style.display = 'block';
+                            document.getElementById('user-display').textContent = username;
+                        }, 1000);
+                    }
                 }
             } catch (err) {
                 msgDiv.textContent = err.message;
