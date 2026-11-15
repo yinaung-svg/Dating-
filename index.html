@@ -339,6 +339,7 @@
                     const { data: publicUrlData } = supabaseClient.storage.from('media').getPublicUrl(fileName);
                     const avatarUrl = publicUrlData.publicUrl;
                     await supabaseClient.from('profiles').update({ avatar_url: avatarUrl }).eq('id', currentUser.id);
+                    alert('Profile photo updated successfully!');
                     loadProfile();
                 } else {
                     alert('Error uploading avatar: ' + error.message);
@@ -405,13 +406,14 @@
         async function loadFeed() {
             const { data } = await supabaseClient
                 .from('posts').select('*, profiles(username, avatar_url, bio)')
-                .or(`privacy.eq.public,user_id.eq.${currentUser.id}`)
                 .order('created_at', { ascending: false });
 
             const feed = document.getElementById('posts-feed');
             feed.innerHTML = '';
             if (data) {
                 data.forEach(post => {
+                    if (post.privacy === 'only_me' && post.user_id !== currentUser.id) return;
+
                     const uname = post.profiles ? post.profiles.username : 'User';
                     const uBio = post.profiles ? (post.profiles.bio || '') : '';
                     const uAvatar = post.profiles ? (post.profiles.avatar_url || '') : '';
