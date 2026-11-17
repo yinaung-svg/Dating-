@@ -40,9 +40,11 @@
 
         #chat-tab { display: none; flex-direction: column; height: 100%; padding: 0; }
         #chat-tab.active { display: flex; }
-        .chat-box { flex: 1; padding: 15px; overflow-y: auto; background: #fff; }
-        .message-item { margin-bottom: 10px; font-size: 14px; }
-        .message-item span { font-weight: bold; color: #1877f2; }
+        .chat-box { flex: 1; padding: 15px; overflow-y: auto; background: #fff; display: flex; flex-direction: column; }
+        .msg-bubble { max-width: 70%; padding: 10px 14px; border-radius: 15px; margin-bottom: 8px; font-size: 14px; word-break: break-word; }
+        .msg-left { background: #e4e6eb; color: #050505; align-self: flex-start; border-bottom-left-radius: 2px; }
+        .msg-right { background: #1877f2; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        
         .chat-input-area { display: flex; padding: 10px; background: white; border-top: 1px solid #ddd; }
         .chat-input-area input { margin: 0; flex: 1; }
         .chat-input-area button { width: 80px; margin: 0 0 0 8px; padding: 0; }
@@ -113,6 +115,7 @@
         </div>
 
         <div id="chat-tab" class="tab-content">
+            <div style="padding: 8px; background: #e4e6eb; font-weight: bold; font-size: 14px; text-align: center;" id="chat-header-title">Messenger (Global Chat)</div>
             <div class="chat-box" id="chat-box"></div>
             <div class="chat-input-area">
                 <input type="text" id="chat-input" placeholder="Type a message...">
@@ -179,6 +182,7 @@
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let isLoginMode = false;
         let currentUser = null;
+        let activeChatUserId = null; // သီးသန့်ချတ်လုပ်မည့်သူ၏ ID
 
         window.addEventListener('DOMContentLoaded', async () => {
             const { data: { session } } = await supabaseClient.auth.getSession();
@@ -357,11 +361,12 @@
             }
         }
 
+        // Messenger ပုံစံ သီးသန့် Chat ဖွင့်ရန်
         function openDirectChat(userId, username) {
+            activeChatUserId = userId;
             switchTab('chat');
-            const chatInput = document.getElementById('chat-input');
-            chatInput.value = `@${username} `;
-            chatInput.focus();
+            document.getElementById('chat-header-title').textContent = `Chat with ${username}`;
+            loadMessages();
         }
 
         async function uploadAvatar(input) {
@@ -636,19 +641,27 @@
 
         async function loadMessages() {
             try {
-                const { data } = await supabaseClient
-                    .from('messages').select('*, profiles(username)')
-                    .order('created_at', { ascending: true });
+                let query = supabaseClient.from('messages').select('*, profiles(username)').order('created_at', { ascending: true });
+                
+                // အကယ်၍ User Profile ထဲမှ လာရောက် ချတ်လုပ်ခြင်းဖြစ်ပါက နှစ်ဦးကြား Message များကိုသာ ဖिल्တာ လုပ်ပါမည်
+                if (activeChatUserId) {
+                    query = query.or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${activeChatUserId}),and(sender_id.eq.${activeChatUserId},receiver_id.eq.${currentUser.id})`);
+                }
 
+                const { data } = await query;
                 const chatBox = document.getElementById('chat-box');
                 chatBox.innerHTML = '';
-                if (data) {
+                
+                if (data && data.length > 0) {
                     data.forEach(msg => {
-                        const uname = msg.profiles ? msg.profiles.username : 'User';
-                        chatBox.innerHTML += `<div class="message-item"><span>${uname}:</span> ${msg.content}</div>`;
+                        const isMe = msg.sender_id === currentUser.id;
+                        const bubbleClass = isMe ? 'msg-right' : 'msg-left';
+                        chatBox.innerHTML += `<div class="msg-bubble ${bubbleClass}">${msg.content}</div>`;
                     });
-                    chatBox.scrollTop = chatBox.scrollHeight;
+                } else {
+                    chatBox.innerHTML = '<p style="color:#65676b; text-align:center; font-size:13px; margin-top:20px;">No messages yet. Say hello!</p>';
                 }
+                chatBox.scrollTop = chatBox.scrollHeight;
             } catch (e) {
                 console.error(e);
             }
@@ -659,10 +672,17 @@
             const content = input.value.trim();
             if (!content || !currentUser) return;
 
-            const { error } = await supabaseClient.from('messages').insert([{ content, sender_id: currentUser.id }]);
+            let messageData = { content, sender_id: currentUser.id };
+            if (activeChatUserId) {
+                messageData.receiver_id = activeChatUserId;
+            }
+
+            const { error } = await supabaseClient.from('messages').insert([messageData]);
             if (!error) {
                 input.value = '';
                 loadMessages();
+            } else {
+                alert('Error sending message: ' + error.message);
             }
         }
 
