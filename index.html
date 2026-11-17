@@ -257,9 +257,20 @@
             document.getElementById('auth-container').style.display = 'none';
             document.getElementById('app-container').style.display = 'flex';
             
+            // Automatically ensure profile exists on login
+            await ensureProfileExists(user);
+
             loadFeed();
             loadMessages();
             loadProfile();
+        }
+
+        async function ensureProfileExists(user) {
+            const { data } = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
+            if (!data) {
+                const defaultName = user.user_metadata?.username || user.email.split('@')[0];
+                await supabaseClient.from('profiles').insert([{ id: user.id, username: defaultName }]);
+            }
         }
 
         function switchTab(tabName) {
