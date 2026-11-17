@@ -60,7 +60,6 @@
 </head>
 <body>
 
-    <!-- Auth Container -->
     <div class="auth-container" id="auth-container">
         <h2 id="form-title" style="color: #1877f2; margin-bottom: 20px;">SocialChat</h2>
         <div id="auth-form">
@@ -73,7 +72,6 @@
         </div>
     </div>
 
-    <!-- Main App Container -->
     <div id="app-container">
         <header>
             <h2>SocialChat</h2>
@@ -88,7 +86,6 @@
             <button class="tab-btn" onclick="switchTab('profile')">Profile</button>
         </div>
 
-        <!-- 1. Feed Tab -->
         <div id="feed-tab" class="tab-content active">
             <div class="card" style="padding: 10px;">
                 <input type="text" id="search-user-input" placeholder="Search users by name..." oninput="searchUsers(this.value)" style="margin: 0;">
@@ -97,7 +94,6 @@
             <div id="posts-feed"></div>
         </div>
 
-        <!-- 2. Post Tab -->
         <div id="post-tab" class="tab-content">
             <div class="card">
                 <h3>Create Post</h3>
@@ -116,7 +112,6 @@
             </div>
         </div>
 
-        <!-- 3. Chat Tab -->
         <div id="chat-tab" class="tab-content">
             <div class="chat-box" id="chat-box"></div>
             <div class="chat-input-area">
@@ -125,7 +120,6 @@
             </div>
         </div>
 
-        <!-- 4. Notification Tab -->
         <div id="notification-tab" class="tab-content">
             <div class="card">
                 <h4>Notifications</h4>
@@ -133,7 +127,6 @@
             </div>
         </div>
 
-        <!-- 5. Profile Tab -->
         <div id="profile-tab" class="tab-content" style="padding-top: 10px;">
             <div class="card" style="text-align: center; margin-bottom: 10px;">
                 <div style="position: relative; width: 80px; height: 80px; margin: 0 auto 10px auto;">
@@ -159,7 +152,6 @@
             </div>
         </div>
 
-        <!-- 6. Other User Profile View Tab -->
         <div id="user-profile-tab" class="tab-content" style="padding-top: 10px;">
             <div class="card" style="text-align: center;">
                 <button onclick="switchTab('feed')" style="width: auto; padding: 5px 10px; font-size: 12px; margin-bottom: 10px; background: #65676b;">← Back to Feed</button>
@@ -175,7 +167,6 @@
         </div>
     </div>
 
-    <!-- Lightbox Modal for Photo View -->
     <div id="lightbox-modal" onclick="closeLightbox()">
         <span id="lightbox-close">&times;</span>
         <img id="lightbox-img" src="">
@@ -185,28 +176,14 @@
         const SUPABASE_URL = 'https://dwwubrcbwmxckeklfkan.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3d3VicmNid214Y2tla2xma2FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ3NTk0NjUsImV4cCI6MjExMDMzNTQ2NX0.QYu1M4zlTkOF8yTpOl944OAF5vGiXiL4mX3hbb0DhbY';
         
-        // Network Fetch တားဆီးမှုကို ကျော်လွှားရန် fetch option ထည့်သွင်းခြင်း
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-            auth: { persistSession: true, autoRefreshToken: true },
-            global: {
-                fetch: (...args) => {
-                    args[1] = { ...args[1], cache: 'no-store' };
-                    return fetch(...args);
-                }
-            }
-        });
-
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let isLoginMode = false;
         let currentUser = null;
 
         window.addEventListener('DOMContentLoaded', async () => {
-            try {
-                const { data: { session } } = await supabaseClient.auth.getSession();
-                if (session) {
-                    onLoginSuccess(session.user);
-                }
-            } catch (e) {
-                console.error(e);
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                onLoginSuccess(session.user);
             }
         });
 
@@ -247,24 +224,32 @@
                 if (isLoginMode) {
                     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
                     if (error) throw error;
-                    if (data.user) onLoginSuccess(data.user);
+                    onLoginSuccess(data.user);
                 } else {
+                    const { data: existingUser } = await supabaseClient
+                        .from('profiles').select('username').eq('username', username).maybeSingle();
+
+                    if (existingUser) {
+                        msgDiv.textContent = 'ယခု Username မှာ အသုံးပြုပြီးသား ဖြစ်နေပါသည်။';
+                        return;
+                    }
+
                     const { data, error } = await supabaseClient.auth.signUp({
                         email, password, options: { data: { username } }
                     });
 
-                    if (error) throw error;
-                    
-                    if (data.user) {
-                        await supabaseClient.from('profiles').upsert([{ 
-                            id: data.user.id, 
-                            username: username 
-                        }]);
-                        onLoginSuccess(data.user);
+                    if (error) {
+                        if (error.message.includes('already registered')) {
+                            msgDiv.textContent = 'ယခု Email ဖြင့် အကောင့်ရှိပြီးသား ဖြစ်ပါသည်။';
+                        } else {
+                            throw error;
+                        }
+                        return;
                     }
+                    onLoginSuccess(data.user);
                 }
             } catch (err) {
-                msgDiv.textContent = err.message || 'Connection failed. Please check internet.';
+                msgDiv.textContent = err.message;
             }
         }
 
@@ -281,14 +266,10 @@
         }
 
         async function ensureProfileExists(user) {
-            try {
-                const { data } = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
-                if (!data) {
-                    const defaultName = user.user_metadata?.username || user.email.split('@')[0];
-                    await supabaseClient.from('profiles').upsert([{ id: user.id, username: defaultName }]);
-                }
-            } catch (e) {
-                console.error(e);
+            const { data } = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
+            if (!data) {
+                const defaultName = user.user_metadata?.username || user.email.split('@')[0];
+                await supabaseClient.from('profiles').insert([{ id: user.id, username: defaultName }]);
             }
         }
 
@@ -335,10 +316,25 @@
 
             document.getElementById('visitor-name').textContent = username;
             document.getElementById('visitor-bio').textContent = bio || '';
+            
+            let visitorAvatarHtml = '';
             if (avatarUrl) {
-                document.getElementById('visitor-avatar-container').innerHTML = `<img src="${avatarUrl}" style="width:100%; height:100%; object-fit:cover;">`;
+                visitorAvatarHtml = `<img src="${avatarUrl}" style="width:100%; height:100%; object-fit:cover;">`;
             } else {
-                document.getElementById('visitor-avatar-container').innerHTML = `<span id="visitor-initial">${username.charAt(0).toUpperCase()}</span>`;
+                visitorAvatarHtml = `<span id="visitor-initial">${username.charAt(0).toUpperCase()}</span>`;
+            }
+            document.getElementById('visitor-avatar-container').innerHTML = visitorAvatarHtml;
+
+            let existingMsgBtn = document.getElementById('visitor-msg-btn');
+            if (!existingMsgBtn) {
+                const msgBtn = document.createElement('button');
+                msgBtn.id = 'visitor-msg-btn';
+                msgBtn.textContent = '💬 Send Message';
+                msgBtn.style.cssText = 'margin-top: 10px; background: #1877f2; padding: 8px 15px; font-size: 13px; width: auto; display: inline-block;';
+                msgBtn.onclick = () => openDirectChat(userId, username);
+                document.getElementById('visitor-bio').after(msgBtn);
+            } else {
+                existingMsgBtn.onclick = () => openDirectChat(userId, username);
             }
 
             const { data: posts } = await supabaseClient
@@ -349,34 +345,23 @@
             if (posts && posts.length > 0) {
                 posts.forEach(post => {
                     let mediaHtml = post.media_url ? `<img src="${post.media_url}" class="post-media" onclick="openLightbox('${post.media_url}')">` : '';
-                    let commentsHtml = '';
-                    let commentsArr = post.comments || [];
-                    commentsArr.forEach(c => {
-                        commentsHtml += `<div style="margin-top:4px; font-size:12px;"><b>${c.username}:</b> ${c.text}</div>`;
-                    });
-
                     visitorPostsDiv.innerHTML += `
                         <div class="card post-item">
                             <div style="font-size:11px; color:#65676b;">Privacy: ${post.privacy}</div>
                             <div class="post-body">${post.content || ''}</div>
                             ${mediaHtml}
-                            <div class="action-bar">
-                                <span onclick="likePost('${post.id}', ${post.likes_count || 0})">❤️ Like (${post.likes_count || 0})</span>
-                                <span onclick="toggleCommentBox('${post.id}')">💬 Comment</span>
-                                <span onclick="sharePost('${post.content ? post.content.replace(/'/g, "\\'") : ''}', '${post.media_url || ''}')">🔗 Share (${post.shares_count || 0})</span>
-                            </div>
-                            <div id="comment-section-${post.id}" class="comment-section" style="display:none;">
-                                <div id="comments-list-${post.id}">${commentsHtml}</div>
-                                <div style="display:flex; margin-top:6px; gap:5px;">
-                                    <input type="text" id="comment-input-${post.id}" placeholder="Write a comment..." style="margin:0; padding:6px; font-size:12px;">
-                                    <button onclick="addComment('${post.id}')" style="width:60px; margin:0; padding:6px; font-size:12px;">Post</button>
-                                </div>
-                            </div>
                         </div>`;
                 });
             } else {
                 visitorPostsDiv.innerHTML = '<p style="color:#65676b; font-size:13px;">No public posts.</p>';
             }
+        }
+
+        function openDirectChat(userId, username) {
+            switchTab('chat');
+            const chatInput = document.getElementById('chat-input');
+            chatInput.value = `@${username} `;
+            chatInput.focus();
         }
 
         async function uploadAvatar(input) {
