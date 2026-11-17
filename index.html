@@ -434,7 +434,7 @@
 
             const feed = document.getElementById('posts-feed');
             feed.innerHTML = '';
-            if (data) {
+            if (data && data.length > 0) {
                 data.forEach(post => {
                     if (post.privacy === 'only_me' && post.user_id !== currentUser.id) return;
 
@@ -614,7 +614,7 @@
             const content = input.value.trim();
             if (!content || !currentUser) return;
 
-            const { error } = await supabaseClient.messages ? supabaseClient.messages.insert([{ content, sender_id: currentUser.id }]) : supabaseClient.from('messages').insert([{ content, sender_id: currentUser.id }]);
+            const { error } = await supabaseClient.from('messages').insert([{ content, sender_id: currentUser.id }]);
             if (!error) {
                 input.value = '';
                 loadMessages();
