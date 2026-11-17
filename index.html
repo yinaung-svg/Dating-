@@ -185,14 +185,27 @@
         const SUPABASE_URL = 'https://dwwubrcbwmxckeklfkan.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3d3VicmNid214Y2tla2xma2FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ3NTk0NjUsImV4cCI6MjExMDMzNTQ2NX0.QYu1M4zlTkOF8yTpOl944OAF5vGiXiL4mX3hbb0DhbY';
         
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Fetch error များကို ကျော်လွှားရန် custom fetch option ထည့်သွင်းခြင်း
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: { persistSession: true, autoRefreshToken: true },
+            global: {
+                fetch: (url, options) => {
+                    return fetch(url, { ...options, mode: 'cors', cache: 'no-cache' });
+                }
+            }
+        });
+
         let isLoginMode = false;
         let currentUser = null;
 
         window.addEventListener('DOMContentLoaded', async () => {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (session) {
-                onLoginSuccess(session.user);
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session) {
+                    onLoginSuccess(session.user);
+                }
+            } catch (e) {
+                console.error(e);
             }
         });
 
@@ -242,7 +255,6 @@
                     if (error) throw error;
                     
                     if (data.user) {
-                        // Profile row ကို အမြန်ဆုံး အလိုအလျောက် ဖြည့်ပေးရန်
                         await supabaseClient.from('profiles').upsert([{ 
                             id: data.user.id, 
                             username: username 
@@ -251,7 +263,7 @@
                     }
                 }
             } catch (err) {
-                msgDiv.textContent = err.message || 'Authentication failed.';
+                msgDiv.textContent = err.message || 'Connection failed. Please check internet.';
             }
         }
 
@@ -268,10 +280,14 @@
         }
 
         async function ensureProfileExists(user) {
-            const { data } = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
-            if (!data) {
-                const defaultName = user.user_metadata?.username || user.email.split('@')[0];
-                await supabaseClient.from('profiles').upsert([{ id: user.id, username: defaultName }]);
+            try {
+                const { data } = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
+                if (!data) {
+                    const defaultName = user.user_metadata?.username || user.email.split('@')[0];
+                    await supabaseClient.from('profiles').upsert([{ id: user.id, username: defaultName }]);
+                }
+            } catch (e) {
+                console.error(e);
             }
         }
 
@@ -358,7 +374,7 @@
                         </div>`;
                 });
             } else {
-                visitorPostsDiv.innerHTML = '<p style="color:#65676b; font-size:13px;">No posts yet.</p>';
+                visitorPostsDiv.innerHTML = '<p style="color:#65676b; font-size:13px;">No public posts.</p>';
             }
         }
 
