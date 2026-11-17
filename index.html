@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SocialChat</title>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .auth-container { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 350px; text-align: center; }
@@ -53,6 +53,7 @@
 
         .comment-section { margin-top: 8px; background: #f0f2f5; padding: 8px; border-radius: 6px; font-size: 13px; }
 
+        /* Lightbox Modal for Photo View */
         #lightbox-modal { display: none; position: fixed; z-index: 999; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
         #lightbox-modal img { max-width: 90%; max-height: 90%; border-radius: 8px; }
         #lightbox-close { position: absolute; top: 20px; right: 30px; color: white; font-size: 35px; font-weight: bold; cursor: pointer; }
@@ -185,20 +186,14 @@
         const SUPABASE_URL = 'https://dwwubrcbwmxckeklfkan.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3d3VicmNid214Y2tla2xma2FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ3NTk0NjUsImV4cCI6MjExMDMzNTQ2NX0.QYu1M4zlTkOF8yTpOl944OAF5vGiXiL4mX3hbb0DhbY';
         
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-            auth: { persistSession: true, autoRefreshToken: true }
-        });
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let isLoginMode = false;
         let currentUser = null;
 
         window.addEventListener('DOMContentLoaded', async () => {
-            try {
-                const { data: { session } } = await supabaseClient.auth.getSession();
-                if (session) {
-                    onLoginSuccess(session.user);
-                }
-            } catch (e) {
-                console.error(e);
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                onLoginSuccess(session.user);
             }
         });
 
@@ -261,14 +256,10 @@
                         }
                         return;
                     }
-                    if (data.user) {
-                        onLoginSuccess(data.user);
-                    } else {
-                        msgDiv.textContent = 'Sign up successful! Please login.';
-                    }
+                    onLoginSuccess(data.user);
                 }
             } catch (err) {
-                msgDiv.textContent = err.message || 'Connection failed. Please check internet.';
+                msgDiv.textContent = err.message;
             }
         }
 
@@ -285,14 +276,10 @@
         }
 
         async function ensureProfileExists(user) {
-            try {
-                const { data } = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
-                if (!data) {
-                    const defaultName = user.user_metadata?.username || user.email.split('@')[0];
-                    await supabaseClient.from('profiles').insert([{ id: user.id, username: defaultName }]);
-                }
-            } catch (e) {
-                console.error(e);
+            const { data } = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
+            if (!data) {
+                const defaultName = user.user_metadata?.username || user.email.split('@')[0];
+                await supabaseClient.from('profiles').insert([{ id: user.id, username: defaultName }]);
             }
         }
 
@@ -654,22 +641,18 @@
         }
 
         async function loadMessages() {
-            try {
-                const { data } = await supabaseClient
-                    .from('messages').select('*, profiles(username)')
-                    .order('created_at', { ascending: true });
+            const { data } = await supabaseClient
+                .from('messages').select('*, profiles(username)')
+                .order('created_at', { ascending: true });
 
-                const chatBox = document.getElementById('chat-box');
-                chatBox.innerHTML = '';
-                if (data) {
-                    data.forEach(msg => {
-                        const uname = msg.profiles ? msg.profiles.username : 'User';
-                        chatBox.innerHTML += `<div class="message-item"><span>${uname}:</span> ${msg.content}</div>`;
-                    });
-                    chatBox.scrollTop = chatBox.scrollHeight;
-                }
-            } catch (e) {
-                console.error(e);
+            const chatBox = document.getElementById('chat-box');
+            chatBox.innerHTML = '';
+            if (data) {
+                data.forEach(msg => {
+                    const uname = msg.profiles ? msg.profiles.username : 'User';
+                    chatBox.innerHTML += `<div class="message-item"><span>${uname}:</span> ${msg.content}</div>`;
+                });
+                chatBox.scrollTop = chatBox.scrollHeight;
             }
         }
 
