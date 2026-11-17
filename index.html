@@ -41,7 +41,6 @@
         #chat-tab { display: none; flex-direction: column; height: 100%; padding: 0; }
         #chat-tab.active { display: flex; }
         
-        /* Messenger Header */
         .chat-messenger-header { display: flex; align-items: center; padding: 10px 15px; background: white; border-bottom: 1px solid #ddd; gap: 10px; }
         .chat-header-avatar { width: 35px; height: 35px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 14px; }
         
@@ -122,9 +121,8 @@
             </div>
         </div>
 
-        <!-- Chat Tab (Messenger Style) -->
+        <!-- Chat Tab -->
         <div id="chat-tab" class="tab-content">
-            <!-- Chat List View -->
             <div id="chat-list-view" style="display: block;">
                 <h3 style="margin-top: 0; color: #050505;">Chats</h3>
                 <div id="conversations-list">
@@ -132,7 +130,6 @@
                 </div>
             </div>
 
-            <!-- Direct Message Box View -->
             <div id="chat-box-view" style="display: none; flex-direction: column; height: 100%;">
                 <div class="chat-messenger-header">
                     <button onclick="backToChatList()" style="width: auto; padding: 5px 10px; font-size: 12px; background: #e4e6eb; color: #050505; margin: 0;">← Back</button>
@@ -209,7 +206,7 @@
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let isLoginMode = false;
         let currentUser = null;
-        let activeChatUser = null; // { id, username, avatar_url }
+        let activeChatUser = null;
 
         window.addEventListener('DOMContentLoaded', async () => {
             const { data: { session } } = await supabaseClient.auth.getSession();
@@ -295,7 +292,6 @@
             loadChatList();
             loadProfile();
 
-            // Real-time Messages Listener (သစ်လွင်သော မက်ဆေ့ခ်ျများကို ချက်ချင်းပေါ်စေရန်)
             supabaseClient
                 .channel('public:messages')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
@@ -303,7 +299,6 @@
                     if (activeChatUser && (newMsg.sender_id === activeChatUser.id || newMsg.receiver_id === activeChatUser.id)) {
                         appendMessageBubble(newMsg);
                     }
-                    loadChatList();
                 })
                 .subscribe();
         }
@@ -365,12 +360,7 @@
             document.getElementById('visitor-name').textContent = username;
             document.getElementById('visitor-bio').textContent = bio || '';
             
-            let visitorAvatarHtml = '';
-            if (avatarUrl) {
-                visitorAvatarHtml = `<img src="${avatarUrl}" style="width:100%; height:100%; object-fit:cover;">`;
-            } else {
-                visitorAvatarHtml = `<span id="visitor-initial">${username.charAt(0).toUpperCase()}</span>`;
-            }
+            let visitorAvatarHtml = avatarUrl ? `<img src="${avatarUrl}" style="width:100%; height:100%; object-fit:cover;">` : `<span id="visitor-initial">${username.charAt(0).toUpperCase()}</span>`;
             document.getElementById('visitor-avatar-container').innerHTML = visitorAvatarHtml;
 
             let existingMsgBtn = document.getElementById('visitor-msg-btn');
@@ -405,7 +395,6 @@
             }
         }
 
-        // Chat List ဖွင့်ရန် (User အားလုံးကို ပြသပေးခြင်း)
         async function loadChatList() {
             const { data: users } = await supabaseClient.from('profiles').select('*').neq('id', currentUser.id);
             const listDiv = document.getElementById('conversations-list');
@@ -430,7 +419,6 @@
             }
         }
 
-        // Messenger ပုံစံ သီးသန့် Chat ဖွင့်ရန်
         function openDirectChat(userId, username, avatarUrl) {
             activeChatUser = { id: userId, username, avatar_url: avatarUrl };
             switchTab('chat');
@@ -449,7 +437,6 @@
             loadMessages();
         }
 
-        // Chat List သို့ ပြန်ထွက်ရန်
         function backToChatList() {
             activeChatUser = null;
             document.getElementById('chat-box-view').style.display = 'none';
@@ -484,13 +471,24 @@
 
         function appendMessageBubble(msg) {
             const chatBox = document.getElementById('chat-box');
-            // Remove "No messages yet" text if present
             if (chatBox.innerHTML.includes('No messages yet')) {
                 chatBox.innerHTML = '';
             }
             const isMe = msg.sender_id === currentUser.id;
             const bubbleClass = isMe ? 'msg-right' : 'msg-left';
-            chatBox.innerHTML += `<div class="msg-bubble ${bubbleClass}">${msg.content}</div>`;
+            
+            // Duplicate message တက်ခြင်းမှ ကာကွယ်ရန် check လုပ်ခြင်း
+            const existingBubbles = chatBox.querySelectorAll('.msg-bubble');
+            for (let b of existingBubbles) {
+                if (b.textContent === msg.content && b.getAttribute('data-id') === msg.id) return;
+            }
+
+            const div = document.createElement('div');
+            div.className = `msg-bubble ${bubbleClass}`;
+            div.textContent = msg.content;
+            if (msg.id) div.setAttribute('data-id', msg.id);
+            
+            chatBox.appendChild(div);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
@@ -505,7 +503,7 @@
                 receiver_id: activeChatUser.id
             }]).select();
 
-            if (!error && data) {
+            if (!error && data && data.length > 0) {
                 input.value = '';
                 appendMessageBubble(data[0]);
             } else {
