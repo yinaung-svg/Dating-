@@ -185,12 +185,13 @@
         const SUPABASE_URL = 'https://dwwubrcbwmxckeklfkan.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3d3VicmNid214Y2tla2xma2FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ3NTk0NjUsImV4cCI6MjExMDMzNTQ2NX0.QYu1M4zlTkOF8yTpOl944OAF5vGiXiL4mX3hbb0DhbY';
         
-        // Fetch error များကို ကျော်လွှားရန် custom fetch option ထည့်သွင်းခြင်း
+        // Network Fetch တားဆီးမှုကို ကျော်လွှားရန် fetch option ထည့်သွင်းခြင်း
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
             auth: { persistSession: true, autoRefreshToken: true },
             global: {
-                fetch: (url, options) => {
-                    return fetch(url, { ...options, mode: 'cors', cache: 'no-cache' });
+                fetch: (...args) => {
+                    args[1] = { ...args[1], cache: 'no-store' };
+                    return fetch(...args);
                 }
             }
         });
