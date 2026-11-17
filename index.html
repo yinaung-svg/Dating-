@@ -121,7 +121,6 @@
             </div>
         </div>
 
-        <!-- Chat Tab -->
         <div id="chat-tab" class="tab-content">
             <div id="chat-list-view" style="display: block;">
                 <h3 style="margin-top: 0; color: #050505;">Chats</h3>
@@ -296,7 +295,7 @@
                 .channel('public:messages')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
                     const newMsg = payload.new;
-                    if (activeChatUser && (newMsg.sender_id === activeChatUser.id || newMsg.receiver_id === activeChatUser.id)) {
+                    if (activeChatUser && ((newMsg.sender_id === currentUser.id && newMsg.receiver_id === activeChatUser.id) || (newMsg.sender_id === activeChatUser.id && newMsg.receiver_id === currentUser.id))) {
                         appendMessageBubble(newMsg);
                     }
                 })
@@ -477,7 +476,6 @@
             const isMe = msg.sender_id === currentUser.id;
             const bubbleClass = isMe ? 'msg-right' : 'msg-left';
             
-            // Duplicate message တက်ခြင်းမှ ကာကွယ်ရန် check လုပ်ခြင်း
             const existingBubbles = chatBox.querySelectorAll('.msg-bubble');
             for (let b of existingBubbles) {
                 if (b.textContent === msg.content && b.getAttribute('data-id') === msg.id) return;
