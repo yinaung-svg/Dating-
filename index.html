@@ -333,21 +333,40 @@
             }
 
             const { data: posts } = await supabaseClient
-                .from('posts').select('*').eq('user_id', userId).eq('privacy', 'public').order('created_at', { ascending: false });
+                .from('posts').select('*, profiles(username, avatar_url, bio)').eq('user_id', userId).order('created_at', { ascending: false });
 
             const visitorPostsDiv = document.getElementById('visitor-posts');
             visitorPostsDiv.innerHTML = '';
             if (posts && posts.length > 0) {
-                posts.forEach(p => {
-                    let mediaHtml = p.media_url ? `<img src="${p.media_url}" class="post-media" onclick="openLightbox('${p.media_url}')">` : '';
+                posts.forEach(post => {
+                    let mediaHtml = post.media_url ? `<img src="${post.media_url}" class="post-media" onclick="openLightbox('${post.media_url}')">` : '';
+                    let commentsHtml = '';
+                    let commentsArr = post.comments || [];
+                    commentsArr.forEach(c => {
+                        commentsHtml += `<div style="margin-top:4px; font-size:12px;"><b>${c.username}:</b> ${c.text}</div>`;
+                    });
+
                     visitorPostsDiv.innerHTML += `
-                        <div style="background:#f0f2f5; padding:10px; border-radius:6px; margin-bottom:8px;">
-                            <div style="font-size:14px;">${p.content}</div>
+                        <div class="card post-item">
+                            <div style="font-size:11px; color:#65676b;">Privacy: ${post.privacy}</div>
+                            <div class="post-body">${post.content || ''}</div>
                             ${mediaHtml}
+                            <div class="action-bar">
+                                <span onclick="likePost('${post.id}', ${post.likes_count || 0})">❤️ Like (${post.likes_count || 0})</span>
+                                <span onclick="toggleCommentBox('${post.id}')">💬 Comment</span>
+                                <span onclick="sharePost('${post.content ? post.content.replace(/'/g, "\\'") : ''}', '${post.media_url || ''}')">🔗 Share (${post.shares_count || 0})</span>
+                            </div>
+                            <div id="comment-section-${post.id}" class="comment-section" style="display:none;">
+                                <div id="comments-list-${post.id}">${commentsHtml}</div>
+                                <div style="display:flex; margin-top:6px; gap:5px;">
+                                    <input type="text" id="comment-input-${post.id}" placeholder="Write a comment..." style="margin:0; padding:6px; font-size:12px;">
+                                    <button onclick="addComment('${post.id}')" style="width:60px; margin:0; padding:6px; font-size:12px;">Post</button>
+                                </div>
+                            </div>
                         </div>`;
                 });
             } else {
-                visitorPostsDiv.innerHTML = '<p style="color:#65676b; font-size:13px;">No public posts.</p>';
+                visitorPostsDiv.innerHTML = '<p style="color:#65676b; font-size:13px;">No posts yet.</p>';
             }
         }
 
@@ -428,7 +447,7 @@
         }
 
         async function loadFeed() {
-            const { data, error } = await supabaseClient
+            const { data } = await supabaseClient
                 .from('posts').select('*, profiles(username, avatar_url, bio)')
                 .order('created_at', { ascending: false });
 
@@ -505,6 +524,7 @@
         async function likePost(postId, currentLikes) {
             await supabaseClient.from('posts').update({ likes_count: currentLikes + 1 }).eq('id', postId);
             loadFeed();
+            loadProfile();
         }
 
         function toggleCommentBox(postId) {
@@ -527,6 +547,7 @@
             await supabaseClient.from('posts').update({ comments: comments }).eq('id', postId);
             input.value = '';
             loadFeed();
+            loadProfile();
         }
 
         async function sharePost(content, mediaUrl) {
@@ -575,17 +596,43 @@
                 document.getElementById('profile-avatar-container').innerHTML = `<span id="profile-initial">${uname.charAt(0).toUpperCase()}</span>`;
             }
 
-            const { data: myPosts } = await supabaseClient.from('posts').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+            const { data: myPosts } = await supabaseClient.from('posts').select('*, profiles(username, avatar_url, bio)').eq('user_id', currentUser.id).order('created_at', { ascending: false });
             const myPostsDiv = document.getElementById('my-posts');
             myPostsDiv.innerHTML = '';
             if (myPosts && myPosts.length > 0) {
-                myPosts.forEach(p => {
-                    let mediaHtml = p.media_url ? `<img src="${p.media_url}" class="post-media" onclick="openLightbox('${p.media_url}')">` : '';
+                myPosts.forEach(post => {
+                    let mediaHtml = post.media_url ? `<img src="${post.media_url}" class="post-media" onclick="openLightbox('${post.media_url}')">` : '';
+                    let actionButtons = '';
+                    if (post.user_id === currentUser.id) {
+                        actionButtons = `<button onclick="editPost('${post.id}', '${post.content ? post.content.replace(/'/g, "\\'") : ''}')" style="width:auto; padding:3px 8px; font-size:11px; background:#65676b;">Edit</button> <button onclick="deletePost('${post.id}')" style="width:auto; padding:3px 8px; font-size:11px; background:#fa383e;">Delete</button>`;
+                    }
+
+                    let commentsHtml = '';
+                    let commentsArr = post.comments || [];
+                    commentsArr.forEach(c => {
+                        commentsHtml += `<div style="margin-top:4px; font-size:12px;"><b>${c.username}:</b> ${c.text}</div>`;
+                    });
+
                     myPostsDiv.innerHTML += `
-                        <div style="background:#f0f2f5; padding:10px; border-radius:6px; margin-bottom:8px;">
-                            <div style="font-size:11px; color:#65676b;">Privacy: ${p.privacy}</div>
-                            <div style="font-size:14px; margin-top:4px;">${p.content || ''}</div>
+                        <div class="card post-item">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div style="font-size:11px; color:#65676b;">Privacy: ${post.privacy}</div>
+                                <div>${actionButtons}</div>
+                            </div>
+                            <div class="post-body">${post.content || ''}</div>
                             ${mediaHtml}
+                            <div class="action-bar">
+                                <span onclick="likePost('${post.id}', ${post.likes_count || 0})">❤️ Like (${post.likes_count || 0})</span>
+                                <span onclick="toggleCommentBox('${post.id}')">💬 Comment</span>
+                                <span onclick="sharePost('${post.content ? post.content.replace(/'/g, "\\'") : ''}', '${post.media_url || ''}')">🔗 Share (${post.shares_count || 0})</span>
+                            </div>
+                            <div id="comment-section-${post.id}" class="comment-section" style="display:none;">
+                                <div id="comments-list-${post.id}">${commentsHtml}</div>
+                                <div style="display:flex; margin-top:6px; gap:5px;">
+                                    <input type="text" id="comment-input-${post.id}" placeholder="Write a comment..." style="margin:0; padding:6px; font-size:12px;">
+                                    <button onclick="addComment('${post.id}')" style="width:60px; margin:0; padding:6px; font-size:12px;">Post</button>
+                                </div>
+                            </div>
                         </div>`;
                 });
             } else {
