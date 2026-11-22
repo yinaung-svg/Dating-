@@ -429,6 +429,7 @@
         let notificationsList = [];
         let hasUnreadNoti = false;
         let globalNotiChannel = null;
+        let globalNotiSubscribed = false;
 
         // Live state (No stream video/audio saved to DB)
         let selectedLiveMode = 'camera';
@@ -714,31 +715,60 @@
             });
         }
 
-        async function loadNotificationsFromDb() {
-            if (!currentUser) return;
-            try {
-                const { data, error } = await supabaseClient
-                    .from('notifications')
-                    .select('*')
-                    .eq('user_id', currentUser.id)
-                    .order('created_at', { ascending: false })
-                    .limit(30);
+        async function ensureGlobalNotiChannel() {
+            if (globalNotiChannel && globalNotiSubscribed) return globalNotiChannel;
+            if (globalNotiChannel) {
+                supabaseClient.removeChannel(globalNotiChannel);
+                globalNotiChannel = null;
+                globalNotiSubscribed = false;
+            }
 
-                if (!error && Array.isArray(data)) {
-                    data.forEach(row => {
-                        addNotificationItem({
-                            id: row.id,
-                            actorName: row.actor_name || 'User',
-                            message: row.message || 'started a live stream',
-                            liveId: row.live_id || '',
-                            coverUrl: row.cover_url || '',
-                            caption: row.caption || '',
-                            startedAt: row.started_at || new Date(row.created_at).getTime(),
-                            createdAt: row.created_at
-                        });
+            return new Promise((resolve) => {
+                const ch = supabaseClient
+                    .channel('global-live-notifications')
+                    .on('broadcast', { event: 'live_started' }, payload => {
+                        const p = payload && payload.payload;
+                        if (p && currentUser && p.actorId !== currentUser.id) {
+                            addNotificationItem(p);
+                        }
+                    })
+                    .subscribe(status => {
+                        if (status === 'SUBSCRIBED') {
+                            globalNotiChannel = ch;
+                            globalNotiSubscribed = true;
+                            resolve(ch);
+                        }
                     });
-                }
+
+                setTimeout(() => resolve(globalNotiChannel || ch), 1200);
+            });
+        }
+
+        async function handleLivePostInsertedNoti(postRow) {
+            if (!postRow || !currentUser || postRow.user_id === currentUser.id) return;
+            const liveInfo = parseLivePost(postRow);
+            if (!liveInfo || !liveInfo.liveId) return;
+
+            let actorName = 'User';
+            try {
+                const { data: prof } = await supabaseClient
+                    .from('profiles')
+                    .select('username')
+                    .eq('id', postRow.user_id)
+                    .maybeSingle();
+                if (prof && prof.username) actorName = prof.username;
             } catch (e) {}
+
+            addNotificationItem({
+                id: 'live_post_noti_' + postRow.id,
+                actorName,
+                message: 'started a live stream!',
+                liveId: liveInfo.liveId,
+                coverUrl: postRow.media_url || '',
+                caption: liveInfo.caption || '',
+                startedAt: liveInfo.startedAt,
+                createdAt: postRow.created_at || new Date().toISOString()
+            });
         }
 
         async function broadcastLiveStartNotification(liveId, coverUrl, caption, startedAtMs) {
@@ -746,44 +776,24 @@
             const actorName = (currentProfileData && currentProfileData.username) || document.getElementById('profile-name')?.textContent || 'User';
             const messageText = 'started a live stream!';
 
-            // 1) Broadcast live start notification over realtime channel
-            const notiChan = globalNotiChannel || supabaseClient.channel('global-live-notifications');
-            notiChan.send({
-                type: 'broadcast',
-                event: 'live_started',
-                payload: {
-                    id: 'live_noti_' + liveId,
-                    actorId: currentUser.id,
-                    actorName,
-                    message: messageText,
-                    liveId,
-                    coverUrl: coverUrl || '',
-                    caption: caption || '',
-                    startedAt: startedAtMs,
-                    createdAt: new Date().toISOString()
-                }
-            }).catch(() => {});
-
-            // 2) Insert notification rows for other users if notifications table exists
             try {
-                const { data: profiles } = await supabaseClient
-                    .from('profiles')
-                    .select('id')
-                    .neq('id', currentUser.id);
-
-                if (Array.isArray(profiles) && profiles.length > 0) {
-                    const rows = profiles.map(p => ({
-                        user_id: p.id,
-                        actor_id: currentUser.id,
-                        actor_name: actorName,
-                        message: messageText,
-                        live_id: liveId,
-                        cover_url: coverUrl || '',
-                        caption: caption || '',
-                        started_at: startedAtMs,
-                        is_read: false
-                    }));
-                    await supabaseClient.from('notifications').insert(rows);
+                const ch = await ensureGlobalNotiChannel();
+                if (ch) {
+                    await ch.send({
+                        type: 'broadcast',
+                        event: 'live_started',
+                        payload: {
+                            id: 'live_noti_' + liveId,
+                            actorId: currentUser.id,
+                            actorName,
+                            message: messageText,
+                            liveId,
+                            coverUrl: coverUrl || '',
+                            caption: caption || '',
+                            startedAt: startedAtMs,
+                            createdAt: new Date().toISOString()
+                        }
+                    });
                 }
             } catch (e) {}
         }
@@ -952,7 +962,6 @@
                 src.connect(ctx.destination);
 
                 const now = ctx.currentTime;
-                // Keep audio tight (max 60ms ahead) so audio does not lag behind video
                 if (viewerAudioNextPlayTime < now || (viewerAudioNextPlayTime - now) > 0.06) {
                     viewerAudioNextPlayTime = now + 0.005;
                 }
@@ -1019,7 +1028,6 @@
             }
             if (!activeCoverImageUrl) return;
             const tmp = new Image();
-            tmp.crossOrigin = 'anonymous';
             tmp.onload = () => {
                 coverOffImgElement = tmp;
                 coverOffImgReady = true;
@@ -1106,17 +1114,13 @@
             loadFeed();
             loadChatList();
             loadProfile();
-            loadNotificationsFromDb();
+            ensureGlobalNotiChannel();
 
-            if (globalNotiChannel) {
-                supabaseClient.removeChannel(globalNotiChannel);
-            }
-            globalNotiChannel = supabaseClient
-                .channel('global-live-notifications')
-                .on('broadcast', { event: 'live_started' }, payload => {
-                    const p = payload && payload.payload;
-                    if (p && p.actorId !== currentUser.id) {
-                        addNotificationItem(p);
+            supabaseClient
+                .channel('public:posts:live-noti')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, payload => {
+                    if (payload && payload.new) {
+                        handleLivePostInsertedNoti(payload.new);
                     }
                 })
                 .subscribe();
@@ -1159,7 +1163,6 @@
                     hasUnreadNoti = false;
                     updateNotiDot();
                     renderNotificationsList();
-                    loadNotificationsFromDb();
                 } else if (tabName === 'chat') {
                     backToChatList();
                 }
@@ -1169,141 +1172,147 @@
         /* ==================== LIVE SUMMARY CARD IMAGE ==================== */
         function generateLiveSummaryCardImage(hostName, avatarUrl, coverUrl, caption, totalViews, totalComments, durationText) {
             return new Promise((resolve) => {
-                const canvas = document.createElement('canvas');
-                canvas.width = 640;
-                canvas.height = 380;
-                const ctx = canvas.getContext('2d');
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 640;
+                    canvas.height = 380;
+                    const ctx = canvas.getContext('2d');
 
-                const loadImg = (src) => new Promise((res) => {
-                    if (!src) return res(null);
-                    const im = new Image();
-                    im.crossOrigin = 'anonymous';
-                    im.onload = () => res(im);
-                    im.onerror = () => res(null);
-                    im.src = src;
-                });
+                    const loadImg = (src) => new Promise((res) => {
+                        if (!src || src.startsWith('http')) return res(null);
+                        const im = new Image();
+                        im.onload = () => res(im);
+                        im.onerror = () => res(null);
+                        im.src = src;
+                    });
 
-                Promise.all([loadImg(coverUrl), loadImg(avatarUrl)]).then(([coverImg, avatarImg]) => {
-                    // Dark gradient background
-                    const grad = ctx.createLinearGradient(0, 0, 640, 380);
-                    grad.addColorStop(0, '#18191a');
-                    grad.addColorStop(1, '#2c2e33');
-                    ctx.fillStyle = grad;
-                    ctx.fillRect(0, 0, 640, 380);
+                    Promise.all([loadImg(coverUrl), loadImg(avatarUrl)]).then(([coverImg, avatarImg]) => {
+                        const grad = ctx.createLinearGradient(0, 0, 640, 380);
+                        grad.addColorStop(0, '#18191a');
+                        grad.addColorStop(1, '#2c2e33');
+                        ctx.fillStyle = grad;
+                        ctx.fillRect(0, 0, 640, 380);
 
-                    if (coverImg) {
+                        if (coverImg) {
+                            ctx.save();
+                            ctx.globalAlpha = 0.25;
+                            ctx.drawImage(coverImg, 0, 0, 640, 380);
+                            ctx.restore();
+                        }
+
+                        ctx.fillStyle = '#e41e3f';
+                        ctx.fillRect(28, 24, 132, 32);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = 'bold 15px Arial';
+                        ctx.fillText('LIVE ENDED', 40, 45);
+
+                        ctx.fillStyle = '#b0b3b8';
+                        ctx.font = '14px Arial';
+                        ctx.fillText(`Duration: ${durationText || '00:00'}`, 175, 45);
+
+                        const cx = 82;
+                        const cy = 128;
+                        const r = 46;
                         ctx.save();
-                        ctx.globalAlpha = 0.25;
-                        ctx.drawImage(coverImg, 0, 0, 640, 380);
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                        ctx.closePath();
+                        ctx.clip();
+                        if (avatarImg) {
+                            ctx.drawImage(avatarImg, cx - r, cy - r, r * 2, r * 2);
+                        } else {
+                            ctx.fillStyle = '#1877f2';
+                            ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+                            ctx.fillStyle = '#fff';
+                            ctx.font = 'bold 34px Arial';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText((hostName || 'U').charAt(0).toUpperCase(), cx, cy);
+                        }
                         ctx.restore();
-                    }
 
-                    // Header badge
-                    ctx.fillStyle = '#e41e3f';
-                    ctx.fillRect(28, 24, 132, 32);
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = 'bold 15px Arial';
-                    ctx.fillText('LIVE ENDED', 40, 45);
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                        ctx.stroke();
 
-                    ctx.fillStyle = '#b0b3b8';
-                    ctx.font = '14px Arial';
-                    ctx.fillText(`Duration: ${durationText || '00:00'}`, 175, 45);
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'alphabetic';
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = 'bold 24px Arial';
+                        ctx.fillText(hostName || 'Host', 148, 118);
 
-                    // Profile avatar circle
-                    const cx = 82;
-                    const cy = 128;
-                    const r = 46;
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-                    ctx.closePath();
-                    ctx.clip();
-                    if (avatarImg) {
-                        ctx.drawImage(avatarImg, cx - r, cy - r, r * 2, r * 2);
-                    } else {
-                        ctx.fillStyle = '#1877f2';
-                        ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
-                        ctx.fillStyle = '#fff';
-                        ctx.font = 'bold 34px Arial';
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText((hostName || 'U').charAt(0).toUpperCase(), cx, cy);
-                    }
-                    ctx.restore();
+                        ctx.fillStyle = '#e4e6eb';
+                        ctx.font = '16px Arial';
+                        const shortCap = (caption || 'Live Stream Summary').slice(0, 48);
+                        ctx.fillText(shortCap, 148, 150);
 
-                    ctx.strokeStyle = '#ffffff';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-                    ctx.stroke();
+                        const drawStatBox = (x, y, w, h, label, value, accent) => {
+                            ctx.fillStyle = 'rgba(255,255,255,0.08)';
+                            ctx.fillRect(x, y, w, h);
+                            ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+                            ctx.lineWidth = 1.5;
+                            ctx.strokeRect(x, y, w, h);
 
-                    // Host Name & Caption
-                    ctx.textAlign = 'left';
-                    ctx.textBaseline = 'alphabetic';
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = 'bold 24px Arial';
-                    ctx.fillText(hostName || 'Host', 148, 118);
+                            ctx.fillStyle = accent;
+                            ctx.font = 'bold 34px Arial';
+                            ctx.fillText(String(value), x + 22, y + 52);
 
-                    ctx.fillStyle = '#e4e6eb';
-                    ctx.font = '16px Arial';
-                    const shortCap = (caption || 'Live Stream Summary').slice(0, 48);
-                    ctx.fillText(shortCap, 148, 150);
+                            ctx.fillStyle = '#d0d3d8';
+                            ctx.font = '15px Arial';
+                            ctx.fillText(label, x + 22, y + 84);
+                        };
 
-                    // Stat boxes: Total Views & Total Comments
-                    const drawStatBox = (x, y, w, h, label, value, accent) => {
-                        ctx.fillStyle = 'rgba(255,255,255,0.08)';
-                        ctx.fillRect(x, y, w, h);
-                        ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-                        ctx.lineWidth = 1.5;
-                        ctx.strokeRect(x, y, w, h);
+                        drawStatBox(28, 208, 282, 108, 'Total Views', totalViews, '#4dabf7');
+                        drawStatBox(330, 208, 282, 108, 'Total Comments', totalComments, '#ff6b6b');
 
-                        ctx.fillStyle = accent;
-                        ctx.font = 'bold 34px Arial';
-                        ctx.fillText(String(value), x + 22, y + 52);
+                        ctx.fillStyle = '#8a8d91';
+                        ctx.font = '13px Arial';
+                        ctx.fillText('SocialChat Live Summary', 28, 352);
 
-                        ctx.fillStyle = '#d0d3d8';
-                        ctx.font = '15px Arial';
-                        ctx.fillText(label, x + 22, y + 84);
-                    };
-
-                    drawStatBox(28, 208, 282, 108, 'Total Views', totalViews, '#4dabf7');
-                    drawStatBox(330, 208, 282, 108, 'Total Comments', totalComments, '#ff6b6b');
-
-                    ctx.fillStyle = '#8a8d91';
-                    ctx.font = '13px Arial';
-                    ctx.fillText('SocialChat Live Summary', 28, 352);
-
-                    resolve(canvas.toDataURL('image/png', 0.85));
-                });
+                        resolve(canvas.toDataURL('image/png', 0.85));
+                    }).catch(() => resolve(''));
+                } catch (e) {
+                    resolve('');
+                }
             });
         }
 
         async function openLiveEndedSummaryModal(finalViews, finalComments, finalDurationText, finalCaption, finalCover) {
-            const hostName = (currentProfileData && currentProfileData.username) || document.getElementById('profile-name')?.textContent || 'Host';
-            const avatarUrl = (currentProfileData && currentProfileData.avatar_url) || '';
+            try {
+                const hostName = (currentProfileData && currentProfileData.username) || document.getElementById('profile-name')?.textContent || 'Host';
+                const avatarUrl = (currentProfileData && currentProfileData.avatar_url) || '';
 
-            lastLiveSummaryCaption = finalCaption || '';
-            const cardDataUrl = await generateLiveSummaryCardImage(
-                hostName,
-                avatarUrl,
-                finalCover,
-                lastLiveSummaryCaption,
-                finalViews,
-                finalComments,
-                finalDurationText
-            );
-            lastLiveSummaryImageDataUrl = cardDataUrl;
+                lastLiveSummaryCaption = finalCaption || '';
+                const cardDataUrl = await generateLiveSummaryCardImage(
+                    hostName,
+                    avatarUrl,
+                    finalCover,
+                    lastLiveSummaryCaption,
+                    finalViews,
+                    finalComments,
+                    finalDurationText
+                );
+                lastLiveSummaryImageDataUrl = cardDataUrl;
 
-            document.getElementById('summary-stats-text').textContent = `Total Views: ${finalViews}  •  Total Comments: ${finalComments}  •  Time: ${finalDurationText}`;
-            document.getElementById('live-summary-card-img').src = cardDataUrl;
-            document.getElementById('summary-share-caption').value = lastLiveSummaryCaption;
+                document.getElementById('summary-stats-text').textContent = `Total Views: ${finalViews}  •  Total Comments: ${finalComments}  •  Time: ${finalDurationText}`;
+                const summaryImg = document.getElementById('live-summary-card-img');
+                if (cardDataUrl) {
+                    summaryImg.src = cardDataUrl;
+                    summaryImg.style.display = 'block';
+                } else {
+                    summaryImg.style.display = 'none';
+                }
+                document.getElementById('summary-share-caption').value = lastLiveSummaryCaption;
 
-            const shareBtn = document.getElementById('summary-share-post-btn');
-            shareBtn.disabled = false;
-            shareBtn.textContent = 'Share Post';
-            setPublishStatus('summary-publish-status', null, '');
+                const shareBtn = document.getElementById('summary-share-post-btn');
+                shareBtn.disabled = false;
+                shareBtn.textContent = 'Share Post';
+                setPublishStatus('summary-publish-status', null, '');
 
-            document.getElementById('live-ended-summary-modal').style.display = 'flex';
+                document.getElementById('live-ended-summary-modal').style.display = 'flex';
+            } catch (e) {}
         }
 
         function closeLiveSummaryModal() {
@@ -1312,7 +1321,7 @@
         }
 
         async function publishLiveSummaryPost() {
-            if (!currentUser || !lastLiveSummaryImageDataUrl) return;
+            if (!currentUser) return;
             const shareBtn = document.getElementById('summary-share-post-btn');
             const cap = document.getElementById('summary-share-caption').value.trim();
 
@@ -1322,7 +1331,7 @@
             try {
                 const { error } = await supabaseClient.from('posts').insert([{
                     content: cap || 'Live Summary',
-                    media_url: lastLiveSummaryImageDataUrl,
+                    media_url: lastLiveSummaryImageDataUrl || null,
                     privacy: 'public',
                     user_id: currentUser.id
                 }]);
@@ -1698,7 +1707,6 @@
                 startLiveTimer(startMs);
                 startAudioStreaming();
 
-                // Notify users about live stream start
                 broadcastLiveStartNotification(activeLiveId, compactCover, selectedLiveCaption, startMs);
 
                 document.getElementById('studio-live-badge').style.display = 'inline-block';
@@ -1876,9 +1884,7 @@
             await loadFeed();
             await loadProfile();
 
-            if (!targetPostId && !targetLiveId) {
-                await openLiveEndedSummaryModal(finalViews, finalComments, finalDurationText, finalCaption, finalCover);
-            }
+            await openLiveEndedSummaryModal(finalViews, finalComments, finalDurationText, finalCaption, finalCover);
         }
 
         function parseLivePost(post) {
