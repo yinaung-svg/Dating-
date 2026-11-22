@@ -79,6 +79,14 @@
         .live-modal-backdrop { display: none; position: fixed; z-index: 1200; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); justify-content: center; align-items: center; padding: 15px; box-sizing: border-box; }
         .live-modal-card { background: white; width: 100%; max-width: 460px; border-radius: 10px; padding: 18px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
 
+        /* Effect Picker List Modal */
+        #effect-picker-modal { z-index: 1500; }
+        .effect-list-container { display: flex; flex-direction: column; gap: 6px; max-height: 55vh; overflow-y: auto; margin-top: 10px; }
+        .effect-list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 8px; border: 1px solid #e4e6eb; background: #f8f9fa; color: #050505; font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; width: 100%; margin: 0; }
+        .effect-list-item:hover { background: #e7f3ff; border-color: #1877f2; color: #1877f2; }
+        .effect-list-item.selected { background: #1877f2; border-color: #1877f2; color: #fff; }
+        .effect-tag-label { font-size: 11px; opacity: 0.85; font-weight: normal; }
+
         /* Broadcaster Studio */
         #live-studio-modal { display: none; position: fixed; z-index: 1300; top: 0; left: 0; width: 100%; height: 100%; background: #111; color: white; flex-direction: column; justify-content: space-between; }
         .studio-top { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.75); }
@@ -87,7 +95,7 @@
         #studio-video.mirrored { transform: scaleX(-1); }
         #studio-cover-off-img { display: none; max-width: 100%; max-height: 100%; border-radius: 8px; object-fit: contain; background: #000; }
         .studio-controls-row { display: flex; gap: 8px; padding: 6px 15px; max-width: 560px; margin: 0 auto; width: 100%; box-sizing: border-box; }
-        .studio-ctrl-btn { flex: 1; width: auto; margin: 0; padding: 8px 6px; font-size: 12px; background: #2c2e30; color: #fff; border-radius: 6px; }
+        .studio-ctrl-btn { flex: 1; width: auto; margin: 0; padding: 8px 6px; font-size: 12px; background: #2c2e30; color: #fff; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .studio-ctrl-btn:hover { background: #3d4043; }
         .studio-ctrl-btn.active-off { background: #b02a37; }
         .studio-ctrl-btn.active-effect { background: #1877f2; }
@@ -269,7 +277,16 @@
         </div>
     </div>
 
-    <!-- Broadcaster Live Studio (LIVE + Timer + Viewer Count + Cam On/Off + Flip + Effect + Start/End Live + Comments) -->
+    <!-- Effect List Picker Modal -->
+    <div id="effect-picker-modal" class="live-modal-backdrop" onclick="closeEffectPickerModal()">
+        <div class="live-modal-card" onclick="event.stopPropagation()">
+            <h3 style="margin-top:0; color:#050505;">✨ Choose Effect</h3>
+            <div id="effect-list-container" class="effect-list-container"></div>
+            <button style="background:#e4e6eb; color:#050505; margin-top:12px;" onclick="closeEffectPickerModal()">Close</button>
+        </div>
+    </div>
+
+    <!-- Broadcaster Live Studio (LIVE + Timer + Viewer Count + Cam On/Off + Flip + Effect List + Start/End Live + Comments) -->
     <div id="live-studio-modal">
         <div class="studio-top">
             <div style="display:flex; align-items:center; gap:8px;">
@@ -287,7 +304,7 @@
         <div id="studio-camera-controls" class="studio-controls-row">
             <button id="toggle-cam-btn" class="studio-ctrl-btn" onclick="toggleCameraPower()">📷 Cam: ON</button>
             <button id="flip-cam-btn" class="studio-ctrl-btn" onclick="flipCameraFacing()">🔄 Front</button>
-            <button id="brighten-effect-btn" class="studio-ctrl-btn" onclick="cycleBrightenEffect()">✨ Normal</button>
+            <button id="brighten-effect-btn" class="studio-ctrl-btn" onclick="openEffectPickerModal()">✨ Normal</button>
         </div>
         <div class="studio-footer-stack">
             <div id="studio-comments-list" class="studio-comments-box"></div>
@@ -298,7 +315,7 @@
     </div>
 
     <!-- Live Viewer Modal (Portrait: Top Video + Bottom Comments Max 6 Lines; Landscape: Fullscreen No Comments) -->
-    <div id="live-viewer-modal">
+    <div id="live-viewer-modal" onclick="unlockViewerAudioContext()">
         <div class="viewer-top-bar">
             <div style="display:flex; align-items:center; gap:8px; min-width:0;">
                 <span class="live-badge" style="margin-left:0; flex-shrink:0;">LIVE</span>
@@ -307,8 +324,8 @@
                 <span id="viewer-host-name" style="font-weight:bold; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Host</span>
             </div>
             <div style="display:flex; gap:8px; flex-shrink:0;">
-                <button id="orientation-toggle-btn" onclick="toggleViewerOrientation()" style="width:auto; padding:5px 10px; font-size:12px; background:#1877f2; margin:0;">🔄 Landscape</button>
-                <button onclick="closeLiveViewer()" style="width:auto; padding:5px 10px; font-size:12px; background:#555; margin:0;">✕ Exit</button>
+                <button id="orientation-toggle-btn" onclick="event.stopPropagation(); toggleViewerOrientation();" style="width:auto; padding:5px 10px; font-size:12px; background:#1877f2; margin:0;">🔄 Landscape</button>
+                <button onclick="event.stopPropagation(); closeLiveViewer();" style="width:auto; padding:5px 10px; font-size:12px; background:#555; margin:0;">✕ Exit</button>
             </div>
         </div>
 
@@ -354,22 +371,22 @@
         // 14 effects: Normal + 3 skin whitening + 10 face smooth/soft effects
         let effectIndex = 0;
         const liveEffects = [
-            { label: 'Normal', filter: 'none' },
+            { label: 'Normal', category: 'Default', filter: 'none' },
             // Skin whitening / bright effects (3)
-            { label: 'Fair Bright', filter: 'brightness(1.16) contrast(1.03) saturate(1.06)' },
-            { label: 'Porcelain Tone', filter: 'brightness(1.22) contrast(0.98) saturate(0.96)' },
-            { label: 'Rosy Glow', filter: 'brightness(1.14) contrast(1.04) saturate(1.18)' },
+            { label: 'Fair Bright', category: 'Whitening', filter: 'brightness(1.16) contrast(1.03) saturate(1.06)' },
+            { label: 'Porcelain Tone', category: 'Whitening', filter: 'brightness(1.22) contrast(0.98) saturate(0.96)' },
+            { label: 'Rosy Glow', category: 'Whitening', filter: 'brightness(1.14) contrast(1.04) saturate(1.18)' },
             // Face smooth / soft effects (10)
-            { label: 'Silk Smooth 1', filter: 'brightness(1.08) contrast(0.92) saturate(1.04)' },
-            { label: 'Silk Smooth 2', filter: 'brightness(1.11) contrast(0.89) saturate(1.05)' },
-            { label: 'Velvet Soft', filter: 'brightness(1.07) contrast(0.87) saturate(1.02)' },
-            { label: 'Dewy Skin', filter: 'brightness(1.12) contrast(0.95) saturate(1.12)' },
-            { label: 'Creamy Finish', filter: 'brightness(1.15) contrast(0.91) saturate(1.03)' },
-            { label: 'Peach Radiance', filter: 'brightness(1.10) contrast(0.94) saturate(1.15)' },
-            { label: 'Studio Soft', filter: 'brightness(1.09) contrast(0.88) saturate(1.00)' },
-            { label: 'Clear Skin', filter: 'brightness(1.13) contrast(0.96) saturate(1.06)' },
-            { label: 'Luminous Mist', filter: 'brightness(1.18) contrast(0.86) saturate(1.04)' },
-            { label: 'Soft Matte', filter: 'brightness(1.06) contrast(0.90) saturate(0.95)' }
+            { label: 'Silk Smooth 1', category: 'Smooth', filter: 'brightness(1.08) contrast(0.92) saturate(1.04)' },
+            { label: 'Silk Smooth 2', category: 'Smooth', filter: 'brightness(1.11) contrast(0.89) saturate(1.05)' },
+            { label: 'Velvet Soft', category: 'Smooth', filter: 'brightness(1.07) contrast(0.87) saturate(1.02)' },
+            { label: 'Dewy Skin', category: 'Smooth', filter: 'brightness(1.12) contrast(0.95) saturate(1.12)' },
+            { label: 'Creamy Finish', category: 'Smooth', filter: 'brightness(1.15) contrast(0.91) saturate(1.03)' },
+            { label: 'Peach Radiance', category: 'Smooth', filter: 'brightness(1.10) contrast(0.94) saturate(1.15)' },
+            { label: 'Studio Soft', category: 'Smooth', filter: 'brightness(1.09) contrast(0.88) saturate(1.00)' },
+            { label: 'Clear Skin', category: 'Smooth', filter: 'brightness(1.13) contrast(0.96) saturate(1.06)' },
+            { label: 'Luminous Mist', category: 'Smooth', filter: 'brightness(1.18) contrast(0.86) saturate(1.04)' },
+            { label: 'Soft Matte', category: 'Smooth', filter: 'brightness(1.06) contrast(0.90) saturate(0.95)' }
         ];
 
         let isLiveActive = false;
@@ -378,6 +395,17 @@
         let liveStartTimestamp = null;
         let liveTimerInterval = null;
         let currentViewerCount = 0;
+
+        // Broadcaster Audio state
+        let broadcasterAudioCtx = null;
+        let broadcasterAudioSource = null;
+        let broadcasterAudioProcessor = null;
+        let broadcasterAudioSilentGain = null;
+        let isSendingAudioChunk = false;
+
+        // Viewer Audio state
+        let viewerAudioCtx = null;
+        let viewerAudioNextPlayTime = 0;
 
         let broadcasterChannel = null;
         let broadcastFrameInterval = null;
@@ -400,6 +428,164 @@
                 onLoginSuccess(session.user);
             }
         });
+
+        function float32ToInt16Base64(float32Array) {
+            const int16 = new Int16Array(float32Array.length);
+            for (let i = 0; i < float32Array.length; i++) {
+                const s = Math.max(-1, Math.min(1, float32Array[i]));
+                int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            const bytes = new Uint8Array(int16.buffer);
+            let binary = '';
+            const chunkSize = 0x8000;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+                binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+            }
+            return btoa(binary);
+        }
+
+        function startAudioStreaming() {
+            stopAudioStreaming();
+            if (!studioMediaStream) return;
+            const audioTracks = studioMediaStream.getAudioTracks();
+            if (!audioTracks || audioTracks.length === 0) return;
+
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+
+            try {
+                broadcasterAudioCtx = new AudioCtx({ sampleRate: 16000 });
+                const audioOnlyStream = new MediaStream([audioTracks[0]]);
+                broadcasterAudioSource = broadcasterAudioCtx.createMediaStreamSource(audioOnlyStream);
+                broadcasterAudioProcessor = broadcasterAudioCtx.createScriptProcessor(2048, 1, 1);
+                broadcasterAudioSilentGain = broadcasterAudioCtx.createGain();
+                broadcasterAudioSilentGain.gain.value = 0;
+
+                const actualSampleRate = broadcasterAudioCtx.sampleRate || 16000;
+
+                broadcasterAudioProcessor.onaudioprocess = async (event) => {
+                    if (!isLiveActive || !broadcasterChannel || isSendingAudioChunk) return;
+                    const inputChannel = event.inputBuffer.getChannelData(0);
+                    if (!inputChannel || inputChannel.length === 0) return;
+
+                    isSendingAudioChunk = true;
+                    try {
+                        const b64Pcm = float32ToInt16Base64(inputChannel);
+                        await broadcasterChannel.send({
+                            type: 'broadcast',
+                            event: 'live_audio',
+                            payload: {
+                                pcm: b64Pcm,
+                                sampleRate: actualSampleRate
+                            }
+                        });
+                    } catch (e) {
+                        // Ignore transient audio send errors
+                    } finally {
+                        isSendingAudioChunk = false;
+                    }
+                };
+
+                broadcasterAudioSource.connect(broadcasterAudioProcessor);
+                broadcasterAudioProcessor.connect(broadcasterAudioSilentGain);
+                broadcasterAudioSilentGain.connect(broadcasterAudioCtx.destination);
+
+                if (broadcasterAudioCtx.state === 'suspended') {
+                    broadcasterAudioCtx.resume().catch(() => {});
+                }
+            } catch (e) {
+                console.warn('Audio streaming init warning:', e);
+            }
+        }
+
+        function stopAudioStreaming() {
+            isSendingAudioChunk = false;
+            try {
+                if (broadcasterAudioProcessor) {
+                    broadcasterAudioProcessor.disconnect();
+                    broadcasterAudioProcessor.onaudioprocess = null;
+                    broadcasterAudioProcessor = null;
+                }
+                if (broadcasterAudioSource) {
+                    broadcasterAudioSource.disconnect();
+                    broadcasterAudioSource = null;
+                }
+                if (broadcasterAudioSilentGain) {
+                    broadcasterAudioSilentGain.disconnect();
+                    broadcasterAudioSilentGain = null;
+                }
+                if (broadcasterAudioCtx) {
+                    broadcasterAudioCtx.close().catch(() => {});
+                    broadcasterAudioCtx = null;
+                }
+            } catch (e) {}
+        }
+
+        function ensureViewerAudioContext() {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return null;
+            if (!viewerAudioCtx) {
+                viewerAudioCtx = new AudioCtx();
+                viewerAudioNextPlayTime = viewerAudioCtx.currentTime;
+            }
+            if (viewerAudioCtx.state === 'suspended') {
+                viewerAudioCtx.resume().catch(() => {});
+            }
+            return viewerAudioCtx;
+        }
+
+        function unlockViewerAudioContext() {
+            ensureViewerAudioContext();
+        }
+
+        function stopViewerAudioContext() {
+            try {
+                if (viewerAudioCtx) {
+                    viewerAudioCtx.close().catch(() => {});
+                    viewerAudioCtx = null;
+                }
+            } catch (e) {}
+            viewerAudioNextPlayTime = 0;
+        }
+
+        function handleIncomingAudioChunk(payload) {
+            if (!payload || !payload.pcm || !viewingLiveId) return;
+            const ctx = ensureViewerAudioContext();
+            if (!ctx || ctx.state !== 'running') return;
+
+            try {
+                const binaryStr = atob(payload.pcm);
+                const len = binaryStr.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryStr.charCodeAt(i);
+                }
+                const int16 = new Int16Array(bytes.buffer);
+                if (int16.length === 0) return;
+
+                const sampleRate = payload.sampleRate || 16000;
+                const audioBuffer = ctx.createBuffer(1, int16.length, sampleRate);
+                const channelData = audioBuffer.getChannelData(0);
+                for (let i = 0; i < int16.length; i++) {
+                    channelData[i] = int16[i] / 0x8000;
+                }
+
+                const src = ctx.createBufferSource();
+                src.buffer = audioBuffer;
+                src.connect(ctx.destination);
+
+                const now = ctx.currentTime;
+                if (viewerAudioNextPlayTime < now) {
+                    viewerAudioNextPlayTime = now + 0.03;
+                }
+                if (viewerAudioNextPlayTime - now > 0.6) {
+                    // Drop excessive backlog to avoid delay build-up
+                    viewerAudioNextPlayTime = now + 0.05;
+                }
+                src.start(viewerAudioNextPlayTime);
+                viewerAudioNextPlayTime += audioBuffer.duration;
+            } catch (e) {}
+        }
 
         function formatElapsedDuration(ms) {
             const totalSec = Math.max(0, Math.floor(ms / 1000));
@@ -638,6 +824,34 @@
             img.src = dataUrl;
         }
 
+        function openEffectPickerModal() {
+            const listContainer = document.getElementById('effect-list-container');
+            if (!listContainer) return;
+            listContainer.innerHTML = '';
+
+            liveEffects.forEach((fx, idx) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'effect-list-item' + (idx === effectIndex ? ' selected' : '');
+                btn.innerHTML = `<span>${fx.label}</span><span class="effect-tag-label">${fx.category}</span>`;
+                btn.onclick = () => selectLiveEffect(idx);
+                listContainer.appendChild(btn);
+            });
+
+            document.getElementById('effect-picker-modal').style.display = 'flex';
+        }
+
+        function closeEffectPickerModal() {
+            document.getElementById('effect-picker-modal').style.display = 'none';
+        }
+
+        function selectLiveEffect(idx) {
+            if (idx < 0 || idx >= liveEffects.length) return;
+            effectIndex = idx;
+            syncStudioControlButtons();
+            closeEffectPickerModal();
+        }
+
         function syncStudioControlButtons() {
             const camBtn = document.getElementById('toggle-cam-btn');
             const flipBtn = document.getElementById('flip-cam-btn');
@@ -698,7 +912,7 @@
                         height: { ideal: 360 },
                         frameRate: { ideal: 24, max: 30 }
                     },
-                    audio: existingAudioTracks.length === 0
+                    audio: existingAudioTracks.length === 0 ? { echoCancellation: true, noiseSuppression: true } : false
                 });
             } catch (err) {
                 newStream = await navigator.mediaDevices.getUserMedia({
@@ -739,11 +953,6 @@
                 currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
                 syncStudioControlButtons();
             }
-        }
-
-        function cycleBrightenEffect() {
-            effectIndex = (effectIndex + 1) % liveEffects.length;
-            syncStudioControlButtons();
         }
 
         function pushStudioComment(username, text) {
@@ -829,6 +1038,8 @@
         }
 
         function closeStudioWithoutStarting() {
+            closeEffectPickerModal();
+            stopAudioStreaming();
             stopLiveTimer();
             stopMediaStreamTracks();
             document.getElementById('live-studio-modal').style.display = 'none';
@@ -887,6 +1098,7 @@
                 activeLivePostId = insertedPost ? insertedPost.id : null;
                 isLiveActive = true;
                 startLiveTimer(startMs);
+                startAudioStreaming();
 
                 document.getElementById('studio-live-badge').style.display = 'inline-block';
                 document.getElementById('studio-close-btn').style.display = 'none';
@@ -996,6 +1208,8 @@
 
         async function endLiveBroadcast(targetPostId = null, targetLiveId = null) {
             isLiveActive = false;
+            closeEffectPickerModal();
+            stopAudioStreaming();
             stopLiveTimer();
             updateViewerCountLabels(0);
             stopMediaStreamTracks();
@@ -1077,6 +1291,7 @@
             isRenderingFrame = false;
             updateViewerCountLabels(0);
             startLiveTimer(startedAtMs || Date.now());
+            ensureViewerAudioContext();
 
             const modal = document.getElementById('live-viewer-modal');
             modal.classList.remove('landscape-mode');
@@ -1156,6 +1371,11 @@
                         viewerFrameImg.src = payload.payload.frame;
                     }
                 })
+                .on('broadcast', { event: 'live_audio' }, payload => {
+                    if (payload && payload.payload) {
+                        handleIncomingAudioChunk(payload.payload);
+                    }
+                })
                 .on('broadcast', { event: 'live_comment' }, payload => {
                     if (payload.payload) {
                         pushViewerComment(payload.payload.username, payload.payload.text);
@@ -1180,6 +1400,7 @@
             viewingLiveId = null;
             isLandscapeView = false;
             isRenderingFrame = false;
+            stopViewerAudioContext();
             stopLiveTimer();
             updateViewerCountLabels(0);
             const modal = document.getElementById('live-viewer-modal');
@@ -1198,6 +1419,7 @@
         }
 
         async function toggleViewerOrientation() {
+            ensureViewerAudioContext();
             const modal = document.getElementById('live-viewer-modal');
             const btn = document.getElementById('orientation-toggle-btn');
             isLandscapeView = !isLandscapeView;
@@ -1244,6 +1466,7 @@
 
         async function sendLiveComment() {
             if (!viewingLiveId || !currentUser) return;
+            ensureViewerAudioContext();
             const input = document.getElementById('viewer-comment-input');
             const text = input.value.trim();
             if (!text) return;
