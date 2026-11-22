@@ -70,6 +70,7 @@
         .live-btn { background: #e41e3f; }
         .live-btn:hover { background: #c81634; }
         .live-badge { display: inline-block; background: #e41e3f; color: white; font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.5px; margin-left: 6px; }
+        .live-meta-pill { display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.14); color: #fff; font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 12px; }
         .live-cover-wrapper { position: relative; margin-top: 8px; border-radius: 8px; overflow: hidden; cursor: pointer; background: #000; }
         .live-cover-wrapper img { width: 100%; max-height: 280px; object-fit: cover; display: block; opacity: 0.92; }
         .live-cover-overlay-badge { position: absolute; top: 10px; left: 10px; background: #e41e3f; color: white; font-weight: bold; font-size: 12px; padding: 3px 8px; border-radius: 4px; }
@@ -84,6 +85,7 @@
         .studio-stage { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8px 12px; position: relative; overflow: hidden; min-height: 0; }
         #studio-video { max-width: 100%; max-height: 100%; background: #000; border-radius: 8px; object-fit: contain; transition: filter 0.2s ease, transform 0.2s ease; }
         #studio-video.mirrored { transform: scaleX(-1); }
+        #studio-cover-off-img { display: none; max-width: 100%; max-height: 100%; border-radius: 8px; object-fit: contain; background: #000; }
         .studio-controls-row { display: flex; gap: 8px; padding: 6px 15px; max-width: 560px; margin: 0 auto; width: 100%; box-sizing: border-box; }
         .studio-ctrl-btn { flex: 1; width: auto; margin: 0; padding: 8px 6px; font-size: 12px; background: #2c2e30; color: #fff; border-radius: 6px; }
         .studio-ctrl-btn:hover { background: #3d4043; }
@@ -267,23 +269,25 @@
         </div>
     </div>
 
-    <!-- Broadcaster Live Studio (Cam On/Off + Flip Camera + Brighten Effect + Start/End Live + Live Comments) -->
+    <!-- Broadcaster Live Studio (LIVE + Timer + Viewer Count + Cam On/Off + Flip + Effect + Start/End Live + Comments) -->
     <div id="live-studio-modal">
         <div class="studio-top">
-            <div>
-                <span id="studio-live-badge" class="live-badge" style="display:none; margin-left:0; margin-right:6px;">LIVE</span>
-                <span id="studio-mode-label" style="font-size:14px; font-weight:bold;">Camera Live</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span id="studio-live-badge" class="live-badge" style="margin-left:0;">LIVE</span>
+                <span id="studio-timer-display" class="live-meta-pill">00:00</span>
+                <span id="studio-viewer-count" class="live-meta-pill">👁 0</span>
             </div>
             <button onclick="closeStudioWithoutStarting()" id="studio-close-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#444; margin:0;">Close</button>
         </div>
         <div class="studio-stage">
             <video id="studio-video" class="mirrored" autoplay playsinline muted></video>
+            <img id="studio-cover-off-img" src="" alt="Cover when camera off">
             <div id="studio-caption-display" style="margin-top:6px; font-size:13px; color:#ddd; text-align:center;"></div>
         </div>
         <div id="studio-camera-controls" class="studio-controls-row">
             <button id="toggle-cam-btn" class="studio-ctrl-btn" onclick="toggleCameraPower()">📷 Cam: ON</button>
             <button id="flip-cam-btn" class="studio-ctrl-btn" onclick="flipCameraFacing()">🔄 Front</button>
-            <button id="brighten-effect-btn" class="studio-ctrl-btn" onclick="cycleBrightenEffect()">✨ Tone: Off</button>
+            <button id="brighten-effect-btn" class="studio-ctrl-btn" onclick="cycleBrightenEffect()">✨ Normal</button>
         </div>
         <div class="studio-footer-stack">
             <div id="studio-comments-list" class="studio-comments-box"></div>
@@ -296,11 +300,13 @@
     <!-- Live Viewer Modal (Portrait: Top Video + Bottom Comments Max 6 Lines; Landscape: Fullscreen No Comments) -->
     <div id="live-viewer-modal">
         <div class="viewer-top-bar">
-            <div style="display:flex; align-items:center; gap:8px;">
-                <span class="live-badge" style="margin-left:0;">LIVE</span>
-                <span id="viewer-host-name" style="font-weight:bold; font-size:14px;">Host</span>
+            <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                <span class="live-badge" style="margin-left:0; flex-shrink:0;">LIVE</span>
+                <span id="viewer-timer-display" class="live-meta-pill" style="flex-shrink:0;">00:00</span>
+                <span id="viewer-count-display" class="live-meta-pill" style="flex-shrink:0;">👁 0</span>
+                <span id="viewer-host-name" style="font-weight:bold; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Host</span>
             </div>
-            <div style="display:flex; gap:8px;">
+            <div style="display:flex; gap:8px; flex-shrink:0;">
                 <button id="orientation-toggle-btn" onclick="toggleViewerOrientation()" style="width:auto; padding:5px 10px; font-size:12px; background:#1877f2; margin:0;">🔄 Landscape</button>
                 <button onclick="closeLiveViewer()" style="width:auto; padding:5px 10px; font-size:12px; background:#555; margin:0;">✕ Exit</button>
             </div>
@@ -337,20 +343,42 @@
         // Live state (No stream video/audio saved to DB)
         let selectedLiveMode = 'camera';
         let selectedLiveCoverDataUrl = '';
+        let activeCoverImageUrl = '';
+        let coverOffImgElement = new Image();
+        let coverOffImgReady = false;
         let selectedLiveCaption = '';
         let studioMediaStream = null;
         let currentFacingMode = 'user'; // 'user' (front) or 'environment' (back)
         let isCameraEnabled = true;
-        let brightenLevelIndex = 0; // 0: Off, 1: Soft, 2: Glow
-        const brightenPresets = [
-            { label: 'Off', cssFilter: 'none', canvasFilter: 'none' },
-            { label: 'Soft', cssFilter: 'brightness(1.12) contrast(1.03) saturate(1.06)', canvasFilter: 'brightness(1.12) contrast(1.03) saturate(1.06)' },
-            { label: 'Glow', cssFilter: 'brightness(1.22) contrast(1.05) saturate(1.1)', canvasFilter: 'brightness(1.22) contrast(1.05) saturate(1.1)' }
+
+        // 14 effects: Normal + 3 skin whitening + 10 face smooth/soft effects
+        let effectIndex = 0;
+        const liveEffects = [
+            { label: 'Normal', filter: 'none' },
+            // Skin whitening / bright effects (3)
+            { label: 'Fair Bright', filter: 'brightness(1.16) contrast(1.03) saturate(1.06)' },
+            { label: 'Porcelain Tone', filter: 'brightness(1.22) contrast(0.98) saturate(0.96)' },
+            { label: 'Rosy Glow', filter: 'brightness(1.14) contrast(1.04) saturate(1.18)' },
+            // Face smooth / soft effects (10)
+            { label: 'Silk Smooth 1', filter: 'brightness(1.08) contrast(0.92) saturate(1.04)' },
+            { label: 'Silk Smooth 2', filter: 'brightness(1.11) contrast(0.89) saturate(1.05)' },
+            { label: 'Velvet Soft', filter: 'brightness(1.07) contrast(0.87) saturate(1.02)' },
+            { label: 'Dewy Skin', filter: 'brightness(1.12) contrast(0.95) saturate(1.12)' },
+            { label: 'Creamy Finish', filter: 'brightness(1.15) contrast(0.91) saturate(1.03)' },
+            { label: 'Peach Radiance', filter: 'brightness(1.10) contrast(0.94) saturate(1.15)' },
+            { label: 'Studio Soft', filter: 'brightness(1.09) contrast(0.88) saturate(1.00)' },
+            { label: 'Clear Skin', filter: 'brightness(1.13) contrast(0.96) saturate(1.06)' },
+            { label: 'Luminous Mist', filter: 'brightness(1.18) contrast(0.86) saturate(1.04)' },
+            { label: 'Soft Matte', filter: 'brightness(1.06) contrast(0.90) saturate(0.95)' }
         ];
 
         let isLiveActive = false;
         let activeLiveId = null;
         let activeLivePostId = null;
+        let liveStartTimestamp = null;
+        let liveTimerInterval = null;
+        let currentViewerCount = 0;
+
         let broadcasterChannel = null;
         let broadcastFrameInterval = null;
         let isSendingFrame = false;
@@ -372,6 +400,70 @@
                 onLoginSuccess(session.user);
             }
         });
+
+        function formatElapsedDuration(ms) {
+            const totalSec = Math.max(0, Math.floor(ms / 1000));
+            const hrs = Math.floor(totalSec / 3600);
+            const mins = Math.floor((totalSec % 3600) / 60);
+            const secs = totalSec % 60;
+            const mm = String(mins).padStart(2, '0');
+            const ss = String(secs).padStart(2, '0');
+            return hrs > 0 ? `${hrs}:${mm}:${ss}` : `${mm}:${ss}`;
+        }
+
+        function updateTimerLabels() {
+            const text = isLiveActive && liveStartTimestamp
+                ? formatElapsedDuration(Date.now() - liveStartTimestamp)
+                : (liveStartTimestamp && viewingLiveId ? formatElapsedDuration(Date.now() - liveStartTimestamp) : '00:00');
+            const studioTimer = document.getElementById('studio-timer-display');
+            const viewerTimer = document.getElementById('viewer-timer-display');
+            if (studioTimer) studioTimer.textContent = text;
+            if (viewerTimer) viewerTimer.textContent = text;
+        }
+
+        function updateViewerCountLabels(count) {
+            currentViewerCount = Math.max(0, count);
+            const studioCount = document.getElementById('studio-viewer-count');
+            const viewerCount = document.getElementById('viewer-count-display');
+            if (studioCount) studioCount.textContent = `👁 ${currentViewerCount}`;
+            if (viewerCount) viewerCount.textContent = `👁 ${currentViewerCount}`;
+        }
+
+        function startLiveTimer(startTimeMs) {
+            stopLiveTimer();
+            liveStartTimestamp = startTimeMs || Date.now();
+            updateTimerLabels();
+            liveTimerInterval = setInterval(updateTimerLabels, 1000);
+        }
+
+        function stopLiveTimer() {
+            if (liveTimerInterval) {
+                clearInterval(liveTimerInterval);
+                liveTimerInterval = null;
+            }
+            liveStartTimestamp = null;
+            updateTimerLabels();
+        }
+
+        function prepareCoverForOffCamera(coverSrc) {
+            activeCoverImageUrl = coverSrc || '';
+            coverOffImgReady = false;
+            const offImg = document.getElementById('studio-cover-off-img');
+            if (offImg) {
+                offImg.src = activeCoverImageUrl;
+            }
+            if (!activeCoverImageUrl) return;
+            const tmp = new Image();
+            tmp.crossOrigin = 'anonymous';
+            tmp.onload = () => {
+                coverOffImgElement = tmp;
+                coverOffImgReady = true;
+            };
+            tmp.onerror = () => {
+                coverOffImgReady = false;
+            };
+            tmp.src = activeCoverImageUrl;
+        }
 
         function toggleMode() {
             isLoginMode = !isLoginMode;
@@ -549,8 +641,9 @@
         function syncStudioControlButtons() {
             const camBtn = document.getElementById('toggle-cam-btn');
             const flipBtn = document.getElementById('flip-cam-btn');
-            const brightBtn = document.getElementById('brighten-effect-btn');
+            const effectBtn = document.getElementById('brighten-effect-btn');
             const videoEl = document.getElementById('studio-video');
+            const offImg = document.getElementById('studio-cover-off-img');
 
             if (camBtn) {
                 camBtn.textContent = isCameraEnabled ? '📷 Cam: ON' : '🚫 Cam: OFF';
@@ -561,20 +654,30 @@
                 flipBtn.textContent = currentFacingMode === 'user' ? '🔄 Front' : '🔄 Back';
             }
 
+            const preset = liveEffects[effectIndex] || liveEffects[0];
+
             if (videoEl) {
                 if (selectedLiveMode === 'camera' && currentFacingMode === 'user') {
                     videoEl.classList.add('mirrored');
                 } else {
                     videoEl.classList.remove('mirrored');
                 }
-                const preset = brightenPresets[brightenLevelIndex] || brightenPresets[0];
-                videoEl.style.filter = isCameraEnabled ? preset.cssFilter : 'none';
+                videoEl.style.filter = isCameraEnabled ? preset.filter : 'none';
+                videoEl.style.display = (selectedLiveMode === 'camera' && !isCameraEnabled) ? 'none' : 'block';
             }
 
-            if (brightBtn) {
-                const preset = brightenPresets[brightenLevelIndex] || brightenPresets[0];
-                brightBtn.textContent = `✨ Tone: ${preset.label}`;
-                brightBtn.classList.toggle('active-effect', brightenLevelIndex > 0);
+            if (offImg) {
+                if (selectedLiveMode === 'camera' && !isCameraEnabled && activeCoverImageUrl) {
+                    offImg.src = activeCoverImageUrl;
+                    offImg.style.display = 'block';
+                } else {
+                    offImg.style.display = 'none';
+                }
+            }
+
+            if (effectBtn) {
+                effectBtn.textContent = `✨ ${preset.label}`;
+                effectBtn.classList.toggle('active-effect', effectIndex > 0);
             }
         }
 
@@ -598,7 +701,6 @@
                     audio: existingAudioTracks.length === 0
                 });
             } catch (err) {
-                // Fallback constraint if exact/ideal facingMode fails on some devices
                 newStream = await navigator.mediaDevices.getUserMedia({
                     video: true,
                     audio: existingAudioTracks.length === 0
@@ -640,7 +742,7 @@
         }
 
         function cycleBrightenEffect() {
-            brightenLevelIndex = (brightenLevelIndex + 1) % brightenPresets.length;
+            effectIndex = (effectIndex + 1) % liveEffects.length;
             syncStudioControlButtons();
         }
 
@@ -660,12 +762,26 @@
             });
         }
 
+        function syncPresenceViewerCount(channel) {
+            if (!channel || typeof channel.presenceState !== 'function') return;
+            const state = channel.presenceState();
+            let count = 0;
+            Object.keys(state).forEach(key => {
+                const metas = state[key] || [];
+                metas.forEach(m => {
+                    if (m && m.role === 'viewer') count++;
+                });
+            });
+            updateViewerCountLabels(count);
+        }
+
         async function goToLiveStudio() {
             selectedLiveCaption = document.getElementById('live-caption-input').value.trim();
             if (!selectedLiveCoverDataUrl) {
                 selectedLiveCoverDataUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#1c1e21"/><text x="50%" y="50%" fill="#ffffff" font-size="28" font-family="Arial" dominant-baseline="middle" text-anchor="middle">LIVE STREAM</text></svg>`);
             }
 
+            prepareCoverForOffCamera(selectedLiveCoverDataUrl);
             closeLiveSetupModal();
 
             studioCommentsQueue = [];
@@ -673,7 +789,9 @@
 
             isCameraEnabled = true;
             currentFacingMode = 'user';
-            brightenLevelIndex = 0;
+            effectIndex = 0;
+            updateViewerCountLabels(0);
+            stopLiveTimer();
 
             const controlsRow = document.getElementById('studio-camera-controls');
             if (controlsRow) {
@@ -682,7 +800,6 @@
             syncStudioControlButtons();
 
             const videoEl = document.getElementById('studio-video');
-            document.getElementById('studio-mode-label').textContent = selectedLiveMode === 'camera' ? 'Camera Live' : 'Screen Share Live';
             document.getElementById('studio-caption-display').textContent = selectedLiveCaption;
             document.getElementById('studio-live-badge').style.display = 'none';
 
@@ -712,6 +829,7 @@
         }
 
         function closeStudioWithoutStarting() {
+            stopLiveTimer();
             stopMediaStreamTracks();
             document.getElementById('live-studio-modal').style.display = 'none';
         }
@@ -744,8 +862,12 @@
             const privacy = document.getElementById('post-privacy') ? document.getElementById('post-privacy').value : 'public';
 
             compressCoverImage(selectedLiveCoverDataUrl, async (compactCover) => {
+                if (compactCover) {
+                    prepareCoverForOffCamera(compactCover);
+                }
+                const startMs = Date.now();
                 // Only live post metadata is stored in DB; stream video/audio is never saved to DB
-                const liveMarkerContent = `[LIVE_STREAM:${activeLiveId}:${selectedLiveMode}] ${selectedLiveCaption}`;
+                const liveMarkerContent = `[LIVE_STREAM:${activeLiveId}:${selectedLiveMode}:${startMs}] ${selectedLiveCaption}`;
                 const { data: insertedPost, error } = await supabaseClient
                     .from('posts')
                     .insert([{
@@ -764,6 +886,7 @@
 
                 activeLivePostId = insertedPost ? insertedPost.id : null;
                 isLiveActive = true;
+                startLiveTimer(startMs);
 
                 document.getElementById('studio-live-badge').style.display = 'inline-block';
                 document.getElementById('studio-close-btn').style.display = 'none';
@@ -771,76 +894,98 @@
                 btn.textContent = 'End Live';
                 btn.style.background = '#3a3b3c';
 
-                broadcasterChannel = supabaseClient.channel(`live-room:${activeLiveId}`);
+                broadcasterChannel = supabaseClient.channel(`live-room:${activeLiveId}`, {
+                    config: { presence: { key: `host_${currentUser.id}` } }
+                });
                 broadcasterChannel
+                    .on('presence', { event: 'sync' }, () => {
+                        syncPresenceViewerCount(broadcasterChannel);
+                    })
                     .on('broadcast', { event: 'live_comment' }, payload => {
                         if (payload && payload.payload) {
                             pushStudioComment(payload.payload.username || 'Viewer', payload.payload.text || '');
                         }
                     })
-                    .subscribe();
+                    .subscribe(async status => {
+                        if (status === 'SUBSCRIBED') {
+                            try {
+                                await broadcasterChannel.track({ role: 'host', startedAt: startMs });
+                            } catch (e) {}
+                        }
+                    });
 
-                // Lightweight 100ms (~10 fps) frame broadcast with aspect ratio, mirror, and brighten effect preserved
+                // Lightweight 100ms (~10 fps) frame broadcast with aspect ratio, mirror, effect, and off-camera cover preserved
                 broadcastFrameInterval = setInterval(async () => {
                     if (!isLiveActive || !broadcasterChannel || isSendingFrame) return;
-                    const videoEl = document.getElementById('studio-video');
-                    if (videoEl && videoEl.readyState >= 2) {
-                        isSendingFrame = true;
-                        try {
-                            const vw = videoEl.videoWidth || 640;
-                            const vh = videoEl.videoHeight || 480;
-                            const isPortraitFrame = vh > vw;
+                    isSendingFrame = true;
+                    try {
+                        const videoEl = document.getElementById('studio-video');
+                        const vw = (videoEl && videoEl.videoWidth) ? videoEl.videoWidth : 640;
+                        const vh = (videoEl && videoEl.videoHeight) ? videoEl.videoHeight : 480;
+                        const isPortraitFrame = vh > vw;
 
-                            const targetW = isPortraitFrame ? 210 : 373;
-                            const targetH = isPortraitFrame ? 373 : 210;
+                        const targetW = isPortraitFrame ? 210 : 373;
+                        const targetH = isPortraitFrame ? 373 : 210;
 
-                            if (captureCanvas.width !== targetW || captureCanvas.height !== targetH) {
-                                captureCanvas.width = targetW;
-                                captureCanvas.height = targetH;
-                            }
+                        if (captureCanvas.width !== targetW || captureCanvas.height !== targetH) {
+                            captureCanvas.width = targetW;
+                            captureCanvas.height = targetH;
+                        }
 
-                            const ctx = captureCanvas.getContext('2d');
-                            ctx.save();
-                            ctx.filter = 'none';
-                            ctx.fillStyle = '#000';
-                            ctx.fillRect(0, 0, targetW, targetH);
+                        const ctx = captureCanvas.getContext('2d');
+                        ctx.save();
+                        ctx.filter = 'none';
+                        ctx.fillStyle = '#000';
+                        ctx.fillRect(0, 0, targetW, targetH);
 
-                            if (isCameraEnabled) {
-                                const preset = brightenPresets[brightenLevelIndex] || brightenPresets[0];
-                                ctx.filter = preset.canvasFilter;
-
-                                const scale = Math.min(targetW / vw, targetH / vh);
-                                const drawW = Math.round(vw * scale);
-                                const drawH = Math.round(vh * scale);
+                        if (selectedLiveMode === 'camera' && !isCameraEnabled) {
+                            // Draw cover image when camera is turned OFF
+                            if (coverOffImgReady && coverOffImgElement.naturalWidth > 0) {
+                                const iw = coverOffImgElement.naturalWidth;
+                                const ih = coverOffImgElement.naturalHeight;
+                                const scale = Math.min(targetW / iw, targetH / ih);
+                                const drawW = Math.round(iw * scale);
+                                const drawH = Math.round(ih * scale);
                                 const drawX = Math.round((targetW - drawW) / 2);
                                 const drawY = Math.round((targetH - drawH) / 2);
-
-                                if (selectedLiveMode === 'camera' && currentFacingMode === 'user') {
-                                    ctx.translate(drawX + drawW, drawY);
-                                    ctx.scale(-1, 1);
-                                    ctx.drawImage(videoEl, 0, 0, drawW, drawH);
-                                } else {
-                                    ctx.drawImage(videoEl, drawX, drawY, drawW, drawH);
-                                }
+                                ctx.drawImage(coverOffImgElement, drawX, drawY, drawW, drawH);
                             }
-                            ctx.restore();
+                        } else if (videoEl && videoEl.readyState >= 2) {
+                            const preset = liveEffects[effectIndex] || liveEffects[0];
+                            ctx.filter = preset.filter;
 
-                            const frameData = captureCanvas.toDataURL('image/jpeg', 0.32);
-                            await broadcasterChannel.send({
-                                type: 'broadcast',
-                                event: 'live_frame',
-                                payload: {
-                                    frame: frameData,
-                                    width: targetW,
-                                    height: targetH,
-                                    isPortrait: isPortraitFrame
-                                }
-                            });
-                        } catch (e) {
-                            // Ignore transient send errors to keep frame loop smooth
-                        } finally {
-                            isSendingFrame = false;
+                            const scale = Math.min(targetW / vw, targetH / vh);
+                            const drawW = Math.round(vw * scale);
+                            const drawH = Math.round(vh * scale);
+                            const drawX = Math.round((targetW - drawW) / 2);
+                            const drawY = Math.round((targetH - drawH) / 2);
+
+                            if (selectedLiveMode === 'camera' && currentFacingMode === 'user') {
+                                ctx.translate(drawX + drawW, drawY);
+                                ctx.scale(-1, 1);
+                                ctx.drawImage(videoEl, 0, 0, drawW, drawH);
+                            } else {
+                                ctx.drawImage(videoEl, drawX, drawY, drawW, drawH);
+                            }
                         }
+                        ctx.restore();
+
+                        const frameData = captureCanvas.toDataURL('image/jpeg', 0.32);
+                        await broadcasterChannel.send({
+                            type: 'broadcast',
+                            event: 'live_frame',
+                            payload: {
+                                frame: frameData,
+                                width: targetW,
+                                height: targetH,
+                                isPortrait: isPortraitFrame,
+                                startedAt: startMs
+                            }
+                        });
+                    } catch (e) {
+                        // Ignore transient send errors to keep frame loop smooth
+                    } finally {
+                        isSendingFrame = false;
                     }
                 }, 100);
 
@@ -851,6 +996,8 @@
 
         async function endLiveBroadcast(targetPostId = null, targetLiveId = null) {
             isLiveActive = false;
+            stopLiveTimer();
+            updateViewerCountLabels(0);
             stopMediaStreamTracks();
 
             const idToEnd = targetLiveId || activeLiveId;
@@ -890,9 +1037,11 @@
 
             activeLivePostId = null;
             activeLiveId = null;
+            activeCoverImageUrl = '';
+            coverOffImgReady = false;
             isCameraEnabled = true;
             currentFacingMode = 'user';
-            brightenLevelIndex = 0;
+            effectIndex = 0;
             syncStudioControlButtons();
             studioCommentsQueue = [];
             document.getElementById('studio-comments-list').innerHTML = '';
@@ -916,15 +1065,18 @@
             const parts = metaPart.split(':');
             const liveId = parts[0] || '';
             const mode = parts[1] || 'camera';
+            const startedAt = parts[2] ? Number(parts[2]) : new Date(post.created_at).getTime();
             const caption = post.content.slice(endIdx + 1).trim();
-            return { liveId, mode, caption };
+            return { liveId, mode, startedAt, caption };
         }
 
-        function openLiveViewer(liveId, hostName, coverUrl, caption) {
+        function openLiveViewer(liveId, hostName, coverUrl, caption, startedAtMs = null) {
             viewingLiveId = liveId;
             liveCommentsQueue = [];
             isLandscapeView = false;
             isRenderingFrame = false;
+            updateViewerCountLabels(0);
+            startLiveTimer(startedAtMs || Date.now());
 
             const modal = document.getElementById('live-viewer-modal');
             modal.classList.remove('landscape-mode');
@@ -987,9 +1139,18 @@
                 isRenderingFrame = false;
             };
 
-            viewerChannel = supabaseClient.channel(`live-room:${liveId}`);
+            const presenceKey = `viewer_${currentUser ? currentUser.id : 'anon'}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+            viewerChannel = supabaseClient.channel(`live-room:${liveId}`, {
+                config: { presence: { key: presenceKey } }
+            });
             viewerChannel
+                .on('presence', { event: 'sync' }, () => {
+                    syncPresenceViewerCount(viewerChannel);
+                })
                 .on('broadcast', { event: 'live_frame' }, payload => {
+                    if (payload.payload && payload.payload.startedAt && !liveStartTimestamp) {
+                        startLiveTimer(payload.payload.startedAt);
+                    }
                     if (!isRenderingFrame && payload.payload && payload.payload.frame) {
                         isRenderingFrame = true;
                         viewerFrameImg.src = payload.payload.frame;
@@ -1006,13 +1167,21 @@
                     loadFeed();
                     loadProfile();
                 })
-                .subscribe();
+                .subscribe(async status => {
+                    if (status === 'SUBSCRIBED') {
+                        try {
+                            await viewerChannel.track({ role: 'viewer', joinedAt: Date.now() });
+                        } catch (e) {}
+                    }
+                });
         }
 
         function closeLiveViewer() {
             viewingLiveId = null;
             isLandscapeView = false;
             isRenderingFrame = false;
+            stopLiveTimer();
+            updateViewerCountLabels(0);
             const modal = document.getElementById('live-viewer-modal');
             modal.classList.remove('landscape-mode');
             modal.style.display = 'none';
@@ -1117,7 +1286,7 @@
                             <div>${endBtnHtml}</div>
                         </div>
                         <div class="post-body">${liveInfo.caption || ''}</div>
-                        <div class="live-cover-wrapper" onclick="openLiveViewer('${liveInfo.liveId}', '${safeHost}', '${safeCover}', '${safeCap}')">
+                        <div class="live-cover-wrapper" onclick="openLiveViewer('${liveInfo.liveId}', '${safeHost}', '${safeCover}', '${safeCap}', ${liveInfo.startedAt})">
                             <img src="${post.media_url || ''}" alt="Live Cover">
                             <div class="live-cover-overlay-badge">LIVE</div>
                             <div class="live-cover-play-hint">▶ Tap to watch</div>
