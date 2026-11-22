@@ -82,16 +82,17 @@
         #live-studio-modal { display: none; position: fixed; z-index: 1300; top: 0; left: 0; width: 100%; height: 100%; background: #111; color: white; flex-direction: column; justify-content: space-between; }
         .studio-top { padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.6); }
         .studio-stage { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 10px; position: relative; overflow: hidden; }
-        #studio-video { width: 100%; max-height: 65vh; background: #000; border-radius: 8px; object-fit: contain; }
-        #studio-relay-preview { display: none; width: 100%; height: 55vh; border: none; border-radius: 8px; background: #000; pointer-events: none; }
-        .studio-bottom { padding: 14px 15px; background: rgba(0,0,0,0.85); }
+        #studio-video { max-width: 100%; max-height: 55vh; background: #000; border-radius: 8px; object-fit: contain; }
+        .studio-comments-box { width: 100%; max-width: 560px; padding: 0 15px 8px 15px; box-sizing: border-box; display: flex; flex-direction: column; gap: 5px; max-height: 210px; overflow: hidden; }
+        .studio-comment-line { background: rgba(255,255,255,0.12); padding: 6px 10px; border-radius: 8px; font-size: 13px; line-height: 1.35; color: #fff; }
+        .studio-bottom { padding: 12px 15px; background: rgba(0,0,0,0.85); }
 
         /* Viewer Mode (Portrait & Landscape) */
         #live-viewer-modal { display: none; position: fixed; z-index: 1400; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: white; flex-direction: column; }
         .viewer-top-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #141414; z-index: 10; }
-        .viewer-video-container { width: 100%; aspect-ratio: 16 / 9; background: #000; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; }
+        .viewer-video-container { width: 100%; max-height: 62vh; aspect-ratio: 16 / 9; background: #000; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; margin: 0 auto; }
+        .viewer-video-container.portrait-video { max-width: 360px; max-height: 58vh; aspect-ratio: 9 / 16; }
         #viewer-video-canvas { width: 100%; height: 100%; object-fit: contain; background: #000; }
-        #viewer-relay-iframe { display: none; width: 100%; height: 100%; border: none; background: #000; pointer-events: none; }
         .viewer-comments-area { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; background: #18191a; padding: 10px 12px; overflow: hidden; }
         .viewer-comments-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; max-height: 210px; overflow: hidden; }
         .viewer-comment-line { background: rgba(255,255,255,0.08); padding: 6px 10px; border-radius: 8px; font-size: 13px; line-height: 1.35; }
@@ -101,7 +102,7 @@
 
         /* Landscape Fullscreen Mode */
         #live-viewer-modal.landscape-mode .viewer-top-bar { position: fixed; top: 8px; left: 10px; right: 10px; background: rgba(0,0,0,0.45); border-radius: 8px; padding: 6px 10px; }
-        #live-viewer-modal.landscape-mode .viewer-video-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; aspect-ratio: auto; z-index: 1; }
+        #live-viewer-modal.landscape-mode .viewer-video-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; aspect-ratio: auto; z-index: 1; }
         #live-viewer-modal.landscape-mode .viewer-top-bar { z-index: 5; }
         #live-viewer-modal.landscape-mode .viewer-comments-area { display: none !important; }
     </style>
@@ -243,18 +244,13 @@
         </div>
     </div>
 
-    <!-- Pre-Live Setup Modal (Cover Photo + Optional External Live URL + Caption + Go to Live) -->
+    <!-- Pre-Live Setup Modal (Cover Photo + Caption + Go to Live) -->
     <div id="live-setup-modal" class="live-modal-backdrop">
         <div class="live-modal-card">
             <h3 id="live-setup-title" style="margin-top:0; color:#050505;">Setup Live</h3>
             <label style="font-size:13px; color:#65676b; display:block;">Cover Photo:</label>
             <input type="file" id="live-cover-input" accept="image/*" style="padding:6px;" onchange="previewLiveCover(this)">
             <img id="live-cover-preview" src="" style="display:none; width:100%; max-height:160px; object-fit:cover; border-radius:6px; margin-top:6px;">
-
-            <div id="live-relay-url-group" style="display:none; margin-top:10px;">
-                <label style="font-size:13px; color:#65676b; display:block;">External Live URL (optional - leave blank for Browser Screen Share):</label>
-                <input type="text" id="live-relay-url-input" placeholder="https://..." style="padding:8px;">
-            </div>
 
             <label style="font-size:13px; color:#65676b; display:block; margin-top:10px;">Caption:</label>
             <textarea id="live-caption-input" class="post-input" placeholder="Write a live caption..."></textarea>
@@ -264,7 +260,7 @@
         </div>
     </div>
 
-    <!-- Broadcaster Live Studio (Start Live -> End Live) -->
+    <!-- Broadcaster Live Studio (Start Live -> End Live + Live Comments) -->
     <div id="live-studio-modal">
         <div class="studio-top">
             <div>
@@ -275,15 +271,15 @@
         </div>
         <div class="studio-stage">
             <video id="studio-video" autoplay playsinline muted></video>
-            <iframe id="studio-relay-preview" scrolling="no" sandbox="allow-scripts allow-same-origin allow-presentation" allow="autoplay; fullscreen; picture-in-picture"></iframe>
-            <div id="studio-caption-display" style="margin-top:10px; font-size:14px; color:#ddd; text-align:center;"></div>
+            <div id="studio-caption-display" style="margin-top:8px; font-size:14px; color:#ddd; text-align:center;"></div>
         </div>
+        <div id="studio-comments-list" class="studio-comments-box"></div>
         <div class="studio-bottom">
             <button id="live-action-btn" class="live-btn" onclick="toggleStartOrEndLive()">Start Live</button>
         </div>
     </div>
 
-    <!-- Live Viewer Modal (Portrait: Top Landscape Video + Bottom Comments Max 6 Lines; Landscape: Fullscreen No Comments) -->
+    <!-- Live Viewer Modal (Portrait: Top Video + Bottom Comments Max 6 Lines; Landscape: Fullscreen No Comments) -->
     <div id="live-viewer-modal">
         <div class="viewer-top-bar">
             <div style="display:flex; align-items:center; gap:8px;">
@@ -296,9 +292,8 @@
             </div>
         </div>
 
-        <div class="viewer-video-container">
-            <canvas id="viewer-video-canvas" width="640" height="360"></canvas>
-            <iframe id="viewer-relay-iframe" scrolling="no" sandbox="allow-scripts allow-same-origin allow-presentation" allow="autoplay; fullscreen; picture-in-picture"></iframe>
+        <div id="viewer-video-container" class="viewer-video-container">
+            <canvas id="viewer-video-canvas" width="480" height="270"></canvas>
             <img id="viewer-fallback-cover" src="" style="display:none; width:100%; height:100%; object-fit:contain;">
         </div>
 
@@ -329,7 +324,6 @@
         let selectedLiveMode = 'camera';
         let selectedLiveCoverDataUrl = '';
         let selectedLiveCaption = '';
-        let selectedLiveRelayUrl = '';
         let studioMediaStream = null;
         let isLiveActive = false;
         let activeLiveId = null;
@@ -339,10 +333,10 @@
         let captureCanvas = document.createElement('canvas');
         captureCanvas.width = 480;
         captureCanvas.height = 270;
+        let studioCommentsQueue = [];
 
         let viewerChannel = null;
         let viewingLiveId = null;
-        let currentViewerRelayUrl = '';
         let liveCommentsQueue = []; // Max 6 lines, newest at bottom
         let isLandscapeView = false;
 
@@ -468,19 +462,6 @@
         }
 
         /* ==================== LIVE STREAM LOGIC ==================== */
-        function normalizeEmbedUrl(rawUrl) {
-            if (!rawUrl) return '';
-            let url = rawUrl.trim();
-            if (!/^https?:\/\//i.test(url)) {
-                url = 'https://' + url;
-            }
-            const ytWatchMatch = url.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/live\/|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
-            if (ytWatchMatch && ytWatchMatch[1]) {
-                return `https://www.youtube.com/embed/${ytWatchMatch[1]}?autoplay=1`;
-            }
-            return url;
-        }
-
         function openLiveModeModal() {
             document.getElementById('live-mode-modal').style.display = 'flex';
         }
@@ -492,12 +473,9 @@
         function selectLiveMode(mode) {
             selectedLiveMode = mode;
             selectedLiveCoverDataUrl = '';
-            selectedLiveRelayUrl = '';
             document.getElementById('live-cover-input').value = '';
             document.getElementById('live-cover-preview').style.display = 'none';
             document.getElementById('live-cover-preview').src = '';
-            document.getElementById('live-relay-url-input').value = '';
-            document.getElementById('live-relay-url-group').style.display = mode === 'screen' ? 'block' : 'none';
             document.getElementById('live-caption-input').value = '';
             document.getElementById('live-setup-title').textContent = mode === 'camera' ? 'Camera Live Setup' : 'Screen Share Live Setup';
 
@@ -542,19 +520,34 @@
             img.src = dataUrl;
         }
 
+        function pushStudioComment(username, text) {
+            studioCommentsQueue.push({ username, text });
+            while (studioCommentsQueue.length > 6) {
+                studioCommentsQueue.shift();
+            }
+            const listEl = document.getElementById('studio-comments-list');
+            if (!listEl) return;
+            listEl.innerHTML = '';
+            studioCommentsQueue.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'studio-comment-line';
+                div.innerHTML = `<b>${item.username}:</b> ${item.text}`;
+                listEl.appendChild(div);
+            });
+        }
+
         async function goToLiveStudio() {
             selectedLiveCaption = document.getElementById('live-caption-input').value.trim();
-            const rawRelay = document.getElementById('live-relay-url-input') ? document.getElementById('live-relay-url-input').value.trim() : '';
-            selectedLiveRelayUrl = (selectedLiveMode === 'screen' && rawRelay) ? normalizeEmbedUrl(rawRelay) : '';
-
             if (!selectedLiveCoverDataUrl) {
                 selectedLiveCoverDataUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#1c1e21"/><text x="50%" y="50%" fill="#ffffff" font-size="28" font-family="Arial" dominant-baseline="middle" text-anchor="middle">LIVE STREAM</text></svg>`);
             }
 
             closeLiveSetupModal();
 
+            studioCommentsQueue = [];
+            document.getElementById('studio-comments-list').innerHTML = '';
+
             const videoEl = document.getElementById('studio-video');
-            const relayPreviewEl = document.getElementById('studio-relay-preview');
             document.getElementById('studio-mode-label').textContent = selectedLiveMode === 'camera' ? 'Camera Live' : 'Screen Share Live';
             document.getElementById('studio-caption-display').textContent = selectedLiveCaption;
             document.getElementById('studio-live-badge').style.display = 'none';
@@ -565,17 +558,6 @@
             isLiveActive = false;
 
             document.getElementById('live-studio-modal').style.display = 'flex';
-
-            if (selectedLiveMode === 'screen' && selectedLiveRelayUrl) {
-                videoEl.style.display = 'none';
-                relayPreviewEl.style.display = 'block';
-                relayPreviewEl.src = selectedLiveRelayUrl;
-                return;
-            }
-
-            relayPreviewEl.style.display = 'none';
-            relayPreviewEl.src = '';
-            videoEl.style.display = 'block';
 
             try {
                 if (selectedLiveMode === 'camera') {
@@ -597,10 +579,6 @@
 
         function closeStudioWithoutStarting() {
             stopMediaStreamTracks();
-            const relayPreviewEl = document.getElementById('studio-relay-preview');
-            relayPreviewEl.src = '';
-            relayPreviewEl.style.display = 'none';
-            document.getElementById('studio-video').style.display = 'block';
             document.getElementById('live-studio-modal').style.display = 'none';
         }
 
@@ -631,8 +609,8 @@
             const privacy = document.getElementById('post-privacy') ? document.getElementById('post-privacy').value : 'public';
 
             compressCoverImage(selectedLiveCoverDataUrl, async (compactCover) => {
-                const encodedRelay = selectedLiveRelayUrl ? encodeURIComponent(selectedLiveRelayUrl) : '';
-                const liveMarkerContent = `[LIVE_STREAM:${activeLiveId}:${selectedLiveMode}:${encodedRelay}] ${selectedLiveCaption}`;
+                // Note: Only live post metadata (cover, caption, live_id) is stored; NO stream video/audio data is saved to DB
+                const liveMarkerContent = `[LIVE_STREAM:${activeLiveId}:${selectedLiveMode}] ${selectedLiveCaption}`;
                 const { data: insertedPost, error } = await supabaseClient
                     .from('posts')
                     .insert([{
@@ -661,28 +639,53 @@
                 broadcasterChannel = supabaseClient.channel(`live-room:${activeLiveId}`);
                 broadcasterChannel
                     .on('broadcast', { event: 'live_comment' }, payload => {
-                        if (isLiveActive && payload.payload) {
-                            pushViewerComment(payload.payload.username, payload.payload.text);
+                        if (payload && payload.payload) {
+                            pushStudioComment(payload.payload.username || 'Viewer', payload.payload.text || '');
                         }
                     })
                     .subscribe();
 
-                if (!selectedLiveRelayUrl) {
-                    broadcastFrameInterval = setInterval(() => {
-                        if (!isLiveActive || !broadcasterChannel) return;
-                        const videoEl = document.getElementById('studio-video');
-                        if (videoEl && videoEl.readyState >= 2) {
-                            const ctx = captureCanvas.getContext('2d');
-                            ctx.drawImage(videoEl, 0, 0, captureCanvas.width, captureCanvas.height);
-                            const frameData = captureCanvas.toDataURL('image/jpeg', 0.45);
-                            broadcasterChannel.send({
-                                type: 'broadcast',
-                                event: 'live_frame',
-                                payload: { frame: frameData }
-                            });
+                // Send live frames preserving portrait vs landscape aspect ratio (never stored in DB)
+                broadcastFrameInterval = setInterval(() => {
+                    if (!isLiveActive || !broadcasterChannel) return;
+                    const videoEl = document.getElementById('studio-video');
+                    if (videoEl && videoEl.readyState >= 2) {
+                        const vw = videoEl.videoWidth || 640;
+                        const vh = videoEl.videoHeight || 480;
+                        const isPortraitFrame = vh > vw;
+
+                        const targetW = isPortraitFrame ? 270 : 480;
+                        const targetH = isPortraitFrame ? 480 : 270;
+
+                        if (captureCanvas.width !== targetW || captureCanvas.height !== targetH) {
+                            captureCanvas.width = targetW;
+                            captureCanvas.height = targetH;
                         }
-                    }, 250);
-                }
+
+                        const ctx = captureCanvas.getContext('2d');
+                        ctx.fillStyle = '#000';
+                        ctx.fillRect(0, 0, targetW, targetH);
+
+                        const scale = Math.min(targetW / vw, targetH / vh);
+                        const drawW = Math.round(vw * scale);
+                        const drawH = Math.round(vh * scale);
+                        const drawX = Math.round((targetW - drawW) / 2);
+                        const drawY = Math.round((targetH - drawH) / 2);
+
+                        ctx.drawImage(videoEl, drawX, drawY, drawW, drawH);
+                        const frameData = captureCanvas.toDataURL('image/jpeg', 0.45);
+                        broadcasterChannel.send({
+                            type: 'broadcast',
+                            event: 'live_frame',
+                            payload: {
+                                frame: frameData,
+                                width: targetW,
+                                height: targetH,
+                                isPortrait: isPortraitFrame
+                            }
+                        });
+                    }
+                }, 250);
 
                 loadFeed();
                 loadProfile();
@@ -692,12 +695,6 @@
         async function endLiveBroadcast(targetPostId = null, targetLiveId = null) {
             isLiveActive = false;
             stopMediaStreamTracks();
-
-            const relayPreviewEl = document.getElementById('studio-relay-preview');
-            relayPreviewEl.src = '';
-            relayPreviewEl.style.display = 'none';
-            document.getElementById('studio-video').style.display = 'block';
-            selectedLiveRelayUrl = '';
 
             const idToEnd = targetLiveId || activeLiveId;
             const postIdToDelete = targetPostId || activeLivePostId;
@@ -736,6 +733,8 @@
 
             activeLivePostId = null;
             activeLiveId = null;
+            studioCommentsQueue = [];
+            document.getElementById('studio-comments-list').innerHTML = '';
 
             document.getElementById('live-studio-modal').style.display = 'none';
             document.getElementById('studio-close-btn').style.display = 'inline-block';
@@ -756,14 +755,12 @@
             const parts = metaPart.split(':');
             const liveId = parts[0] || '';
             const mode = parts[1] || 'camera';
-            const relayUrl = parts[2] ? decodeURIComponent(parts[2]) : '';
             const caption = post.content.slice(endIdx + 1).trim();
-            return { liveId, mode, relayUrl, caption };
+            return { liveId, mode, caption };
         }
 
-        function openLiveViewer(liveId, hostName, coverUrl, caption, relayUrl = '') {
+        function openLiveViewer(liveId, hostName, coverUrl, caption) {
             viewingLiveId = liveId;
-            currentViewerRelayUrl = relayUrl || '';
             liveCommentsQueue = [];
             isLandscapeView = false;
 
@@ -772,30 +769,24 @@
             document.getElementById('orientation-toggle-btn').textContent = '🔄 Landscape';
             document.getElementById('viewer-host-name').textContent = `${hostName}${caption ? ' — ' + caption : ''}`;
 
+            const videoContainer = document.getElementById('viewer-video-container');
+            videoContainer.classList.remove('portrait-video');
+
             const canvas = document.getElementById('viewer-video-canvas');
-            const iframeEl = document.getElementById('viewer-relay-iframe');
+            canvas.width = 480;
+            canvas.height = 270;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
             const fallbackImg = document.getElementById('viewer-fallback-cover');
-
-            if (currentViewerRelayUrl) {
+            if (coverUrl) {
+                fallbackImg.src = coverUrl;
+                fallbackImg.style.display = 'block';
                 canvas.style.display = 'none';
-                fallbackImg.style.display = 'none';
-                iframeEl.style.display = 'block';
-                iframeEl.src = currentViewerRelayUrl;
             } else {
-                iframeEl.style.display = 'none';
-                iframeEl.src = '';
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#000';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                if (coverUrl) {
-                    fallbackImg.src = coverUrl;
-                    fallbackImg.style.display = 'block';
-                    canvas.style.display = 'none';
-                } else {
-                    fallbackImg.style.display = 'none';
-                    canvas.style.display = 'block';
-                }
+                fallbackImg.style.display = 'none';
+                canvas.style.display = 'block';
             }
 
             renderLiveComments();
@@ -808,13 +799,30 @@
             viewerChannel = supabaseClient.channel(`live-room:${liveId}`);
             viewerChannel
                 .on('broadcast', { event: 'live_frame' }, payload => {
-                    if (!currentViewerRelayUrl && payload.payload && payload.payload.frame) {
+                    if (payload.payload && payload.payload.frame) {
                         const img = new Image();
                         img.onload = () => {
+                            const fw = payload.payload.width || img.width || 480;
+                            const fh = payload.payload.height || img.height || 270;
+                            const portrait = Boolean(payload.payload.isPortrait || fh > fw);
+
+                            if (!isLandscapeView) {
+                                if (portrait) {
+                                    videoContainer.classList.add('portrait-video');
+                                } else {
+                                    videoContainer.classList.remove('portrait-video');
+                                }
+                            }
+
+                            if (canvas.width !== fw || canvas.height !== fh) {
+                                canvas.width = fw;
+                                canvas.height = fh;
+                            }
+
                             fallbackImg.style.display = 'none';
                             canvas.style.display = 'block';
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            const c2d = canvas.getContext('2d');
+                            c2d.drawImage(img, 0, 0, canvas.width, canvas.height);
                         };
                         img.src = payload.payload.frame;
                     }
@@ -835,15 +843,11 @@
 
         function closeLiveViewer() {
             viewingLiveId = null;
-            currentViewerRelayUrl = '';
             isLandscapeView = false;
             const modal = document.getElementById('live-viewer-modal');
             modal.classList.remove('landscape-mode');
             modal.style.display = 'none';
-
-            const iframeEl = document.getElementById('viewer-relay-iframe');
-            iframeEl.src = '';
-            iframeEl.style.display = 'none';
+            document.getElementById('viewer-video-container').classList.remove('portrait-video');
 
             if (screen.orientation && screen.orientation.unlock) {
                 try { screen.orientation.unlock(); } catch (e) {}
@@ -930,7 +934,6 @@
                 const safeHost = uname.replace(/'/g, "\\'");
                 const safeCover = (post.media_url || '').replace(/'/g, "\\'");
                 const safeCap = (liveInfo.caption || '').replace(/'/g, "\\'");
-                const safeRelay = (liveInfo.relayUrl || '').replace(/'/g, "\\'");
                 const endBtnHtml = post.user_id === currentUser.id
                     ? `<button onclick="endLiveBroadcast('${post.id}', '${liveInfo.liveId}')" style="width:auto; padding:4px 10px; font-size:11px; background:#e41e3f; margin:0;">End Live</button>`
                     : '';
@@ -945,7 +948,7 @@
                             <div>${endBtnHtml}</div>
                         </div>
                         <div class="post-body">${liveInfo.caption || ''}</div>
-                        <div class="live-cover-wrapper" onclick="openLiveViewer('${liveInfo.liveId}', '${safeHost}', '${safeCover}', '${safeCap}', '${safeRelay}')">
+                        <div class="live-cover-wrapper" onclick="openLiveViewer('${liveInfo.liveId}', '${safeHost}', '${safeCover}', '${safeCap}')">
                             <img src="${post.media_url || ''}" alt="Live Cover">
                             <div class="live-cover-overlay-badge">LIVE</div>
                             <div class="live-cover-play-hint">▶ Tap to watch</div>
