@@ -80,12 +80,13 @@
 
         /* Broadcaster Studio */
         #live-studio-modal { display: none; position: fixed; z-index: 1300; top: 0; left: 0; width: 100%; height: 100%; background: #111; color: white; flex-direction: column; justify-content: space-between; }
-        .studio-top { padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.6); }
-        .studio-stage { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 10px; position: relative; overflow: hidden; }
-        #studio-video { max-width: 100%; max-height: 55vh; background: #000; border-radius: 8px; object-fit: contain; }
-        .studio-comments-box { width: 100%; max-width: 560px; padding: 0 15px 8px 15px; box-sizing: border-box; display: flex; flex-direction: column; gap: 5px; max-height: 210px; overflow: hidden; }
+        .studio-top { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.75); }
+        .studio-stage { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8px 12px; position: relative; overflow: hidden; min-height: 0; }
+        #studio-video { max-width: 100%; max-height: 100%; background: #000; border-radius: 8px; object-fit: contain; }
+        .studio-footer-stack { margin-top: auto; width: 100%; background: rgba(0,0,0,0.88); }
+        .studio-comments-box { width: 100%; max-width: 560px; margin: 0 auto; padding: 8px 15px 4px 15px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; gap: 5px; max-height: 210px; overflow: hidden; }
         .studio-comment-line { background: rgba(255,255,255,0.12); padding: 6px 10px; border-radius: 8px; font-size: 13px; line-height: 1.35; color: #fff; }
-        .studio-bottom { padding: 12px 15px; background: rgba(0,0,0,0.85); }
+        .studio-bottom { padding: 8px 15px 14px 15px; max-width: 560px; margin: 0 auto; box-sizing: border-box; }
 
         /* Viewer Mode (Portrait & Landscape) */
         #live-viewer-modal { display: none; position: fixed; z-index: 1400; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: white; flex-direction: column; }
@@ -260,7 +261,7 @@
         </div>
     </div>
 
-    <!-- Broadcaster Live Studio (Start Live -> End Live + Live Comments) -->
+    <!-- Broadcaster Live Studio (Start Live -> End Live + Live Comments at Bottom) -->
     <div id="live-studio-modal">
         <div class="studio-top">
             <div>
@@ -271,11 +272,13 @@
         </div>
         <div class="studio-stage">
             <video id="studio-video" autoplay playsinline muted></video>
-            <div id="studio-caption-display" style="margin-top:8px; font-size:14px; color:#ddd; text-align:center;"></div>
+            <div id="studio-caption-display" style="margin-top:6px; font-size:13px; color:#ddd; text-align:center;"></div>
         </div>
-        <div id="studio-comments-list" class="studio-comments-box"></div>
-        <div class="studio-bottom">
-            <button id="live-action-btn" class="live-btn" onclick="toggleStartOrEndLive()">Start Live</button>
+        <div class="studio-footer-stack">
+            <div id="studio-comments-list" class="studio-comments-box"></div>
+            <div class="studio-bottom">
+                <button id="live-action-btn" class="live-btn" onclick="toggleStartOrEndLive()">Start Live</button>
+            </div>
         </div>
     </div>
 
