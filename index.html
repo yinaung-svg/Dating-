@@ -293,7 +293,7 @@
         </div>
 
         <div id="viewer-video-container" class="viewer-video-container">
-            <canvas id="viewer-video-canvas" width="480" height="270"></canvas>
+            <canvas id="viewer-video-canvas" width="373" height="210"></canvas>
             <img id="viewer-fallback-cover" src="" style="display:none; width:100%; height:100%; object-fit:contain;">
         </div>
 
@@ -320,7 +320,7 @@
         let currentUser = null;
         let activeChatUser = null;
 
-        // Live state (No stream recording saved to DB)
+        // Live state (No stream video/audio saved to DB)
         let selectedLiveMode = 'camera';
         let selectedLiveCoverDataUrl = '';
         let selectedLiveCaption = '';
@@ -330,15 +330,18 @@
         let activeLivePostId = null;
         let broadcasterChannel = null;
         let broadcastFrameInterval = null;
+        let isSendingFrame = false;
         let captureCanvas = document.createElement('canvas');
-        captureCanvas.width = 480;
-        captureCanvas.height = 270;
+        captureCanvas.width = 373;
+        captureCanvas.height = 210;
         let studioCommentsQueue = [];
 
         let viewerChannel = null;
         let viewingLiveId = null;
         let liveCommentsQueue = []; // Max 6 lines, newest at bottom
         let isLandscapeView = false;
+        let isRenderingFrame = false;
+        let viewerFrameImg = new Image();
 
         window.addEventListener('DOMContentLoaded', async () => {
             const { data: { session } } = await supabaseClient.auth.getSession();
@@ -561,7 +564,10 @@
 
             try {
                 if (selectedLiveMode === 'camera') {
-                    studioMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    studioMediaStream = await navigator.mediaDevices.getUserMedia({
+                        video: { width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 24, max: 30 } },
+                        audio: true
+                    });
                 } else {
                     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
                         alert('Screen share is not supported in this browser/WebView.');
@@ -587,6 +593,7 @@
                 clearInterval(broadcastFrameInterval);
                 broadcastFrameInterval = null;
             }
+            isSendingFrame = false;
             if (studioMediaStream) {
                 studioMediaStream.getTracks().forEach(track => track.stop());
                 studioMediaStream = null;
@@ -609,7 +616,7 @@
             const privacy = document.getElementById('post-privacy') ? document.getElementById('post-privacy').value : 'public';
 
             compressCoverImage(selectedLiveCoverDataUrl, async (compactCover) => {
-                // Note: Only live post metadata (cover, caption, live_id) is stored; NO stream video/audio data is saved to DB
+                // Only live post metadata is stored in DB; stream video/audio is never saved to DB
                 const liveMarkerContent = `[LIVE_STREAM:${activeLiveId}:${selectedLiveMode}] ${selectedLiveCaption}`;
                 const { data: insertedPost, error } = await supabaseClient
                     .from('posts')
@@ -645,47 +652,54 @@
                     })
                     .subscribe();
 
-                // Send live frames preserving portrait vs landscape aspect ratio (never stored in DB)
-                broadcastFrameInterval = setInterval(() => {
-                    if (!isLiveActive || !broadcasterChannel) return;
+                // Lightweight 100ms (~10 fps) frame broadcast with portrait/landscape aspect preserved
+                broadcastFrameInterval = setInterval(async () => {
+                    if (!isLiveActive || !broadcasterChannel || isSendingFrame) return;
                     const videoEl = document.getElementById('studio-video');
                     if (videoEl && videoEl.readyState >= 2) {
-                        const vw = videoEl.videoWidth || 640;
-                        const vh = videoEl.videoHeight || 480;
-                        const isPortraitFrame = vh > vw;
+                        isSendingFrame = true;
+                        try {
+                            const vw = videoEl.videoWidth || 640;
+                            const vh = videoEl.videoHeight || 480;
+                            const isPortraitFrame = vh > vw;
 
-                        const targetW = isPortraitFrame ? 270 : 480;
-                        const targetH = isPortraitFrame ? 480 : 270;
+                            const targetW = isPortraitFrame ? 210 : 373;
+                            const targetH = isPortraitFrame ? 373 : 210;
 
-                        if (captureCanvas.width !== targetW || captureCanvas.height !== targetH) {
-                            captureCanvas.width = targetW;
-                            captureCanvas.height = targetH;
-                        }
-
-                        const ctx = captureCanvas.getContext('2d');
-                        ctx.fillStyle = '#000';
-                        ctx.fillRect(0, 0, targetW, targetH);
-
-                        const scale = Math.min(targetW / vw, targetH / vh);
-                        const drawW = Math.round(vw * scale);
-                        const drawH = Math.round(vh * scale);
-                        const drawX = Math.round((targetW - drawW) / 2);
-                        const drawY = Math.round((targetH - drawH) / 2);
-
-                        ctx.drawImage(videoEl, drawX, drawY, drawW, drawH);
-                        const frameData = captureCanvas.toDataURL('image/jpeg', 0.45);
-                        broadcasterChannel.send({
-                            type: 'broadcast',
-                            event: 'live_frame',
-                            payload: {
-                                frame: frameData,
-                                width: targetW,
-                                height: targetH,
-                                isPortrait: isPortraitFrame
+                            if (captureCanvas.width !== targetW || captureCanvas.height !== targetH) {
+                                captureCanvas.width = targetW;
+                                captureCanvas.height = targetH;
                             }
-                        });
+
+                            const ctx = captureCanvas.getContext('2d');
+                            ctx.fillStyle = '#000';
+                            ctx.fillRect(0, 0, targetW, targetH);
+
+                            const scale = Math.min(targetW / vw, targetH / vh);
+                            const drawW = Math.round(vw * scale);
+                            const drawH = Math.round(vh * scale);
+                            const drawX = Math.round((targetW - drawW) / 2);
+                            const drawY = Math.round((targetH - drawH) / 2);
+
+                            ctx.drawImage(videoEl, drawX, drawY, drawW, drawH);
+                            const frameData = captureCanvas.toDataURL('image/jpeg', 0.32);
+                            await broadcasterChannel.send({
+                                type: 'broadcast',
+                                event: 'live_frame',
+                                payload: {
+                                    frame: frameData,
+                                    width: targetW,
+                                    height: targetH,
+                                    isPortrait: isPortraitFrame
+                                }
+                            });
+                        } catch (e) {
+                            // Ignore transient send errors to keep frame loop smooth
+                        } finally {
+                            isSendingFrame = false;
+                        }
                     }
-                }, 250);
+                }, 100);
 
                 loadFeed();
                 loadProfile();
@@ -763,6 +777,7 @@
             viewingLiveId = liveId;
             liveCommentsQueue = [];
             isLandscapeView = false;
+            isRenderingFrame = false;
 
             const modal = document.getElementById('live-viewer-modal');
             modal.classList.remove('landscape-mode');
@@ -773,8 +788,8 @@
             videoContainer.classList.remove('portrait-video');
 
             const canvas = document.getElementById('viewer-video-canvas');
-            canvas.width = 480;
-            canvas.height = 270;
+            canvas.width = 373;
+            canvas.height = 210;
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -796,35 +811,41 @@
                 supabaseClient.removeChannel(viewerChannel);
             }
 
+            viewerFrameImg.onload = () => {
+                const fw = viewerFrameImg.naturalWidth || 373;
+                const fh = viewerFrameImg.naturalHeight || 210;
+                const portrait = fh > fw;
+
+                if (!isLandscapeView) {
+                    if (portrait) {
+                        videoContainer.classList.add('portrait-video');
+                    } else {
+                        videoContainer.classList.remove('portrait-video');
+                    }
+                }
+
+                if (canvas.width !== fw || canvas.height !== fh) {
+                    canvas.width = fw;
+                    canvas.height = fh;
+                }
+
+                fallbackImg.style.display = 'none';
+                canvas.style.display = 'block';
+                const c2d = canvas.getContext('2d');
+                c2d.drawImage(viewerFrameImg, 0, 0, canvas.width, canvas.height);
+                isRenderingFrame = false;
+            };
+
+            viewerFrameImg.onerror = () => {
+                isRenderingFrame = false;
+            };
+
             viewerChannel = supabaseClient.channel(`live-room:${liveId}`);
             viewerChannel
                 .on('broadcast', { event: 'live_frame' }, payload => {
-                    if (payload.payload && payload.payload.frame) {
-                        const img = new Image();
-                        img.onload = () => {
-                            const fw = payload.payload.width || img.width || 480;
-                            const fh = payload.payload.height || img.height || 270;
-                            const portrait = Boolean(payload.payload.isPortrait || fh > fw);
-
-                            if (!isLandscapeView) {
-                                if (portrait) {
-                                    videoContainer.classList.add('portrait-video');
-                                } else {
-                                    videoContainer.classList.remove('portrait-video');
-                                }
-                            }
-
-                            if (canvas.width !== fw || canvas.height !== fh) {
-                                canvas.width = fw;
-                                canvas.height = fh;
-                            }
-
-                            fallbackImg.style.display = 'none';
-                            canvas.style.display = 'block';
-                            const c2d = canvas.getContext('2d');
-                            c2d.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        };
-                        img.src = payload.payload.frame;
+                    if (!isRenderingFrame && payload.payload && payload.payload.frame) {
+                        isRenderingFrame = true;
+                        viewerFrameImg.src = payload.payload.frame;
                     }
                 })
                 .on('broadcast', { event: 'live_comment' }, payload => {
@@ -844,6 +865,7 @@
         function closeLiveViewer() {
             viewingLiveId = null;
             isLandscapeView = false;
+            isRenderingFrame = false;
             const modal = document.getElementById('live-viewer-modal');
             modal.classList.remove('landscape-mode');
             modal.style.display = 'none';
