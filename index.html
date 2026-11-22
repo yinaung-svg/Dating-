@@ -495,6 +495,26 @@
             }
         }
 
+        function compressCoverImage(dataUrl, callback) {
+            if (!dataUrl || !dataUrl.startsWith('data:image/')) {
+                callback(dataUrl || '');
+                return;
+            }
+            const img = new Image();
+            img.onload = () => {
+                const c = document.createElement('canvas');
+                const maxW = 480;
+                const scale = img.width > maxW ? maxW / img.width : 1;
+                c.width = Math.round(img.width * scale);
+                c.height = Math.round(img.height * scale);
+                const ctx = c.getContext('2d');
+                ctx.drawImage(img, 0, 0, c.width, c.height);
+                callback(c.toDataURL('image/jpeg', 0.5));
+            };
+            img.onerror = () => callback('');
+            img.src = dataUrl;
+        }
+
         async function goToLiveStudio() {
             selectedLiveCaption = document.getElementById('live-caption-input').value.trim();
             if (!selectedLiveCoverDataUrl) {
@@ -564,65 +584,70 @@
             activeLiveId = 'live_' + currentUser.id + '_' + Date.now();
             const privacy = document.getElementById('post-privacy') ? document.getElementById('post-privacy').value : 'public';
 
-            // Note: Only live post metadata (cover, caption, live_id) is stored; NO stream video/audio data is saved to DB
-            const liveMarkerContent = `[LIVE_STREAM:${activeLiveId}:${selectedLiveMode}] ${selectedLiveCaption}`;
-            const { data: insertedPost, error } = await supabaseClient
-                .from('posts')
-                .insert([{
-                    content: liveMarkerContent,
-                    media_url: selectedLiveCoverDataUrl,
-                    privacy: privacy,
-                    user_id: currentUser.id
-                }])
-                .select()
-                .single();
+            compressCoverImage(selectedLiveCoverDataUrl, async (compactCover) => {
+                // Note: Only live post metadata (cover, caption, live_id) is stored; NO stream video/audio data is saved to DB
+                const liveMarkerContent = `[LIVE_STREAM:${activeLiveId}:${selectedLiveMode}] ${selectedLiveCaption}`;
+                const { data: insertedPost, error } = await supabaseClient
+                    .from('posts')
+                    .insert([{
+                        content: liveMarkerContent,
+                        media_url: compactCover,
+                        privacy: privacy,
+                        user_id: currentUser.id
+                    }])
+                    .select()
+                    .single();
 
-            if (error) {
-                alert('Could not publish live post: ' + error.message);
-                return;
-            }
-
-            activeLivePostId = insertedPost ? insertedPost.id : null;
-            isLiveActive = true;
-
-            document.getElementById('studio-live-badge').style.display = 'inline-block';
-            document.getElementById('studio-close-btn').style.display = 'none';
-            const btn = document.getElementById('live-action-btn');
-            btn.textContent = 'End Live';
-            btn.style.background = '#3a3b3c';
-
-            broadcasterChannel = supabaseClient.channel(`live-room:${activeLiveId}`);
-            broadcasterChannel
-                .on('broadcast', { event: 'live_comment' }, payload => {
-                    if (isLiveActive && payload.payload) {
-                        pushViewerComment(payload.payload.username, payload.payload.text);
-                    }
-                })
-                .subscribe();
-
-            // Send live frames over ephemeral Realtime broadcast (never stored in DB)
-            broadcastFrameInterval = setInterval(() => {
-                if (!isLiveActive || !broadcasterChannel) return;
-                const videoEl = document.getElementById('studio-video');
-                if (videoEl && videoEl.readyState >= 2) {
-                    const ctx = captureCanvas.getContext('2d');
-                    ctx.drawImage(videoEl, 0, 0, captureCanvas.width, captureCanvas.height);
-                    const frameData = captureCanvas.toDataURL('image/jpeg', 0.45);
-                    broadcasterChannel.send({
-                        type: 'broadcast',
-                        event: 'live_frame',
-                        payload: { frame: frameData }
-                    });
+                if (error) {
+                    alert('Could not publish live post: ' + error.message);
+                    return;
                 }
-            }, 250);
 
-            loadFeed();
-            loadProfile();
+                activeLivePostId = insertedPost ? insertedPost.id : null;
+                isLiveActive = true;
+
+                document.getElementById('studio-live-badge').style.display = 'inline-block';
+                document.getElementById('studio-close-btn').style.display = 'none';
+                const btn = document.getElementById('live-action-btn');
+                btn.textContent = 'End Live';
+                btn.style.background = '#3a3b3c';
+
+                broadcasterChannel = supabaseClient.channel(`live-room:${activeLiveId}`);
+                broadcasterChannel
+                    .on('broadcast', { event: 'live_comment' }, payload => {
+                        if (isLiveActive && payload.payload) {
+                            pushViewerComment(payload.payload.username, payload.payload.text);
+                        }
+                    })
+                    .subscribe();
+
+                // Send live frames over ephemeral Realtime broadcast (never stored in DB)
+                broadcastFrameInterval = setInterval(() => {
+                    if (!isLiveActive || !broadcasterChannel) return;
+                    const videoEl = document.getElementById('studio-video');
+                    if (videoEl && videoEl.readyState >= 2) {
+                        const ctx = captureCanvas.getContext('2d');
+                        ctx.drawImage(videoEl, 0, 0, captureCanvas.width, captureCanvas.height);
+                        const frameData = captureCanvas.toDataURL('image/jpeg', 0.45);
+                        broadcasterChannel.send({
+                            type: 'broadcast',
+                            event: 'live_frame',
+                            payload: { frame: frameData }
+                        });
+                    }
+                }, 250);
+
+                loadFeed();
+                loadProfile();
+            });
         }
 
-        async function endLiveBroadcast() {
+        async function endLiveBroadcast(targetPostId = null, targetLiveId = null) {
             isLiveActive = false;
             stopMediaStreamTracks();
+
+            const idToEnd = targetLiveId || activeLiveId;
+            const postIdToDelete = targetPostId || activeLivePostId;
 
             if (broadcasterChannel) {
                 await broadcasterChannel.send({
@@ -632,17 +657,34 @@
                 });
                 supabaseClient.removeChannel(broadcasterChannel);
                 broadcasterChannel = null;
+            } else if (idToEnd) {
+                const tempChan = supabaseClient.channel(`live-room:${idToEnd}`);
+                await tempChan.send({
+                    type: 'broadcast',
+                    event: 'live_ended',
+                    payload: {}
+                });
+                supabaseClient.removeChannel(tempChan);
             }
 
             // Remove live post so it disappears from Feed and Profile immediately upon ending
-            if (activeLivePostId) {
-                await supabaseClient.from('posts').delete().eq('id', activeLivePostId);
-                activeLivePostId = null;
-            } else if (activeLiveId) {
-                await supabaseClient.from('posts').delete().like('content', `[LIVE_STREAM:${activeLiveId}%`);
+            if (postIdToDelete) {
+                const { error } = await supabaseClient.from('posts').delete().eq('id', postIdToDelete).eq('user_id', currentUser.id);
+                if (error) alert('Error ending live post: ' + error.message);
             }
 
+            if (idToEnd) {
+                const { error } = await supabaseClient.from('posts').delete().ilike('content', `[LIVE_STREAM:${idToEnd}%`).eq('user_id', currentUser.id);
+                if (error) alert('Error cleaning live post: ' + error.message);
+            }
+
+            if (!targetPostId && !targetLiveId && currentUser) {
+                await supabaseClient.from('posts').delete().ilike('content', `[LIVE_STREAM:%`).eq('user_id', currentUser.id);
+            }
+
+            activeLivePostId = null;
             activeLiveId = null;
+
             document.getElementById('live-studio-modal').style.display = 'none';
             document.getElementById('studio-close-btn').style.display = 'inline-block';
             const btn = document.getElementById('live-action-btn');
@@ -650,8 +692,8 @@
             btn.style.background = '';
             btn.className = 'live-btn';
 
-            loadFeed();
-            loadProfile();
+            await loadFeed();
+            await loadProfile();
         }
 
         function parseLivePost(post) {
@@ -819,7 +861,7 @@
                 const safeCover = (post.media_url || '').replace(/'/g, "\\'");
                 const safeCap = (liveInfo.caption || '').replace(/'/g, "\\'");
                 const endBtnHtml = post.user_id === currentUser.id
-                    ? `<button onclick="endLiveBroadcast()" style="width:auto; padding:4px 10px; font-size:11px; background:#e41e3f; margin:0;">End Live</button>`
+                    ? `<button onclick="endLiveBroadcast('${post.id}', '${liveInfo.liveId}')" style="width:auto; padding:4px 10px; font-size:11px; background:#e41e3f; margin:0;">End Live</button>`
                     : '';
 
                 return `
