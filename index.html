@@ -1,286 +1,1380 @@
 <!DOCTYPE html>
-<html lang="my">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>YinAung - Live Player</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialChat</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .auth-container { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 350px; text-align: center; }
+        input, textarea, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccd0d5; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        button { width: 100%; padding: 12px; background: #1877f2; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 5px; }
+        button:hover { background: #166fe5; }
+        .toggle-btn { background: none; color: #1877f2; border: none; cursor: pointer; margin-top: 12px; font-size: 14px; }
+        .toggle-btn:hover { text-decoration: underline; }
+        .error { color: #fa383e; font-size: 13px; margin-top: 5px; text-align: left; }
+        
+        #app-container { display: none; width: 100%; max-width: 600px; height: 100vh; background: #f0f2f5; flex-direction: column; }
+        header { background: white; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; }
+        header h2 { margin: 0; color: #1877f2; font-size: 20px; }
+        
+        .nav-tabs { display: flex; background: white; border-bottom: 1px solid #ddd; justify-content: space-around; }
+        .tab-btn { flex: 1; padding: 12px 5px; background: none; border: none; font-size: 13px; font-weight: bold; color: #65676b; cursor: pointer; border-bottom: 3px solid transparent; text-align: center; }
+        .tab-btn.active { color: #1877f2; border-bottom: 3px solid #1877f2; }
+        
+        .tab-content { flex: 1; overflow-y: auto; padding: 15px; display: none; }
+        .tab-content.active { display: block; }
+        
+        .card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .post-input { resize: none; height: 60px; }
+        .post-item { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
+        .post-author { font-weight: bold; color: #1877f2; font-size: 14px; cursor: pointer; }
+        .post-author:hover { text-decoration: underline; }
+        .post-time { font-size: 11px; color: #65676b; }
+        .post-body { margin-top: 8px; font-size: 14px; color: #050505; }
+        .post-media { width: 100%; max-height: 300px; object-fit: cover; border-radius: 6px; margin-top: 8px; cursor: pointer; }
 
-    html, body {
-      width: 100%;
-      height: 100%;
-      background: #000;
-      color: #fff;
-      font-family: system-ui, -apple-system, sans-serif;
-      overflow: hidden;
-    }
+        .action-bar { display: flex; justify-content: space-around; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 8px 0; margin-top: 10px; font-size: 13px; color: #65676b; cursor: pointer; }
+        .action-bar span:hover { color: #1877f2; }
 
-    /* အပေါ်ဘက် Top Bar (Open Link ဖယ်ထားပြီး LIVE / Portrait / Exit သာ ထားသည်) */
-    .top-bar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 46px;
-      padding: 0 10px;
-      background: rgba(15, 15, 18, 0.92);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      z-index: 30;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
+        #chat-tab { display: none; flex-direction: column; height: 100%; padding: 0; }
+        #chat-tab.active { display: flex; }
+        
+        .chat-messenger-header { display: flex; align-items: center; padding: 10px 15px; background: white; border-bottom: 1px solid #ddd; gap: 10px; }
+        .chat-header-avatar { width: 35px; height: 35px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 14px; }
+        
+        .chat-box { flex: 1; padding: 15px; overflow-y: auto; background: #fff; display: flex; flex-direction: column; }
+        .msg-bubble { max-width: 70%; padding: 10px 14px; border-radius: 15px; margin-bottom: 8px; font-size: 14px; word-break: break-word; }
+        .msg-left { background: #e4e6eb; color: #050505; align-self: flex-start; border-bottom-left-radius: 2px; }
+        .msg-right { background: #1877f2; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        
+        .chat-input-area { display: flex; padding: 10px; background: white; border-top: 1px solid #ddd; }
+        .chat-input-area input { margin: 0; flex: 1; }
+        .chat-input-area button { width: 80px; margin: 0 0 0 8px; padding: 0; }
+        
+        .search-results { background: white; border: 1px solid #ddd; border-radius: 6px; margin-top: 5px; max-height: 150px; overflow-y: auto; display: none; }
+        .search-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 14px; }
+        .search-item:hover { background: #f0f2f5; }
 
-    .brand-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-width: 0;
-    }
+        .chat-user-list-item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; gap: 12px; background: white; border-radius: 8px; margin-bottom: 8px; }
+        .chat-user-list-item:hover { background: #f0f2f5; }
 
-    .live-badge {
-      background: #e11d48;
-      color: #fff;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 2px 6px;
-      border-radius: 4px;
-      letter-spacing: 0.5px;
-      flex-shrink: 0;
-    }
+        .comment-section { margin-top: 8px; background: #f0f2f5; padding: 8px; border-radius: 6px; font-size: 13px; }
 
-    .title-text {
-      font-size: 13px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+        #lightbox-modal { display: none; position: fixed; z-index: 999; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
+        #lightbox-modal img { max-width: 90%; max-height: 90%; border-radius: 8px; }
+        #lightbox-close { position: absolute; top: 20px; right: 30px; color: white; font-size: 35px; font-weight: bold; cursor: pointer; }
 
-    .controls-group {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-shrink: 0;
-    }
+        /* Live Stream Styles */
+        .live-btn { background: #e41e3f; }
+        .live-btn:hover { background: #c81634; }
+        .live-badge { display: inline-block; background: #e41e3f; color: white; font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.5px; margin-left: 6px; }
+        .live-cover-wrapper { position: relative; margin-top: 8px; border-radius: 8px; overflow: hidden; cursor: pointer; background: #000; }
+        .live-cover-wrapper img { width: 100%; max-height: 280px; object-fit: cover; display: block; opacity: 0.92; }
+        .live-cover-overlay-badge { position: absolute; top: 10px; left: 10px; background: #e41e3f; color: white; font-weight: bold; font-size: 12px; padding: 3px 8px; border-radius: 4px; }
+        .live-cover-play-hint { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; font-size: 12px; padding: 4px 10px; border-radius: 20px; }
 
-    .ctrl-btn {
-      background: rgba(255, 255, 255, 0.14);
-      color: #fff;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 6px;
-      padding: 5px 9px;
-      font-size: 12px;
-      cursor: pointer;
-    }
+        .live-modal-backdrop { display: none; position: fixed; z-index: 1200; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); justify-content: center; align-items: center; padding: 15px; box-sizing: border-box; }
+        .live-modal-card { background: white; width: 100%; max-width: 460px; border-radius: 10px; padding: 18px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
 
-    .ctrl-btn.exit-btn {
-      background: rgba(239, 68, 68, 0.25);
-      border-color: rgba(239, 68, 68, 0.45);
-    }
+        /* Broadcaster Studio */
+        #live-studio-modal { display: none; position: fixed; z-index: 1300; top: 0; left: 0; width: 100%; height: 100%; background: #111; color: white; flex-direction: column; justify-content: space-between; }
+        .studio-top { padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.6); }
+        .studio-stage { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 10px; position: relative; overflow: hidden; }
+        #studio-video { width: 100%; max-height: 65vh; background: #000; border-radius: 8px; object-fit: contain; }
+        #studio-relay-preview { display: none; width: 100%; height: 55vh; border: none; border-radius: 8px; background: #000; }
+        .studio-bottom { padding: 14px 15px; background: rgba(0,0,0,0.85); }
 
-    /* Video / Stream နေရာတစ်ခုတည်း ပေါ်စေမည့် Stage */
-    .stage-wrapper {
-      position: fixed;
-      top: 46px;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      width: 100vw;
-      height: calc(100dvh - 46px);
-      background: #000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
+        /* Viewer Mode (Portrait & Landscape) */
+        #live-viewer-modal { display: none; position: fixed; z-index: 1400; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: white; flex-direction: column; }
+        .viewer-top-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #141414; z-index: 10; }
+        .viewer-video-container { width: 100%; aspect-ratio: 16 / 9; background: #000; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; }
+        #viewer-video-canvas { width: 100%; height: 100%; object-fit: contain; background: #000; }
+        #viewer-relay-iframe { display: none; width: 100%; height: 100%; border: none; background: #000; }
+        .viewer-comments-area { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; background: #18191a; padding: 10px 12px; overflow: hidden; }
+        .viewer-comments-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; max-height: 210px; overflow: hidden; }
+        .viewer-comment-line { background: rgba(255,255,255,0.08); padding: 6px 10px; border-radius: 8px; font-size: 13px; line-height: 1.35; }
+        .viewer-comment-input-row { display: flex; gap: 8px; }
+        .viewer-comment-input-row input { margin: 0; flex: 1; background: #242526; color: white; border: 1px solid #3a3b3c; }
+        .viewer-comment-input-row button { width: 75px; margin: 0; padding: 8px; font-size: 14px; }
 
-    .media-box {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      background: #000;
-      overflow: hidden;
-      transition: transform 0.2s ease, width 0.2s ease, height 0.2s ease;
-    }
-
-    /* Portrait Mode ထဲရောက်နေချိန် (သို့မဟုတ် အလျားလိုက် rotate လုပ်ချင်သည့်အခါ) */
-    .media-box.rotated-landscape {
-      width: 100dvh;
-      height: 100vw;
-      transform: rotate(90deg);
-    }
-
-    iframe, video {
-      width: 100%;
-      height: 100%;
-      border: 0;
-      display: block;
-      background: #000;
-    }
-
-    video {
-      object-fit: contain;
-    }
-
-    /* Screen နှိပ်လိုက်တိုင်း အထဲက webpage/link ထဲ မဝင်အောင် ကာကွယ်ထားသော Shield */
-    .click-shield {
-      position: absolute;
-      inset: 0;
-      z-index: 15;
-      background: transparent;
-      /* ထဲက link/ad တွေကို မနှိပ်မိစေရန် block လုပ်ထားသည် */
-    }
-
-    .click-shield.unlocked {
-      pointer-events: none; /* လိုအပ်လျှင် ခဏဖွင့်ကြည့်ရန်သာ */
-    }
-  </style>
+        /* Landscape Fullscreen Mode */
+        #live-viewer-modal.landscape-mode .viewer-top-bar { position: fixed; top: 8px; left: 10px; right: 10px; background: rgba(0,0,0,0.45); border-radius: 8px; padding: 6px 10px; }
+        #live-viewer-modal.landscape-mode .viewer-video-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; aspect-ratio: auto; z-index: 1; }
+        #live-viewer-modal.landscape-mode .viewer-top-bar { z-index: 5; }
+        #live-viewer-modal.landscape-mode .viewer-comments-area { display: none !important; }
+    </style>
 </head>
 <body>
-  <!-- Open Link ခလုတ် မပါတော့ပါ -->
-  <header class="top-bar" id="topBar">
-    <div class="brand-group">
-      <span class="live-badge">LIVE</span>
-      <span class="title-text" id="streamTitle">YinAung - အစမ်း လေးပါဗျာ</span>
+
+    <div class="auth-container" id="auth-container">
+        <h2 id="form-title" style="color: #1877f2; margin-bottom: 20px;">SocialChat</h2>
+        <div id="auth-form">
+            <input type="text" id="username" placeholder="Username" required>
+            <input type="email" id="email" placeholder="Email" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button id="action-btn" onclick="handleAuth()">Create new account</button>
+            <button class="toggle-btn" id="toggle-mode-btn" onclick="toggleMode()">Already have an account? Login</button>
+            <div id="message" class="error"></div>
+        </div>
     </div>
-    <div class="controls-group">
-      <button class="ctrl-btn" id="orientationBtn" type="button">Portrait</button>
-      <button class="ctrl-btn exit-btn" id="exitBtn" type="button">Exit</button>
+
+    <div id="app-container">
+        <header>
+            <h2>SocialChat</h2>
+            <button onclick="logout()" style="width: auto; padding: 6px 12px; font-size: 12px; background: #e4e6eb; color: #050505;">Logout</button>
+        </header>
+
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="switchTab('feed')">Feed</button>
+            <button class="tab-btn" onclick="switchTab('post')">Post</button>
+            <button class="tab-btn" onclick="switchTab('chat')">Chat</button>
+            <button class="tab-btn" onclick="switchTab('notification')">Noti</button>
+            <button class="tab-btn" onclick="switchTab('profile')">Profile</button>
+        </div>
+
+        <div id="feed-tab" class="tab-content active">
+            <div class="card" style="padding: 10px;">
+                <input type="text" id="search-user-input" placeholder="Search users by name..." oninput="searchUsers(this.value)" style="margin: 0;">
+                <div id="search-results" class="search-results"></div>
+            </div>
+            <div id="posts-feed"></div>
+        </div>
+
+        <div id="post-tab" class="tab-content">
+            <div class="card">
+                <h3>Create Post</h3>
+                <textarea id="post-content" class="post-input" placeholder="What's on your mind?"></textarea>
+                
+                <label style="font-size: 13px; color: #65676b; display: block; margin-top: 10px;">Privacy:</label>
+                <select id="post-privacy">
+                    <option value="public">Public</option>
+                    <option value="friends">Friends</option>
+                    <option value="only_me">Only Me</option>
+                </select>
+
+                <label style="font-size: 13px; color: #65676b; display: block; margin-top: 10px;">Upload Photo / Video:</label>
+                <input type="file" id="media-file" accept="image/*,video/*" style="padding: 6px;">
+                <button onclick="createPost()" style="margin-top: 10px;">Share Post</button>
+                <button class="live-btn" onclick="openLiveModeModal()" style="margin-top: 8px;">🔴 Live</button>
+            </div>
+        </div>
+
+        <div id="chat-tab" class="tab-content">
+            <div id="chat-list-view" style="display: block;">
+                <h3 style="margin-top: 0; color: #050505;">Chats</h3>
+                <div id="conversations-list">
+                    <p style="color: #65676b; font-size: 13px;">Loading conversations...</p>
+                </div>
+            </div>
+
+            <div id="chat-box-view" style="display: none; flex-direction: column; height: 100%;">
+                <div class="chat-messenger-header">
+                    <button onclick="backToChatList()" style="width: auto; padding: 5px 10px; font-size: 12px; background: #e4e6eb; color: #050505; margin: 0;">← Back</button>
+                    <div id="chat-header-avatar-container" class="chat-header-avatar">U</div>
+                    <div>
+                        <div id="chat-header-name" style="font-weight: bold; font-size: 15px;">User</div>
+                        <div style="font-size: 11px; color: #42b72a;">Active</div>
+                    </div>
+                </div>
+                <div class="chat-box" id="chat-box"></div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="Aa" onkeypress="handleChatKeyPress(event)">
+                    <button onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="notification-tab" class="tab-content">
+            <div class="card">
+                <h4>Notifications</h4>
+                <p style="color: #65676b; font-size: 14px;">No new notifications right now.</p>
+            </div>
+        </div>
+
+        <div id="profile-tab" class="tab-content" style="padding-top: 10px;">
+            <div class="card" style="text-align: center; margin-bottom: 10px;">
+                <div style="position: relative; width: 80px; height: 80px; margin: 0 auto 10px auto;">
+                    <div id="profile-avatar-container" style="width: 80px; height: 80px; background: #1877f2; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; overflow: hidden;">
+                        <span id="profile-initial">U</span>
+                    </div>
+                    <input type="file" id="avatar-file" accept="image/*" style="display:none;" onchange="uploadAvatar(this)">
+                    <button onclick="document.getElementById('avatar-file').click()" style="position: absolute; bottom: 0; right: 0; width: 28px; height: 28px; border-radius: 50%; background: #ddd; border: none; cursor: pointer; font-size: 12px; padding: 0;">📷</button>
+                </div>
+                <h3 id="profile-name" style="margin: 5px 0;">User</h3>
+                <p id="profile-bio-text" style="color: #65676b; font-size: 13px; margin: 0;"></p>
+                
+                <div id="edit-profile-section" style="margin-top: 15px;">
+                    <input type="text" id="edit-username" placeholder="Update username..." style="margin-bottom: 5px; font-size: 13px; padding: 8px;">
+                    <input type="text" id="edit-bio" placeholder="Update your bio..." style="margin-bottom: 5px; font-size: 13px; padding: 8px;">
+                    <button onclick="saveProfile()" style="padding: 8px; font-size: 14px;">Save Profile</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h4 style="margin-top: 0;">My Posts</h4>
+                <div id="my-posts"></div>
+            </div>
+        </div>
+
+        <div id="user-profile-tab" class="tab-content" style="padding-top: 10px;">
+            <div class="card" style="text-align: center;">
+                <button onclick="switchTab('feed')" style="width: auto; padding: 5px 10px; font-size: 12px; margin-bottom: 10px; background: #65676b;">← Back to Feed</button>
+                <div id="visitor-avatar-container" style="width: 80px; height: 80px; background: #42b72a; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 10px auto; font-weight: bold; overflow: hidden;">
+                    <span id="visitor-initial">U</span>
+                </div>
+                <h3 id="visitor-name">User Profile</h3>
+                <p id="visitor-bio" style="color: #65676b; font-size: 13px;"></p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+                <h4 style="text-align: left;">Their Posts</h4>
+                <div id="visitor-posts" style="text-align: left;"></div>
+            </div>
+        </div>
     </div>
-  </header>
 
-  <main class="stage-wrapper" id="stageWrapper">
-    <div class="media-box" id="mediaBox">
-      <!-- Website URL အတွက် iframe -->
-      <iframe
-        id="webFrame"
-        src=""
-        allow="autoplay; encrypted-media; picture-in-picture"
-        sandbox="allow-scripts allow-same-origin allow-forms"
-        referrerpolicy="no-referrer"
-      ></iframe>
-
-      <!-- တိုက်ရိုက် .m3u8 / .mp4 stream ဖြစ်လျှင် သုံးရန် -->
-      <video
-        id="directVideo"
-        style="display: none;"
-        controls
-        autoplay
-        playsinline
-        webkit-playsinline
-      ></video>
-
-      <!-- Screen နှိပ်လိုက်ရင် website/link ထဲ ဝင်မသွားအောင် ပိတ်ထားသည့် layer -->
-      <div class="click-shield" id="clickShield" title="Link navigation locked"></div>
+    <!-- Live Mode Choice Modal -->
+    <div id="live-mode-modal" class="live-modal-backdrop">
+        <div class="live-modal-card">
+            <h3 style="margin-top:0; color:#050505;">Choose Live Mode</h3>
+            <button class="live-btn" onclick="selectLiveMode('camera')">📷 Camera Live</button>
+            <button style="background:#1877f2; margin-top:10px;" onclick="selectLiveMode('screen')">🖥️ Screen Share Live</button>
+            <button style="background:#e4e6eb; color:#050505; margin-top:12px;" onclick="closeLiveModeModal()">Cancel</button>
+        </div>
     </div>
-  </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-  <script>
-    // URL query (?url=...) ပါရင် အဲ့ဒါကို ယူမယ်၊ မပါရင် ဒီမှာ website URL ထည့်ပါ
-    const params = new URLSearchParams(window.location.search);
-    const targetUrl = params.get('url') || 'https://example.com/your-live-page';
-    const customTitle = params.get('title');
+    <!-- Pre-Live Setup Modal (Cover Photo + Caption + External Live URL + Go to Live) -->
+    <div id="live-setup-modal" class="live-modal-backdrop">
+        <div class="live-modal-card">
+            <h3 id="live-setup-title" style="margin-top:0; color:#050505;">Setup Live</h3>
+            <label style="font-size:13px; color:#65676b; display:block;">Cover Photo:</label>
+            <input type="file" id="live-cover-input" accept="image/*" style="padding:6px;" onchange="previewLiveCover(this)">
+            <img id="live-cover-preview" src="" style="display:none; width:100%; max-height:160px; object-fit:cover; border-radius:6px; margin-top:6px;">
 
-    const topBar = document.getElementById('topBar');
-    const stageWrapper = document.getElementById('stageWrapper');
-    const mediaBox = document.getElementById('mediaBox');
-    const webFrame = document.getElementById('webFrame');
-    const directVideo = document.getElementById('directVideo');
-    const clickShield = document.getElementById('clickShield');
-    const orientationBtn = document.getElementById('orientationBtn');
-    const exitBtn = document.getElementById('exitBtn');
-    const titleEl = document.getElementById('streamTitle');
+            <div id="live-relay-url-group" style="display:none; margin-top:10px;">
+                <label style="font-size:13px; color:#65676b; display:block;">External Live URL (YouTube / Web Live Link):</label>
+                <input type="text" id="live-relay-url-input" placeholder="https://..." style="padding:8px;">
+            </div>
 
-    if (customTitle) {
-      titleEl.textContent = customTitle;
-    }
+            <label style="font-size:13px; color:#65676b; display:block; margin-top:10px;">Caption:</label>
+            <textarea id="live-caption-input" class="post-input" placeholder="Write a live caption..."></textarea>
 
-    // 1. Popup / window.open တွေနဲ့ ပြင်ပ link ဖွင့်တာကို တားဆီးခြင်း
-    window.open = function () {
-      return null;
-    };
+            <button class="live-btn" onclick="goToLiveStudio()" style="margin-top:10px;">Go to Live</button>
+            <button style="background:#e4e6eb; color:#050505; margin-top:8px;" onclick="closeLiveSetupModal()">Back</button>
+        </div>
+    </div>
 
-    // 2. Stream source ခွဲခြားပြီး ထည့်သွင်းခြင်း
-    const isDirectVideo = /\.(m3u8|mp4|webm)(\?.*)?$/i.test(targetUrl);
+    <!-- Broadcaster Live Studio (Start Live -> End Live) -->
+    <div id="live-studio-modal">
+        <div class="studio-top">
+            <div>
+                <span id="studio-live-badge" class="live-badge" style="display:none; margin-left:0; margin-right:6px;">LIVE</span>
+                <span id="studio-mode-label" style="font-size:14px; font-weight:bold;">Camera Live</span>
+            </div>
+            <button onclick="closeStudioWithoutStarting()" id="studio-close-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#444; margin:0;">Close</button>
+        </div>
+        <div class="studio-stage">
+            <video id="studio-video" autoplay playsinline muted></video>
+            <iframe id="studio-relay-preview" scrolling="no" sandbox="allow-scripts allow-same-origin allow-presentation" allow="autoplay; fullscreen; picture-in-picture"></iframe>
+            <div id="studio-caption-display" style="margin-top:10px; font-size:14px; color:#ddd; text-align:center;"></div>
+        </div>
+        <div class="studio-bottom">
+            <button id="live-action-btn" class="live-btn" onclick="toggleStartOrEndLive()">Start Live</button>
+        </div>
+    </div>
 
-    if (isDirectVideo) {
-      webFrame.style.display = 'none';
-      clickShield.style.display = 'none';
-      directVideo.style.display = 'block';
+    <!-- Live Viewer Modal (Portrait: Top Landscape Video + Bottom Comments Max 6 Lines; Landscape: Fullscreen No Comments) -->
+    <div id="live-viewer-modal">
+        <div class="viewer-top-bar">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span class="live-badge" style="margin-left:0;">LIVE</span>
+                <span id="viewer-host-name" style="font-weight:bold; font-size:14px;">Host</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button id="orientation-toggle-btn" onclick="toggleViewerOrientation()" style="width:auto; padding:5px 10px; font-size:12px; background:#1877f2; margin:0;">🔄 Landscape</button>
+                <button onclick="closeLiveViewer()" style="width:auto; padding:5px 10px; font-size:12px; background:#555; margin:0;">✕ Exit</button>
+            </div>
+        </div>
 
-      if (window.Hls && Hls.isSupported() && targetUrl.includes('.m3u8')) {
-        const hls = new Hls();
-        hls.loadSource(targetUrl);
-        hls.attachMedia(directVideo);
-      } else {
-        directVideo.src = targetUrl;
-      }
-    } else {
-      webFrame.src = targetUrl;
-    }
+        <div class="viewer-video-container">
+            <canvas id="viewer-video-canvas" width="640" height="360"></canvas>
+            <iframe id="viewer-relay-iframe" scrolling="no" sandbox="allow-scripts allow-same-origin allow-presentation" allow="autoplay; fullscreen; picture-in-picture"></iframe>
+            <img id="viewer-fallback-cover" src="" style="display:none; width:100%; height:100%; object-fit:contain;">
+        </div>
 
-    // 3. ဒေါင်လိုက် / အလျားလိုက် အခြေအနေအလိုက် Video နေရာတစ်ခုတည်း ညှိပေးခြင်း
-    let isRotated = false;
+        <div id="viewer-comments-area" class="viewer-comments-area">
+            <div id="viewer-comments-list" class="viewer-comments-list"></div>
+            <div class="viewer-comment-input-row">
+                <input type="text" id="viewer-comment-input" placeholder="Comment on live..." onkeypress="handleLiveCommentKey(event)">
+                <button onclick="sendLiveComment()">Send</button>
+            </div>
+        </div>
+    </div>
 
-    function syncLayout() {
-      const isLandscapeDevice = window.innerWidth > window.innerHeight;
+    <div id="lightbox-modal" onclick="closeLightbox()">
+        <span id="lightbox-close">&times;</span>
+        <img id="lightbox-img" src="">
+    </div>
 
-      if (isLandscapeDevice) {
-        // ဖုန်းကို အလျားလိုက် (Landscape) လှည့်ထားချိန်: top bar ကို ဖျောက်ပြီး screen တစ်ခုလုံး video/stream နေရာပဲ ပြမယ်
-        isRotated = false;
-        mediaBox.classList.remove('rotated-landscape');
-        topBar.style.display = 'none';
-        stageWrapper.style.top = '0';
-        stageWrapper.style.height = '100dvh';
-        mediaBox.style.width = '100vw';
-        mediaBox.style.height = '100dvh';
-        orientationBtn.textContent = 'Landscape';
-      } else {
-        // ဖုန်းကို ဒေါင်လိုက် (Portrait) ကိုင်ထားချိန်
-        topBar.style.display = 'flex';
-        stageWrapper.style.top = '46px';
-        stageWrapper.style.height = 'calc(100dvh - 46px)';
+    <script>
+        const SUPABASE_URL = 'https://dwwubrcbwmxckeklfkan.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3d3VicmNid214Y2tla2xma2FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ3NTk0NjUsImV4cCI6MjExMDMzNTQ2NX0.QYu1M4zlTkOF8yTpOl944OAF5vGiXiL4mX3hbb0DhbY';
+        
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let isLoginMode = false;
+        let currentUser = null;
+        let activeChatUser = null;
 
-        if (isRotated) {
-          mediaBox.style.width = '';
-          mediaBox.style.height = '';
-          mediaBox.classList.add('rotated-landscape');
-          orientationBtn.textContent = 'Portrait';
-        } else {
-          mediaBox.classList.remove('rotated-landscape');
-          mediaBox.style.width = '100%';
-          mediaBox.style.height = '100%';
-          orientationBtn.textContent = 'Portrait';
+        // Live state (No stream recording saved to DB)
+        let selectedLiveMode = 'camera';
+        let selectedLiveCoverDataUrl = '';
+        let selectedLiveCaption = '';
+        let selectedLiveRelayUrl = '';
+        let studioMediaStream = null;
+        let isLiveActive = false;
+        let activeLiveId = null;
+        let activeLivePostId = null;
+        let broadcasterChannel = null;
+        let broadcastFrameInterval = null;
+        let captureCanvas = document.createElement('canvas');
+        captureCanvas.width = 480;
+        captureCanvas.height = 270;
+
+        let viewerChannel = null;
+        let viewingLiveId = null;
+        let currentViewerRelayUrl = '';
+        let liveCommentsQueue = []; // Max 6 lines, newest at bottom
+        let isLandscapeView = false;
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                onLoginSuccess(session.user);
+            }
+        });
+
+        function toggleMode() {
+            isLoginMode = !isLoginMode;
+            const usernameInput = document.getElementById('username');
+            const formTitle = document.getElementById('form-title');
+            const actionBtn = document.getElementById('action-btn');
+            const toggleBtn = document.getElementById('toggle-mode-btn');
+            document.getElementById('message').textContent = '';
+
+            if (isLoginMode) {
+                usernameInput.style.display = 'none';
+                formTitle.textContent = 'SocialChat - Login';
+                actionBtn.textContent = 'Login';
+                toggleBtn.textContent = "Don't have an account? Sign Up";
+            } else {
+                usernameInput.style.display = 'block';
+                formTitle.textContent = 'SocialChat - Sign Up';
+                actionBtn.textContent = 'Create new account';
+                toggleBtn.textContent = 'Already have an account? Login';
+            }
         }
-      }
-    }
 
-    orientationBtn.addEventListener('click', () => {
-      if (window.innerWidth <= window.innerHeight) {
-        isRotated = !isRotated;
-        syncLayout();
-      }
-    });
+        async function handleAuth() {
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const msgDiv = document.getElementById('message');
+            msgDiv.textContent = '';
 
-    exitBtn.addEventListener('click', () => {
-      webFrame.src = 'about:blank';
-      directVideo.pause();
-      directVideo.removeAttribute('src');
-      if (window.history.length > 1) {
-        window.history.back();
-      }
-    });
+            if (!email || !password || (!isLoginMode && !username)) {
+                msgDiv.textContent = 'ကျေးဇူးပြု၍ အချက်အလက်အားလုံး ဖြည့်ပါ။';
+                return;
+            }
 
-    window.addEventListener('resize', syncLayout);
-    window.addEventListener('orientationchange', () => setTimeout(syncLayout, 150));
-    syncLayout();
-  </script>
+            try {
+                if (isLoginMode) {
+                    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                    if (error) throw error;
+                    onLoginSuccess(data.user);
+                } else {
+                    const { data: existingUser } = await supabaseClient
+                        .from('profiles').select('username').eq('username', username).maybeSingle();
+
+                    if (existingUser) {
+                        msgDiv.textContent = 'ယခု Username မှာ အသုံးပြုပြီးသား ဖြစ်နေပါသည်။';
+                        return;
+                    }
+
+                    const { data, error } = await supabaseClient.auth.signUp({
+                        email, password, options: { data: { username } }
+                    });
+
+                    if (error) {
+                        if (error.message.includes('already registered')) {
+                            msgDiv.textContent = 'ယခု Email ဖြင့် အကောင့်ရှိပြီးသား ဖြစ်ပါသည်။';
+                        } else {
+                            throw error;
+                        }
+                        return;
+                    }
+                    onLoginSuccess(data.user);
+                }
+            } catch (err) {
+                msgDiv.textContent = err.message;
+            }
+        }
+
+        async function onLoginSuccess(user) {
+            currentUser = user;
+            document.getElementById('auth-container').style.display = 'none';
+            document.getElementById('app-container').style.display = 'flex';
+            
+            await ensureProfileExists(user);
+
+            loadFeed();
+            loadChatList();
+            loadProfile();
+
+            supabaseClient
+                .channel('public:messages')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                    const newMsg = payload.new;
+                    if (activeChatUser && ((newMsg.sender_id === currentUser.id && newMsg.receiver_id === activeChatUser.id) || (newMsg.sender_id === activeChatUser.id && newMsg.receiver_id === currentUser.id))) {
+                        appendMessageBubble(newMsg);
+                    }
+                })
+                .subscribe();
+        }
+
+        async function ensureProfileExists(user) {
+            const { data } = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
+            if (!data) {
+                const defaultName = user.user_metadata?.username || user.email.split('@')[0];
+                await supabaseClient.from('profiles').insert([{ id: user.id, username: defaultName }]);
+            }
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+            const tabs = { 'feed': 0, 'post': 1, 'chat': 2, 'notification': 3, 'profile': 4 };
+            if (tabName === 'user-profile') {
+                document.getElementById('user-profile-tab').classList.add('active');
+            } else {
+                document.getElementById(`${tabName}-tab`).classList.add('active');
+                if (tabs[tabName] !== undefined) {
+                    document.querySelectorAll('.tab-btn')[tabs[tabName]].classList.add('active');
+                }
+                if (tabName === 'chat') {
+                    backToChatList();
+                }
+            }
+        }
+
+        /* ==================== LIVE STREAM LOGIC ==================== */
+        function normalizeEmbedUrl(rawUrl) {
+            if (!rawUrl) return '';
+            let url = rawUrl.trim();
+            if (!/^https?:\/\//i.test(url)) {
+                url = 'https://' + url;
+            }
+            const ytWatchMatch = url.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/live\/|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+            if (ytWatchMatch && ytWatchMatch[1]) {
+                return `https://www.youtube.com/embed/${ytWatchMatch[1]}?autoplay=1`;
+            }
+            return url;
+        }
+
+        function openLiveModeModal() {
+            document.getElementById('live-mode-modal').style.display = 'flex';
+        }
+
+        function closeLiveModeModal() {
+            document.getElementById('live-mode-modal').style.display = 'none';
+        }
+
+        function selectLiveMode(mode) {
+            selectedLiveMode = mode;
+            selectedLiveCoverDataUrl = '';
+            selectedLiveRelayUrl = '';
+            document.getElementById('live-cover-input').value = '';
+            document.getElementById('live-cover-preview').style.display = 'none';
+            document.getElementById('live-cover-preview').src = '';
+            document.getElementById('live-relay-url-input').value = '';
+            document.getElementById('live-relay-url-group').style.display = mode === 'screen' ? 'block' : 'none';
+            document.getElementById('live-caption-input').value = '';
+            document.getElementById('live-setup-title').textContent = mode === 'camera' ? 'Camera Live Setup' : 'Screen Share Live Setup';
+
+            closeLiveModeModal();
+            document.getElementById('live-setup-modal').style.display = 'flex';
+        }
+
+        function closeLiveSetupModal() {
+            document.getElementById('live-setup-modal').style.display = 'none';
+        }
+
+        function previewLiveCover(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    selectedLiveCoverDataUrl = e.target.result;
+                    const img = document.getElementById('live-cover-preview');
+                    img.src = selectedLiveCoverDataUrl;
+                    img.style.display = 'block';
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function compressCoverImage(dataUrl, callback) {
+            if (!dataUrl || !dataUrl.startsWith('data:image/')) {
+                callback(dataUrl || '');
+                return;
+            }
+            const img = new Image();
+            img.onload = () => {
+                const c = document.createElement('canvas');
+                const maxW = 480;
+                const scale = img.width > maxW ? maxW / img.width : 1;
+                c.width = Math.round(img.width * scale);
+                c.height = Math.round(img.height * scale);
+                const ctx = c.getContext('2d');
+                ctx.drawImage(img, 0, 0, c.width, c.height);
+                callback(c.toDataURL('image/jpeg', 0.5));
+            };
+            img.onerror = () => callback('');
+            img.src = dataUrl;
+        }
+
+        async function goToLiveStudio() {
+            selectedLiveCaption = document.getElementById('live-caption-input').value.trim();
+            const rawRelay = document.getElementById('live-relay-url-input') ? document.getElementById('live-relay-url-input').value.trim() : '';
+            selectedLiveRelayUrl = (selectedLiveMode === 'screen' && rawRelay) ? normalizeEmbedUrl(rawRelay) : '';
+
+            if (!selectedLiveCoverDataUrl) {
+                selectedLiveCoverDataUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#1c1e21"/><text x="50%" y="50%" fill="#ffffff" font-size="28" font-family="Arial" dominant-baseline="middle" text-anchor="middle">LIVE STREAM</text></svg>`);
+            }
+
+            closeLiveSetupModal();
+
+            const videoEl = document.getElementById('studio-video');
+            const relayPreviewEl = document.getElementById('studio-relay-preview');
+            document.getElementById('studio-mode-label').textContent = selectedLiveMode === 'camera' ? 'Camera Live' : 'Screen Share Live';
+            document.getElementById('studio-caption-display').textContent = selectedLiveCaption;
+            document.getElementById('studio-live-badge').style.display = 'none';
+
+            const actionBtn = document.getElementById('live-action-btn');
+            actionBtn.textContent = 'Start Live';
+            actionBtn.className = 'live-btn';
+            isLiveActive = false;
+
+            document.getElementById('live-studio-modal').style.display = 'flex';
+
+            if (selectedLiveMode === 'screen' && selectedLiveRelayUrl) {
+                videoEl.style.display = 'none';
+                relayPreviewEl.style.display = 'block';
+                relayPreviewEl.src = selectedLiveRelayUrl;
+                return;
+            }
+
+            relayPreviewEl.style.display = 'none';
+            relayPreviewEl.src = '';
+            videoEl.style.display = 'block';
+
+            try {
+                if (selectedLiveMode === 'camera') {
+                    studioMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                } else {
+                    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                        alert('Screen share is not supported in this browser/WebView. Enter an External Live URL to re-stream.');
+                        closeStudioWithoutStarting();
+                        return;
+                    }
+                    studioMediaStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                }
+                videoEl.srcObject = studioMediaStream;
+            } catch (err) {
+                alert('Media access error: ' + err.message);
+                closeStudioWithoutStarting();
+            }
+        }
+
+        function closeStudioWithoutStarting() {
+            stopMediaStreamTracks();
+            const relayPreviewEl = document.getElementById('studio-relay-preview');
+            relayPreviewEl.src = '';
+            relayPreviewEl.style.display = 'none';
+            document.getElementById('studio-video').style.display = 'block';
+            document.getElementById('live-studio-modal').style.display = 'none';
+        }
+
+        function stopMediaStreamTracks() {
+            if (broadcastFrameInterval) {
+                clearInterval(broadcastFrameInterval);
+                broadcastFrameInterval = null;
+            }
+            if (studioMediaStream) {
+                studioMediaStream.getTracks().forEach(track => track.stop());
+                studioMediaStream = null;
+            }
+            const videoEl = document.getElementById('studio-video');
+            videoEl.srcObject = null;
+        }
+
+        async function toggleStartOrEndLive() {
+            if (!isLiveActive) {
+                await startLiveBroadcast();
+            } else {
+                await endLiveBroadcast();
+            }
+        }
+
+        async function startLiveBroadcast() {
+            if (!currentUser) return;
+            activeLiveId = 'live_' + currentUser.id + '_' + Date.now();
+            const privacy = document.getElementById('post-privacy') ? document.getElementById('post-privacy').value : 'public';
+
+            compressCoverImage(selectedLiveCoverDataUrl, async (compactCover) => {
+                const encodedRelay = selectedLiveRelayUrl ? encodeURIComponent(selectedLiveRelayUrl) : '';
+                const liveMarkerContent = `[LIVE_STREAM:${activeLiveId}:${selectedLiveMode}:${encodedRelay}] ${selectedLiveCaption}`;
+                const { data: insertedPost, error } = await supabaseClient
+                    .from('posts')
+                    .insert([{
+                        content: liveMarkerContent,
+                        media_url: compactCover,
+                        privacy: privacy,
+                        user_id: currentUser.id
+                    }])
+                    .select()
+                    .single();
+
+                if (error) {
+                    alert('Could not publish live post: ' + error.message);
+                    return;
+                }
+
+                activeLivePostId = insertedPost ? insertedPost.id : null;
+                isLiveActive = true;
+
+                document.getElementById('studio-live-badge').style.display = 'inline-block';
+                document.getElementById('studio-close-btn').style.display = 'none';
+                const btn = document.getElementById('live-action-btn');
+                btn.textContent = 'End Live';
+                btn.style.background = '#3a3b3c';
+
+                broadcasterChannel = supabaseClient.channel(`live-room:${activeLiveId}`);
+                broadcasterChannel
+                    .on('broadcast', { event: 'live_comment' }, payload => {
+                        if (isLiveActive && payload.payload) {
+                            pushViewerComment(payload.payload.username, payload.payload.text);
+                        }
+                    })
+                    .subscribe();
+
+                if (!selectedLiveRelayUrl) {
+                    broadcastFrameInterval = setInterval(() => {
+                        if (!isLiveActive || !broadcasterChannel) return;
+                        const videoEl = document.getElementById('studio-video');
+                        if (videoEl && videoEl.readyState >= 2) {
+                            const ctx = captureCanvas.getContext('2d');
+                            ctx.drawImage(videoEl, 0, 0, captureCanvas.width, captureCanvas.height);
+                            const frameData = captureCanvas.toDataURL('image/jpeg', 0.45);
+                            broadcasterChannel.send({
+                                type: 'broadcast',
+                                event: 'live_frame',
+                                payload: { frame: frameData }
+                            });
+                        }
+                    }, 250);
+                }
+
+                loadFeed();
+                loadProfile();
+            });
+        }
+
+        async function endLiveBroadcast(targetPostId = null, targetLiveId = null) {
+            isLiveActive = false;
+            stopMediaStreamTracks();
+
+            const relayPreviewEl = document.getElementById('studio-relay-preview');
+            relayPreviewEl.src = '';
+            relayPreviewEl.style.display = 'none';
+            document.getElementById('studio-video').style.display = 'block';
+            selectedLiveRelayUrl = '';
+
+            const idToEnd = targetLiveId || activeLiveId;
+            const postIdToDelete = targetPostId || activeLivePostId;
+
+            if (broadcasterChannel) {
+                await broadcasterChannel.send({
+                    type: 'broadcast',
+                    event: 'live_ended',
+                    payload: {}
+                });
+                supabaseClient.removeChannel(broadcasterChannel);
+                broadcasterChannel = null;
+            } else if (idToEnd) {
+                const tempChan = supabaseClient.channel(`live-room:${idToEnd}`);
+                await tempChan.send({
+                    type: 'broadcast',
+                    event: 'live_ended',
+                    payload: {}
+                });
+                supabaseClient.removeChannel(tempChan);
+            }
+
+            if (postIdToDelete) {
+                const { error } = await supabaseClient.from('posts').delete().eq('id', postIdToDelete).eq('user_id', currentUser.id);
+                if (error) alert('Error ending live post: ' + error.message);
+            }
+
+            if (idToEnd) {
+                const { error } = await supabaseClient.from('posts').delete().ilike('content', `[LIVE_STREAM:${idToEnd}%`).eq('user_id', currentUser.id);
+                if (error) alert('Error cleaning live post: ' + error.message);
+            }
+
+            if (!targetPostId && !targetLiveId && currentUser) {
+                await supabaseClient.from('posts').delete().ilike('content', `[LIVE_STREAM:%`).eq('user_id', currentUser.id);
+            }
+
+            activeLivePostId = null;
+            activeLiveId = null;
+
+            document.getElementById('live-studio-modal').style.display = 'none';
+            document.getElementById('studio-close-btn').style.display = 'inline-block';
+            const btn = document.getElementById('live-action-btn');
+            btn.textContent = 'Start Live';
+            btn.style.background = '';
+            btn.className = 'live-btn';
+
+            await loadFeed();
+            await loadProfile();
+        }
+
+        function parseLivePost(post) {
+            if (!post || !post.content || !post.content.startsWith('[LIVE_STREAM:')) return null;
+            const endIdx = post.content.indexOf(']');
+            if (endIdx === -1) return null;
+            const metaPart = post.content.slice('[LIVE_STREAM:'.length, endIdx);
+            const parts = metaPart.split(':');
+            const liveId = parts[0] || '';
+            const mode = parts[1] || 'camera';
+            const relayUrl = parts[2] ? decodeURIComponent(parts[2]) : '';
+            const caption = post.content.slice(endIdx + 1).trim();
+            return { liveId, mode, relayUrl, caption };
+        }
+
+        function openLiveViewer(liveId, hostName, coverUrl, caption, relayUrl = '') {
+            viewingLiveId = liveId;
+            currentViewerRelayUrl = relayUrl || '';
+            liveCommentsQueue = [];
+            isLandscapeView = false;
+
+            const modal = document.getElementById('live-viewer-modal');
+            modal.classList.remove('landscape-mode');
+            document.getElementById('orientation-toggle-btn').textContent = '🔄 Landscape';
+            document.getElementById('viewer-host-name').textContent = `${hostName}${caption ? ' — ' + caption : ''}`;
+
+            const canvas = document.getElementById('viewer-video-canvas');
+            const iframeEl = document.getElementById('viewer-relay-iframe');
+            const fallbackImg = document.getElementById('viewer-fallback-cover');
+
+            if (currentViewerRelayUrl) {
+                canvas.style.display = 'none';
+                fallbackImg.style.display = 'none';
+                iframeEl.style.display = 'block';
+                iframeEl.src = currentViewerRelayUrl;
+            } else {
+                iframeEl.style.display = 'none';
+                iframeEl.src = '';
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                if (coverUrl) {
+                    fallbackImg.src = coverUrl;
+                    fallbackImg.style.display = 'block';
+                    canvas.style.display = 'none';
+                } else {
+                    fallbackImg.style.display = 'none';
+                    canvas.style.display = 'block';
+                }
+            }
+
+            renderLiveComments();
+            modal.style.display = 'flex';
+
+            if (viewerChannel) {
+                supabaseClient.removeChannel(viewerChannel);
+            }
+
+            viewerChannel = supabaseClient.channel(`live-room:${liveId}`);
+            viewerChannel
+                .on('broadcast', { event: 'live_frame' }, payload => {
+                    if (!currentViewerRelayUrl && payload.payload && payload.payload.frame) {
+                        const img = new Image();
+                        img.onload = () => {
+                            fallbackImg.style.display = 'none';
+                            canvas.style.display = 'block';
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        };
+                        img.src = payload.payload.frame;
+                    }
+                })
+                .on('broadcast', { event: 'live_comment' }, payload => {
+                    if (payload.payload) {
+                        pushViewerComment(payload.payload.username, payload.payload.text);
+                    }
+                })
+                .on('broadcast', { event: 'live_ended' }, () => {
+                    alert('Live has ended.');
+                    closeLiveViewer();
+                    loadFeed();
+                    loadProfile();
+                })
+                .subscribe();
+        }
+
+        function closeLiveViewer() {
+            viewingLiveId = null;
+            currentViewerRelayUrl = '';
+            isLandscapeView = false;
+            const modal = document.getElementById('live-viewer-modal');
+            modal.classList.remove('landscape-mode');
+            modal.style.display = 'none';
+
+            const iframeEl = document.getElementById('viewer-relay-iframe');
+            iframeEl.src = '';
+            iframeEl.style.display = 'none';
+
+            if (screen.orientation && screen.orientation.unlock) {
+                try { screen.orientation.unlock(); } catch (e) {}
+            }
+
+            if (viewerChannel) {
+                supabaseClient.removeChannel(viewerChannel);
+                viewerChannel = null;
+            }
+        }
+
+        async function toggleViewerOrientation() {
+            const modal = document.getElementById('live-viewer-modal');
+            const btn = document.getElementById('orientation-toggle-btn');
+            isLandscapeView = !isLandscapeView;
+
+            if (isLandscapeView) {
+                modal.classList.add('landscape-mode');
+                btn.textContent = '🔄 Portrait';
+                if (screen.orientation && screen.orientation.lock) {
+                    try { await screen.orientation.lock('landscape'); } catch (e) {}
+                }
+            } else {
+                modal.classList.remove('landscape-mode');
+                btn.textContent = '🔄 Landscape';
+                if (screen.orientation && screen.orientation.lock) {
+                    try { await screen.orientation.lock('portrait'); } catch (e) {}
+                }
+            }
+        }
+
+        function pushViewerComment(username, text) {
+            liveCommentsQueue.push({ username, text });
+            while (liveCommentsQueue.length > 6) {
+                liveCommentsQueue.shift();
+            }
+            renderLiveComments();
+        }
+
+        function renderLiveComments() {
+            const listEl = document.getElementById('viewer-comments-list');
+            listEl.innerHTML = '';
+            liveCommentsQueue.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'viewer-comment-line';
+                div.innerHTML = `<b>${item.username}:</b> ${item.text}`;
+                listEl.appendChild(div);
+            });
+        }
+
+        function handleLiveCommentKey(event) {
+            if (event.key === 'Enter') {
+                sendLiveComment();
+            }
+        }
+
+        async function sendLiveComment() {
+            if (!viewingLiveId || !currentUser) return;
+            const input = document.getElementById('viewer-comment-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const uname = document.getElementById('profile-name').textContent || 'Viewer';
+            pushViewerComment(uname, text);
+
+            const tempChan = viewerChannel || supabaseClient.channel(`live-room:${viewingLiveId}`);
+            await tempChan.send({
+                type: 'broadcast',
+                event: 'live_comment',
+                payload: { username: uname, text: text }
+            });
+
+            input.value = '';
+        }
+
+        function buildPostCardHtml(post, showAuthorHeader) {
+            const uname = post.profiles ? post.profiles.username : 'User';
+            const uBio = post.profiles ? (post.profiles.bio || '') : '';
+            const uAvatar = post.profiles ? (post.profiles.avatar_url || '') : '';
+            const time = new Date(post.created_at).toLocaleString();
+            const liveInfo = parseLivePost(post);
+
+            if (liveInfo) {
+                const safeHost = uname.replace(/'/g, "\\'");
+                const safeCover = (post.media_url || '').replace(/'/g, "\\'");
+                const safeCap = (liveInfo.caption || '').replace(/'/g, "\\'");
+                const safeRelay = (liveInfo.relayUrl || '').replace(/'/g, "\\'");
+                const endBtnHtml = post.user_id === currentUser.id
+                    ? `<button onclick="endLiveBroadcast('${post.id}', '${liveInfo.liveId}')" style="width:auto; padding:4px 10px; font-size:11px; background:#e41e3f; margin:0;">End Live</button>`
+                    : '';
+
+                return `
+                    <div class="card post-item">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                ${showAuthorHeader ? `<span class="post-author" onclick="viewUserProfile('${post.user_id}', '${safeHost}', '${uBio}', '${uAvatar}')">${uname}</span><span class="live-badge">LIVE</span>` : `<span style="font-weight:bold; font-size:13px;">Live Stream</span><span class="live-badge">LIVE</span>`}
+                                <div class="post-time">${time} (${post.privacy})</div>
+                            </div>
+                            <div>${endBtnHtml}</div>
+                        </div>
+                        <div class="post-body">${liveInfo.caption || ''}</div>
+                        <div class="live-cover-wrapper" onclick="openLiveViewer('${liveInfo.liveId}', '${safeHost}', '${safeCover}', '${safeCap}', '${safeRelay}')">
+                            <img src="${post.media_url || ''}" alt="Live Cover">
+                            <div class="live-cover-overlay-badge">LIVE</div>
+                            <div class="live-cover-play-hint">▶ Tap to watch</div>
+                        </div>
+                    </div>`;
+            }
+
+            let mediaHtml = post.media_url ? `<img src="${post.media_url}" class="post-media" onclick="openLightbox('${post.media_url}')">` : '';
+            let actionButtons = '';
+            if (post.user_id === currentUser.id) {
+                actionButtons = `<button onclick="editPost('${post.id}', '${post.content ? post.content.replace(/'/g, "\\'") : ''}')" style="width:auto; padding:3px 8px; font-size:11px; background:#65676b;">Edit</button> <button onclick="deletePost('${post.id}')" style="width:auto; padding:3px 8px; font-size:11px; background:#fa383e;">Delete</button>`;
+            }
+
+            let commentsHtml = '';
+            let commentsArr = post.comments || [];
+            commentsArr.forEach(c => {
+                commentsHtml += `<div style="margin-top:4px; font-size:12px;"><b>${c.username}:</b> ${c.text}</div>`;
+            });
+
+            const headerLeft = showAuthorHeader
+                ? `<div><span class="post-author" onclick="viewUserProfile('${post.user_id}', '${uname}', '${uBio}', '${uAvatar}')">${uname}</span><div class="post-time">${time} (${post.privacy})</div></div>`
+                : `<div style="font-size:11px; color:#65676b;">Privacy: ${post.privacy}</div>`;
+
+            return `
+                <div class="card post-item">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        ${headerLeft}
+                        <div>${actionButtons}</div>
+                    </div>
+                    <div class="post-body">${post.content || ''}</div>
+                    ${mediaHtml}
+                    <div class="action-bar">
+                        <span onclick="likePost('${post.id}', ${post.likes_count || 0})">❤️ Like (${post.likes_count || 0})</span>
+                        <span onclick="toggleCommentBox('${post.id}')">💬 Comment</span>
+                        <span onclick="sharePost('${post.content ? post.content.replace(/'/g, "\\'") : ''}', '${post.media_url || ''}')">🔗 Share (${post.shares_count || 0})</span>
+                    </div>
+                    <div id="comment-section-${post.id}" class="comment-section" style="display:none;">
+                        <div id="comments-list-${post.id}">${commentsHtml}</div>
+                        <div style="display:flex; margin-top:6px; gap:5px;">
+                            <input type="text" id="comment-input-${post.id}" placeholder="Write a comment..." style="margin:0; padding:6px; font-size:12px;">
+                            <button onclick="addComment('${post.id}')" style="width:60px; margin:0; padding:6px; font-size:12px;">Post</button>
+                        </div>
+                    </div>
+                </div>`;
+        }
+        /* ==================== END LIVE STREAM LOGIC ==================== */
+
+        async function searchUsers(query) {
+            const resultsBox = document.getElementById('search-results');
+            if (!query.trim()) {
+                resultsBox.style.display = 'none';
+                return;
+            }
+
+            const { data } = await supabaseClient
+                .from('profiles').select('*').ilike('username', `%${query}%`).limit(5);
+
+            resultsBox.innerHTML = '';
+            if (data && data.length > 0) {
+                resultsBox.style.display = 'block';
+                data.forEach(user => {
+                    if (user.id !== currentUser.id) {
+                        resultsBox.innerHTML += `<div class="search-item" onclick="viewUserProfile('${user.id}', '${user.username}', '${user.bio || ''}', '${user.avatar_url || ''}')">${user.username}</div>`;
+                    }
+                });
+            } else {
+                resultsBox.style.display = 'none';
+            }
+        }
+
+        async function viewUserProfile(userId, username, bio, avatarUrl) {
+            document.getElementById('search-results').style.display = 'none';
+            document.getElementById('search-user-input').value = '';
+            switchTab('user-profile');
+
+            document.getElementById('visitor-name').textContent = username;
+            document.getElementById('visitor-bio').textContent = bio || '';
+            
+            let visitorAvatarHtml = avatarUrl ? `<img src="${avatarUrl}" style="width:100%; height:100%; object-fit:cover;">` : `<span id="visitor-initial">${username.charAt(0).toUpperCase()}</span>`;
+            document.getElementById('visitor-avatar-container').innerHTML = visitorAvatarHtml;
+
+            let existingMsgBtn = document.getElementById('visitor-msg-btn');
+            if (!existingMsgBtn) {
+                const msgBtn = document.createElement('button');
+                msgBtn.id = 'visitor-msg-btn';
+                msgBtn.textContent = '💬 Send Message';
+                msgBtn.style.cssText = 'margin-top: 10px; background: #1877f2; padding: 8px 15px; font-size: 13px; width: auto; display: inline-block;';
+                msgBtn.onclick = () => openDirectChat(userId, username, avatarUrl);
+                document.getElementById('visitor-bio').after(msgBtn);
+            } else {
+                existingMsgBtn.onclick = () => openDirectChat(userId, username, avatarUrl);
+            }
+
+            const { data: posts } = await supabaseClient
+                .from('posts').select('*, profiles(username, avatar_url, bio)').eq('user_id', userId).order('created_at', { ascending: false });
+
+            const visitorPostsDiv = document.getElementById('visitor-posts');
+            visitorPostsDiv.innerHTML = '';
+            if (posts && posts.length > 0) {
+                posts.forEach(post => {
+                    visitorPostsDiv.innerHTML += buildPostCardHtml(post, false);
+                });
+            } else {
+                visitorPostsDiv.innerHTML = '<p style="color:#65676b; font-size:13px;">No public posts.</p>';
+            }
+        }
+
+        async function loadChatList() {
+            const { data: users } = await supabaseClient.from('profiles').select('*').neq('id', currentUser.id);
+            const listDiv = document.getElementById('conversations-list');
+            listDiv.innerHTML = '';
+
+            if (users && users.length > 0) {
+                users.forEach(user => {
+                    let avatarHtml = user.avatar_url ? `<img src="${user.avatar_url}" style="width:100%; height:100%; object-fit:cover;">` : `<span>${user.username.charAt(0).toUpperCase()}</span>`;
+                    listDiv.innerHTML += `
+                        <div class="chat-user-list-item" onclick="openDirectChat('${user.id}', '${user.username}', '${user.avatar_url || ''}')">
+                            <div style="width: 45px; height: 45px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 18px;">
+                                ${avatarHtml}
+                            </div>
+                            <div>
+                                <div style="font-weight: bold; font-size: 15px; color: #050505;">${user.username}</div>
+                                <div style="font-size: 12px; color: #65676b;">Tap to chat</div>
+                            </div>
+                        </div>`;
+                });
+            } else {
+                listDiv.innerHTML = '<p style="color: #65676b; font-size: 13px;">No other users found.</p>';
+            }
+        }
+
+        function openDirectChat(userId, username, avatarUrl) {
+            activeChatUser = { id: userId, username, avatar_url: avatarUrl };
+            switchTab('chat');
+
+            document.getElementById('chat-list-view').style.display = 'none';
+            document.getElementById('chat-box-view').style.display = 'flex';
+
+            document.getElementById('chat-header-name').textContent = username;
+            let avatarContainer = document.getElementById('chat-header-avatar-container');
+            if (avatarUrl) {
+                avatarContainer.innerHTML = `<img src="${avatarUrl}" style="width:100%; height:100%; object-fit:cover;">`;
+            } else {
+                avatarContainer.innerHTML = username.charAt(0).toUpperCase();
+            }
+
+            loadMessages();
+        }
+
+        function backToChatList() {
+            activeChatUser = null;
+            document.getElementById('chat-box-view').style.display = 'none';
+            document.getElementById('chat-list-view').style.display = 'block';
+            loadChatList();
+        }
+
+        async function loadMessages() {
+            if (!activeChatUser) return;
+            try {
+                const { data } = await supabaseClient
+                    .from('messages')
+                    .select('*')
+                    .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${activeChatUser.id}),and(sender_id.eq.${activeChatUser.id},receiver_id.eq.${currentUser.id})`)
+                    .order('created_at', { ascending: true });
+
+                const chatBox = document.getElementById('chat-box');
+                chatBox.innerHTML = '';
+                
+                if (data && data.length > 0) {
+                    data.forEach(msg => {
+                        appendMessageBubble(msg);
+                    });
+                } else {
+                    chatBox.innerHTML = '<p style="color:#65676b; text-align:center; font-size:13px; margin-top:20px;">No messages yet. Say hello!</p>';
+                }
+                chatBox.scrollTop = chatBox.scrollHeight;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function appendMessageBubble(msg) {
+            const chatBox = document.getElementById('chat-box');
+            if (chatBox.innerHTML.includes('No messages yet')) {
+                chatBox.innerHTML = '';
+            }
+            const isMe = msg.sender_id === currentUser.id;
+            const bubbleClass = isMe ? 'msg-right' : 'msg-left';
+            
+            const existingBubbles = chatBox.querySelectorAll('.msg-bubble');
+            for (let b of existingBubbles) {
+                if (b.textContent === msg.content && b.getAttribute('data-id') === msg.id) return;
+            }
+
+            const div = document.createElement('div');
+            div.className = `msg-bubble ${bubbleClass}`;
+            div.textContent = msg.content;
+            if (msg.id) div.setAttribute('data-id', msg.id);
+            
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const content = input.value.trim();
+            if (!content || !currentUser || !activeChatUser) return;
+
+            const { data, error } = await supabaseClient.from('messages').insert([{
+                content: content,
+                sender_id: currentUser.id,
+                receiver_id: activeChatUser.id
+            }]).select();
+
+            if (!error && data && data.length > 0) {
+                input.value = '';
+                appendMessageBubble(data[0]);
+            } else {
+                alert('Error sending message: ' + (error ? error.message : 'Unknown error'));
+            }
+        }
+
+        function handleChatKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function uploadAvatar(input) {
+            if (input.files.length > 0) {
+                const file = input.files[0];
+                const fileName = `avatar_${currentUser.id}_${Date.now()}`;
+                const { error } = await supabaseClient.storage.from('media').upload(fileName, file);
+                if (!error) {
+                    const { data: publicUrlData } = supabaseClient.storage.from('media').getPublicUrl(fileName);
+                    const avatarUrl = publicUrlData.publicUrl;
+                    await supabaseClient.from('profiles').update({ avatar_url: avatarUrl }).eq('id', currentUser.id);
+                    alert('Profile photo updated successfully!');
+                    loadProfile();
+                } else {
+                    alert('Error uploading avatar: ' + error.message);
+                }
+            }
+        }
+
+        async function saveProfile() {
+            const newUsername = document.getElementById('edit-username').value.trim();
+            const bio = document.getElementById('edit-bio').value.trim();
+            
+            let updateData = { bio };
+            if (newUsername) {
+                const { data: existing } = await supabaseClient.from('profiles').select('username').eq('username', newUsername).maybeSingle();
+                if (existing && newUsername !== document.getElementById('profile-name').textContent) {
+                    alert('Username already taken!');
+                    return;
+                }
+                updateData.username = newUsername;
+            }
+
+            const { error } = await supabaseClient.from('profiles').update(updateData).eq('id', currentUser.id);
+            if (!error) {
+                alert('Profile updated successfully!');
+                loadProfile();
+            } else {
+                alert('Error updating profile: ' + error.message);
+            }
+        }
+
+        async function createPost() {
+            const content = document.getElementById('post-content').value.trim();
+            const privacy = document.getElementById('post-privacy').value;
+            const fileInput = document.getElementById('media-file');
+            if (!content && fileInput.files.length === 0) return;
+
+            let mediaUrl = null;
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const fileName = `${Date.now()}_${file.name}`;
+                const { error: uploadError } = await supabaseClient.storage.from('media').upload(fileName, file);
+
+                if (uploadError) {
+                    alert('Error uploading media: ' + uploadError.message);
+                    return;
+                }
+
+                const { data: publicUrlData } = supabaseClient.storage.from('media').getPublicUrl(fileName);
+                mediaUrl = publicUrlData.publicUrl;
+            }
+
+            const { error } = await supabaseClient.from('posts').insert([{
+                content, media_url: mediaUrl, privacy, user_id: currentUser.id
+            }]);
+
+            if (!error) {
+                document.getElementById('post-content').value = '';
+                fileInput.value = '';
+                switchTab('feed');
+                loadFeed();
+                loadProfile();
+            } else {
+                alert('Error posting: ' + error.message);
+            }
+        }
+
+        async function loadFeed() {
+            const { data } = await supabaseClient
+                .from('posts').select('*, profiles(username, avatar_url, bio)')
+                .order('created_at', { ascending: false });
+
+            const feed = document.getElementById('posts-feed');
+            feed.innerHTML = '';
+            if (data && data.length > 0) {
+                data.forEach(post => {
+                    if (post.privacy === 'only_me' && post.user_id !== currentUser.id) return;
+                    feed.innerHTML += buildPostCardHtml(post, true);
+                });
+            } else {
+                feed.innerHTML = '<p style="color:#65676b; text-align:center;">No posts available.</p>';
+            }
+        }
+
+        async function editPost(postId, oldContent) {
+            const newContent = prompt('Edit your post caption:', oldContent);
+            if (newContent !== null) {
+                await supabaseClient.from('posts').update({ content: newContent }).eq('id', postId);
+                loadFeed();
+                loadProfile();
+            }
+        }
+
+        async function deletePost(postId) {
+            if (confirm('Are you sure you want to delete this post?')) {
+                await supabaseClient.from('posts').delete().eq('id', postId);
+                loadFeed();
+                loadProfile();
+            }
+        }
+
+        async function likePost(postId, currentLikes) {
+            await supabaseClient.from('posts').update({ likes_count: currentLikes + 1 }).eq('id', postId);
+            loadFeed();
+            loadProfile();
+        }
+
+        function toggleCommentBox(postId) {
+            const box = document.getElementById(`comment-section-${postId}`);
+            box.style.display = box.style.display === 'none' ? 'block' : 'none';
+        }
+
+        async function addComment(postId) {
+            const input = document.getElementById(`comment-input-${postId}`);
+            const text = input.value.trim();
+            if (!text) return;
+
+            const { data: profile } = await supabaseClient.from('profiles').select('username').eq('id', currentUser.id).single();
+            const uname = profile ? profile.username : 'User';
+
+            const { data: postData } = await supabaseClient.from('posts').select('comments').eq('id', postId).single();
+            let comments = postData.comments || [];
+            comments.push({ username: uname, text: text });
+
+            await supabaseClient.from('posts').update({ comments: comments }).eq('id', postId);
+            input.value = '';
+            loadFeed();
+            loadProfile();
+        }
+
+        async function sharePost(content, mediaUrl) {
+            const privacy = prompt('Share privacy (public, friends, only_me):', 'public');
+            if (privacy) {
+                await supabaseClient.from('posts').insert([{
+                    content: 'Shared: ' + content,
+                    media_url: mediaUrl || null,
+                    privacy: privacy,
+                    user_id: currentUser.id
+                }]);
+                
+                alert('Post shared successfully to your profile & feed!');
+                loadFeed();
+                loadProfile();
+            }
+        }
+
+        function openLightbox(url) {
+            document.getElementById('lightbox-img').src = url;
+            document.getElementById('lightbox-modal').style.display = 'flex';
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox-modal').style.display = 'none';
+        }
+
+        async function loadProfile() {
+            const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', currentUser.id).single();
+            const uname = profile ? profile.username : 'User';
+            document.getElementById('profile-name').textContent = uname;
+            document.getElementById('profile-initial').textContent = uname.charAt(0).toUpperCase();
+            document.getElementById('edit-username').value = uname;
+            
+            if (profile && profile.bio) {
+                document.getElementById('profile-bio-text').textContent = profile.bio;
+                document.getElementById('edit-bio').value = profile.bio;
+            } else {
+                document.getElementById('profile-bio-text').textContent = '';
+                document.getElementById('edit-bio').value = '';
+            }
+
+            if (profile && profile.avatar_url) {
+                document.getElementById('profile-avatar-container').innerHTML = `<img src="${profile.avatar_url}" style="width:100%; height:100%; object-fit:cover;">`;
+            } else {
+                document.getElementById('profile-avatar-container').innerHTML = `<span id="profile-initial">${uname.charAt(0).toUpperCase()}</span>`;
+            }
+
+            const { data: myPosts } = await supabaseClient.from('posts').select('*, profiles(username, avatar_url, bio)').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+            const myPostsDiv = document.getElementById('my-posts');
+            myPostsDiv.innerHTML = '';
+            if (myPosts && myPosts.length > 0) {
+                myPosts.forEach(post => {
+                    myPostsDiv.innerHTML += buildPostCardHtml(post, false);
+                });
+            } else {
+                myPostsDiv.innerHTML = '<p style="color:#65676b; font-size:13px;">No posts yet.</p>';
+            }
+        }
+
+        async function logout() {
+            await supabaseClient.auth.signOut();
+            location.reload();
+        }
+    </script>
 </body>
 </html>
