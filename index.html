@@ -11,6 +11,7 @@
         input, textarea, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccd0d5; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
         button { width: 100%; padding: 12px; background: #1877f2; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 5px; }
         button:hover { background: #166fe5; }
+        button:disabled { opacity: 0.7; cursor: not-allowed; }
         .toggle-btn { background: none; color: #1877f2; border: none; cursor: pointer; margin-top: 12px; font-size: 14px; }
         .toggle-btn:hover { text-decoration: underline; }
         .error { color: #fa383e; font-size: 13px; margin-top: 5px; text-align: left; }
@@ -20,8 +21,9 @@
         header h2 { margin: 0; color: #1877f2; font-size: 20px; }
         
         .nav-tabs { display: flex; background: white; border-bottom: 1px solid #ddd; justify-content: space-around; }
-        .tab-btn { flex: 1; padding: 12px 5px; background: none; border: none; font-size: 13px; font-weight: bold; color: #65676b; cursor: pointer; border-bottom: 3px solid transparent; text-align: center; }
+        .tab-btn { flex: 1; padding: 12px 5px; background: none; border: none; font-size: 13px; font-weight: bold; color: #65676b; cursor: pointer; border-bottom: 3px solid transparent; text-align: center; position: relative; }
         .tab-btn.active { color: #1877f2; border-bottom: 3px solid #1877f2; }
+        .noti-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #e41e3f; margin-left: 4px; vertical-align: middle; }
         
         .tab-content { flex: 1; overflow-y: auto; padding: 15px; display: none; }
         .tab-content.active { display: block; }
@@ -32,8 +34,26 @@
         .post-author { font-weight: bold; color: #1877f2; font-size: 14px; cursor: pointer; }
         .post-author:hover { text-decoration: underline; }
         .post-time { font-size: 11px; color: #65676b; }
-        .post-body { margin-top: 8px; font-size: 14px; color: #050505; }
+        .post-body { margin-top: 8px; font-size: 14px; color: #050505; white-space: pre-wrap; }
         .post-media { width: 100%; max-height: 300px; object-fit: cover; border-radius: 6px; margin-top: 8px; cursor: pointer; }
+
+        .multi-photo-grid { display: grid; gap: 6px; margin-top: 8px; border-radius: 8px; overflow: hidden; }
+        .multi-photo-grid.count-1 { grid-template-columns: 1fr; }
+        .multi-photo-grid.count-2 { grid-template-columns: repeat(2, 1fr); }
+        .multi-photo-grid.count-3plus { grid-template-columns: repeat(2, 1fr); }
+        .multi-photo-item { width: 100%; height: 180px; object-fit: cover; border-radius: 6px; cursor: pointer; display: block; }
+        .multi-photo-grid.count-1 .multi-photo-item { height: 280px; }
+
+        .selected-photos-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .selected-photo-thumb { width: 68px; height: 68px; object-fit: cover; border-radius: 6px; border: 1px solid #ccd0d5; }
+
+        .posting-status-banner { display: none; margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: bold; text-align: center; }
+        .posting-status-banner.uploading { display: block; background: #e7f3ff; color: #1877f2; border: 1px solid #b6d9ff; }
+        .posting-status-banner.finished { display: block; background: #e6f7ed; color: #137333; border: 1px solid #a8dab5; }
+
+        .noti-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border-radius: 8px; background: #f7f8fa; border: 1px solid #e4e6eb; margin-bottom: 8px; cursor: pointer; }
+        .noti-item:hover { background: #eef3f8; }
+        .noti-live-pill { background: #e41e3f; color: #fff; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
 
         .action-bar { display: flex; justify-content: space-around; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 8px 0; margin-top: 10px; font-size: 13px; color: #65676b; cursor: pointer; }
         .action-bar span:hover { color: #1877f2; }
@@ -87,6 +107,10 @@
         .effect-list-item.selected { background: #1877f2; border-color: #1877f2; color: #fff; }
         .effect-tag-label { font-size: 11px; opacity: 0.85; font-weight: normal; }
 
+        /* Live Ended Summary & Share Post Modal */
+        #live-ended-summary-modal { z-index: 1600; }
+        .summary-card-img { width: 100%; border-radius: 8px; border: 1px solid #ddd; display: block; margin-top: 8px; background: #111; }
+
         /* Broadcaster Studio */
         #live-studio-modal { display: none; position: fixed; z-index: 1300; top: 0; left: 0; width: 100%; height: 100%; background: #111; color: white; flex-direction: column; justify-content: space-between; }
         .studio-top { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.75); }
@@ -111,9 +135,11 @@
         /* Viewer Mode (Portrait & Landscape) */
         #live-viewer-modal { display: none; position: fixed; z-index: 1400; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: white; flex-direction: column; }
         .viewer-top-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #141414; z-index: 10; }
-        .viewer-video-container { width: 100%; max-height: 62vh; aspect-ratio: 16 / 9; background: #000; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; margin: 0 auto; }
-        .viewer-video-container.portrait-video { max-width: 360px; max-height: 58vh; aspect-ratio: 9 / 16; }
+        .viewer-video-container { width: 100%; max-height: 54vh; aspect-ratio: 16 / 9; background: #000; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; margin: 0 auto; }
+        .viewer-video-container.portrait-video { max-width: 340px; max-height: 50vh; aspect-ratio: 9 / 16; }
         #viewer-video-canvas { width: 100%; height: 100%; object-fit: contain; background: #000; }
+        .viewer-caption-bar { background: #101112; border-top: 1px solid #26282a; border-bottom: 1px solid #26282a; padding: 7px 12px; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #f0f2f5; }
+        .viewer-caption-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #e4e6eb; }
         .viewer-comments-area { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; background: #18191a; padding: 10px 12px; overflow: hidden; }
         .viewer-comments-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; max-height: 210px; overflow: hidden; }
         .viewer-comment-line { background: rgba(255,255,255,0.08); padding: 6px 10px; border-radius: 8px; font-size: 13px; line-height: 1.35; }
@@ -125,6 +151,7 @@
         #live-viewer-modal.landscape-mode .viewer-top-bar { position: fixed; top: 8px; left: 10px; right: 10px; background: rgba(0,0,0,0.45); border-radius: 8px; padding: 6px 10px; }
         #live-viewer-modal.landscape-mode .viewer-video-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; aspect-ratio: auto; z-index: 1; }
         #live-viewer-modal.landscape-mode .viewer-top-bar { z-index: 5; }
+        #live-viewer-modal.landscape-mode .viewer-caption-bar,
         #live-viewer-modal.landscape-mode .viewer-comments-area { display: none !important; }
     </style>
 </head>
@@ -149,11 +176,11 @@
         </header>
 
         <div class="nav-tabs">
-            <button class="tab-btn active" onclick="switchTab('feed')">Feed</button>
-            <button class="tab-btn" onclick="switchTab('post')">Post</button>
-            <button class="tab-btn" onclick="switchTab('chat')">Chat</button>
-            <button class="tab-btn" onclick="switchTab('notification')">Noti</button>
-            <button class="tab-btn" onclick="switchTab('profile')">Profile</button>
+            <button id="tab-btn-feed" class="tab-btn active" onclick="handleFeedTabClick()">Feed</button>
+            <button id="tab-btn-post" class="tab-btn" onclick="switchTab('post')">Post</button>
+            <button id="tab-btn-chat" class="tab-btn" onclick="switchTab('chat')">Chat</button>
+            <button id="tab-btn-notification" class="tab-btn" onclick="switchTab('notification')">Noti<span id="noti-badge-dot" class="noti-dot" style="display:none;"></span></button>
+            <button id="tab-btn-profile" class="tab-btn" onclick="switchTab('profile')">Profile</button>
         </div>
 
         <div id="feed-tab" class="tab-content active">
@@ -167,7 +194,7 @@
         <div id="post-tab" class="tab-content">
             <div class="card">
                 <h3>Create Post</h3>
-                <textarea id="post-content" class="post-input" placeholder="What's on your mind?"></textarea>
+                <textarea id="post-content" class="post-input" placeholder="Write a caption (photo optional)..."></textarea>
                 
                 <label style="font-size: 13px; color: #65676b; display: block; margin-top: 10px;">Privacy:</label>
                 <select id="post-privacy">
@@ -176,10 +203,14 @@
                     <option value="only_me">Only Me</option>
                 </select>
 
-                <label style="font-size: 13px; color: #65676b; display: block; margin-top: 10px;">Upload Photo / Video:</label>
-                <input type="file" id="media-file" accept="image/*,video/*" style="padding: 6px;">
-                <button onclick="createPost()" style="margin-top: 10px;">Share Post</button>
-                <button class="live-btn" onclick="openLiveModeModal()" style="margin-top: 8px;">🔴 Live</button>
+                <label style="font-size: 13px; color: #65676b; display: block; margin-top: 10px;">Photos Only (1 to 10 photos, optional):</label>
+                <input type="file" id="media-file" accept="image/*" multiple style="padding: 6px;" onchange="handlePhotoSelection(this)">
+                <div id="selected-photos-preview" class="selected-photos-preview"></div>
+
+                <button id="create-post-btn" onclick="createPost()" style="margin-top: 10px;">Share Post</button>
+                <div id="post-publish-status" class="posting-status-banner"></div>
+
+                <button class="live-btn" onclick="openLiveModeModal()" style="margin-top: 10px;">🔴 Live</button>
             </div>
         </div>
 
@@ -210,8 +241,10 @@
 
         <div id="notification-tab" class="tab-content">
             <div class="card">
-                <h4>Notifications</h4>
-                <p style="color: #65676b; font-size: 14px;">No new notifications right now.</p>
+                <h4 style="margin-top: 0;">Notifications</h4>
+                <div id="notifications-list">
+                    <p style="color: #65676b; font-size: 14px;">No new notifications right now.</p>
+                </div>
             </div>
         </div>
 
@@ -290,7 +323,23 @@
         </div>
     </div>
 
-    <!-- Broadcaster Live Studio (LIVE + Timer + Viewer Count + Top-Left Mic Toggle + Cam On/Off + Flip + Effect List + Start/End Live + Comments) -->
+    <!-- Live Ended Summary Image + Share Post Modal -->
+    <div id="live-ended-summary-modal" class="live-modal-backdrop">
+        <div class="live-modal-card">
+            <h3 style="margin-top:0; color:#050505;">Live Summary</h3>
+            <div id="summary-stats-text" style="font-size:13px; color:#65676b; margin-bottom:6px;"></div>
+            <img id="live-summary-card-img" class="summary-card-img" src="" alt="Live Summary Card">
+
+            <label style="font-size:13px; color:#65676b; display:block; margin-top:12px;">Caption:</label>
+            <textarea id="summary-share-caption" class="post-input" placeholder="Write caption for your live summary post..."></textarea>
+
+            <button id="summary-share-post-btn" onclick="publishLiveSummaryPost()" style="margin-top:8px;">Share Post</button>
+            <div id="summary-publish-status" class="posting-status-banner"></div>
+            <button style="background:#e4e6eb; color:#050505; margin-top:10px;" onclick="closeLiveSummaryModal()">Done / Close</button>
+        </div>
+    </div>
+
+    <!-- Broadcaster Live Studio -->
     <div id="live-studio-modal">
         <div class="studio-top">
             <div style="display:flex; align-items:center; gap:8px;">
@@ -321,7 +370,7 @@
         </div>
     </div>
 
-    <!-- Live Viewer Modal (Portrait: Top Video + Bottom Comments Max 6 Lines; Landscape: Fullscreen No Comments) -->
+    <!-- Live Viewer Modal (Portrait: Top Video + Live Time & Caption + Bottom Comments Max 6 Lines; Landscape: Fullscreen) -->
     <div id="live-viewer-modal" onclick="unlockViewerAudioContext()">
         <div class="viewer-top-bar">
             <div style="display:flex; align-items:center; gap:8px; min-width:0;">
@@ -339,6 +388,11 @@
         <div id="viewer-video-container" class="viewer-video-container">
             <canvas id="viewer-video-canvas" width="373" height="210"></canvas>
             <img id="viewer-fallback-cover" src="" style="display:none; width:100%; height:100%; object-fit:contain;">
+        </div>
+
+        <div id="viewer-caption-bar" class="viewer-caption-bar">
+            <span id="viewer-bottom-time" class="live-meta-pill" style="background:rgba(228,30,63,0.22); color:#ff7b93; flex-shrink:0;">⏱ 00:00</span>
+            <span id="viewer-caption-text" class="viewer-caption-text"></span>
         </div>
 
         <div id="viewer-comments-area" class="viewer-comments-area">
@@ -362,7 +416,19 @@
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let isLoginMode = false;
         let currentUser = null;
+        let currentProfileData = null;
         let activeChatUser = null;
+
+        // Multi-photo selection state (1 to 10 photos, image/* only)
+        let selectedPostPhotos = [];
+
+        // Feed tab click tracking (1st click: scroll top, 2nd click: reload feed)
+        let feedTabClickCount = 0;
+
+        // Notifications state
+        let notificationsList = [];
+        let hasUnreadNoti = false;
+        let globalNotiChannel = null;
 
         // Live state (No stream video/audio saved to DB)
         let selectedLiveMode = 'camera';
@@ -372,7 +438,7 @@
         let coverOffImgReady = false;
         let selectedLiveCaption = '';
         let studioMediaStream = null;
-        let currentFacingMode = 'user'; // 'user' (front) or 'environment' (back)
+        let currentFacingMode = 'user';
         let isCameraEnabled = true;
         let isMicEnabled = true;
 
@@ -380,11 +446,9 @@
         let effectIndex = 0;
         const liveEffects = [
             { label: 'Normal', category: 'Default', filter: 'none' },
-            // Skin whitening / bright effects (3)
             { label: 'Fair Bright', category: 'Whitening', filter: 'brightness(1.16) contrast(1.03) saturate(1.06)' },
             { label: 'Porcelain Tone', category: 'Whitening', filter: 'brightness(1.22) contrast(0.98) saturate(0.96)' },
             { label: 'Rosy Glow', category: 'Whitening', filter: 'brightness(1.14) contrast(1.04) saturate(1.18)' },
-            // Face smooth / soft effects (10)
             { label: 'Silk Smooth 1', category: 'Smooth', filter: 'brightness(1.08) contrast(0.92) saturate(1.04)' },
             { label: 'Silk Smooth 2', category: 'Smooth', filter: 'brightness(1.11) contrast(0.89) saturate(1.05)' },
             { label: 'Velvet Soft', category: 'Smooth', filter: 'brightness(1.07) contrast(0.87) saturate(1.02)' },
@@ -403,6 +467,10 @@
         let liveStartTimestamp = null;
         let liveTimerInterval = null;
         let currentViewerCount = 0;
+        let peakViewerCount = 0;
+        let liveTotalCommentsCount = 0;
+        let lastLiveSummaryImageDataUrl = '';
+        let lastLiveSummaryCaption = '';
 
         // Broadcaster Audio state
         let broadcasterAudioCtx = null;
@@ -410,7 +478,7 @@
         let broadcasterAudioProcessor = null;
         let broadcasterAudioSilentGain = null;
 
-        // Viewer Audio state
+        // Viewer Audio state (tight sync buffer)
         let viewerAudioCtx = null;
         let viewerAudioNextPlayTime = 0;
 
@@ -436,6 +504,291 @@
             }
         });
 
+        function setPublishStatus(bannerId, state, text) {
+            const el = document.getElementById(bannerId);
+            if (!el) return;
+            el.className = 'posting-status-banner';
+            if (!state) {
+                el.style.display = 'none';
+                el.textContent = '';
+                return;
+            }
+            el.classList.add(state);
+            el.textContent = text;
+            el.style.display = 'block';
+        }
+
+        function handlePhotoSelection(input) {
+            const previewEl = document.getElementById('selected-photos-preview');
+            selectedPostPhotos = [];
+            if (previewEl) previewEl.innerHTML = '';
+
+            if (!input.files || input.files.length === 0) return;
+
+            const chosen = [];
+            for (let i = 0; i < input.files.length; i++) {
+                const f = input.files[i];
+                if (f.type && f.type.startsWith('image/')) {
+                    chosen.push(f);
+                }
+            }
+
+            if (chosen.length === 0) {
+                alert('ဓာတ်ပုံ (Image) ဖိုင်များသာ ရွေးချယ်နိုင်ပါသည်။');
+                input.value = '';
+                return;
+            }
+
+            if (chosen.length > 10) {
+                alert('ဓာတ်ပုံ အများဆုံး ၁၀ ပုံအထိသာ ရွေးချယ်နိုင်ပါသည်။ ပထမ ၁၀ ပုံကို ရွေးထားပါမယ်။');
+                selectedPostPhotos = chosen.slice(0, 10);
+            } else {
+                selectedPostPhotos = chosen;
+            }
+
+            selectedPostPhotos.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    if (!previewEl) return;
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.className = 'selected-photo-thumb';
+                    previewEl.appendChild(img);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function compressFileToDataUrl(file, maxWidth = 900, quality = 0.72) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+                        canvas.width = Math.round(img.width * scale);
+                        canvas.height = Math.round(img.height * scale);
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
+                    };
+                    img.onerror = () => resolve(e.target.result);
+                    img.src = e.target.result;
+                };
+                reader.onerror = () => resolve(null);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function uploadPostPhotos(files) {
+            const urls = [];
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const safeName = (file.name || `photo_${i}.jpg`).replace(/[^a-zA-Z0-9._-]/g, '_');
+                const fileName = `photo_${currentUser.id}_${Date.now()}_${i}_${safeName}`;
+                const { error: uploadError } = await supabaseClient.storage.from('media').upload(fileName, file);
+                if (!uploadError) {
+                    const { data: publicUrlData } = supabaseClient.storage.from('media').getPublicUrl(fileName);
+                    if (publicUrlData && publicUrlData.publicUrl) {
+                        urls.push(publicUrlData.publicUrl);
+                        continue;
+                    }
+                }
+                const fallbackDataUrl = await compressFileToDataUrl(file, 720, 0.65);
+                if (fallbackDataUrl) urls.push(fallbackDataUrl);
+            }
+            return urls;
+        }
+
+        function encodePostPayload(caption, photoUrls) {
+            if (photoUrls && photoUrls.length > 0) {
+                return `[MULTI_PHOTO:${JSON.stringify(photoUrls)}] ${caption || ''}`.trim();
+            }
+            return caption || '';
+        }
+
+        function parseMultiPhotoContent(rawContent) {
+            if (!rawContent || !rawContent.startsWith('[MULTI_PHOTO:')) {
+                return { photos: [], text: rawContent || '' };
+            }
+            const endIdx = rawContent.indexOf(']');
+            if (endIdx === -1) return { photos: [], text: rawContent };
+            const jsonStr = rawContent.slice('[MULTI_PHOTO:'.length, endIdx);
+            const text = rawContent.slice(endIdx + 1).trim();
+            try {
+                const arr = JSON.parse(jsonStr);
+                return { photos: Array.isArray(arr) ? arr : [], text };
+            } catch (e) {
+                return { photos: [], text };
+            }
+        }
+
+        function handleFeedTabClick() {
+            const feedTabEl = document.getElementById('feed-tab');
+            const isAlreadyOnFeed = feedTabEl && feedTabEl.classList.contains('active');
+
+            if (!isAlreadyOnFeed) {
+                switchTab('feed');
+                feedTabClickCount = 1;
+                return;
+            }
+
+            if (feedTabEl.scrollTop > 10 && feedTabClickCount < 1) {
+                feedTabEl.scrollTo({ top: 0, behavior: 'smooth' });
+                feedTabClickCount = 1;
+            } else {
+                feedTabEl.scrollTo({ top: 0, behavior: 'smooth' });
+                feedTabClickCount = 0;
+                loadFeed();
+            }
+        }
+
+        /* ==================== NOTIFICATIONS ==================== */
+        function addNotificationItem(noti) {
+            if (!noti) return;
+            const exists = noti.id && notificationsList.some(n => n.id === noti.id);
+            if (exists) return;
+
+            notificationsList.unshift({
+                id: noti.id || ('noti_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
+                actorName: noti.actorName || 'Someone',
+                message: noti.message || 'started a live stream',
+                liveId: noti.liveId || '',
+                coverUrl: noti.coverUrl || '',
+                caption: noti.caption || '',
+                startedAt: noti.startedAt || Date.now(),
+                createdAt: noti.createdAt || new Date().toISOString()
+            });
+
+            if (notificationsList.length > 50) {
+                notificationsList = notificationsList.slice(0, 50);
+            }
+
+            const notiTabActive = document.getElementById('notification-tab')?.classList.contains('active');
+            if (!notiTabActive) {
+                hasUnreadNoti = true;
+                updateNotiDot();
+            }
+            renderNotificationsList();
+        }
+
+        function updateNotiDot() {
+            const dot = document.getElementById('noti-badge-dot');
+            if (dot) {
+                dot.style.display = hasUnreadNoti ? 'inline-block' : 'none';
+            }
+        }
+
+        function renderNotificationsList() {
+            const container = document.getElementById('notifications-list');
+            if (!container) return;
+
+            if (!notificationsList || notificationsList.length === 0) {
+                container.innerHTML = '<p style="color: #65676b; font-size: 14px;">No new notifications right now.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+            notificationsList.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'noti-item';
+                const safeHost = (item.actorName || 'Host').replace(/'/g, "\\'");
+                const safeCover = (item.coverUrl || '').replace(/'/g, "\\'");
+                const safeCap = (item.caption || '').replace(/'/g, "\\'");
+
+                div.innerHTML = `
+                    <div style="min-width:0;">
+                        <div style="font-size:13px; color:#050505;"><b>${item.actorName}</b> ${item.message}</div>
+                        ${item.caption ? `<div style="font-size:12px; color:#65676b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">"${item.caption}"</div>` : ''}
+                        <div style="font-size:11px; color:#8a8d91; margin-top:2px;">${new Date(item.createdAt).toLocaleTimeString()}</div>
+                    </div>
+                    <span class="noti-live-pill">LIVE</span>
+                `;
+                if (item.liveId) {
+                    div.onclick = () => {
+                        openLiveViewer(item.liveId, safeHost, safeCover, safeCap, item.startedAt);
+                    };
+                }
+                container.appendChild(div);
+            });
+        }
+
+        async function loadNotificationsFromDb() {
+            if (!currentUser) return;
+            try {
+                const { data, error } = await supabaseClient
+                    .from('notifications')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .order('created_at', { ascending: false })
+                    .limit(30);
+
+                if (!error && Array.isArray(data)) {
+                    data.forEach(row => {
+                        addNotificationItem({
+                            id: row.id,
+                            actorName: row.actor_name || 'User',
+                            message: row.message || 'started a live stream',
+                            liveId: row.live_id || '',
+                            coverUrl: row.cover_url || '',
+                            caption: row.caption || '',
+                            startedAt: row.started_at || new Date(row.created_at).getTime(),
+                            createdAt: row.created_at
+                        });
+                    });
+                }
+            } catch (e) {}
+        }
+
+        async function broadcastLiveStartNotification(liveId, coverUrl, caption, startedAtMs) {
+            if (!currentUser) return;
+            const actorName = (currentProfileData && currentProfileData.username) || document.getElementById('profile-name')?.textContent || 'User';
+            const messageText = 'started a live stream!';
+
+            // 1) Broadcast live start notification over realtime channel
+            const notiChan = globalNotiChannel || supabaseClient.channel('global-live-notifications');
+            notiChan.send({
+                type: 'broadcast',
+                event: 'live_started',
+                payload: {
+                    id: 'live_noti_' + liveId,
+                    actorId: currentUser.id,
+                    actorName,
+                    message: messageText,
+                    liveId,
+                    coverUrl: coverUrl || '',
+                    caption: caption || '',
+                    startedAt: startedAtMs,
+                    createdAt: new Date().toISOString()
+                }
+            }).catch(() => {});
+
+            // 2) Insert notification rows for other users if notifications table exists
+            try {
+                const { data: profiles } = await supabaseClient
+                    .from('profiles')
+                    .select('id')
+                    .neq('id', currentUser.id);
+
+                if (Array.isArray(profiles) && profiles.length > 0) {
+                    const rows = profiles.map(p => ({
+                        user_id: p.id,
+                        actor_id: currentUser.id,
+                        actor_name: actorName,
+                        message: messageText,
+                        live_id: liveId,
+                        cover_url: coverUrl || '',
+                        caption: caption || '',
+                        started_at: startedAtMs,
+                        is_read: false
+                    }));
+                    await supabaseClient.from('notifications').insert(rows);
+                }
+            } catch (e) {}
+        }
+
+        /* ==================== AUDIO SYNC & MIC ==================== */
         function syncMicButtonState() {
             const micBtn = document.getElementById('toggle-mic-btn');
             if (!micBtn) return;
@@ -481,7 +834,7 @@
                 broadcasterAudioCtx = new AudioCtx({ sampleRate: 16000 });
                 const audioOnlyStream = new MediaStream([audioTracks[0]]);
                 broadcasterAudioSource = broadcasterAudioCtx.createMediaStreamSource(audioOnlyStream);
-                broadcasterAudioProcessor = broadcasterAudioCtx.createScriptProcessor(4096, 1, 1);
+                broadcasterAudioProcessor = broadcasterAudioCtx.createScriptProcessor(2048, 1, 1);
                 broadcasterAudioSilentGain = broadcasterAudioCtx.createGain();
                 broadcasterAudioSilentGain.gain.value = 0;
 
@@ -492,13 +845,12 @@
                     const inputChannel = event.inputBuffer.getChannelData(0);
                     if (!inputChannel || inputChannel.length === 0) return;
 
-                    // Skip silent frames to reduce network backlog and sync drift
                     let peak = 0;
                     for (let i = 0; i < inputChannel.length; i += 8) {
                         const v = Math.abs(inputChannel[i]);
                         if (v > peak) peak = v;
                     }
-                    if (peak < 0.004) return;
+                    if (peak < 0.003) return;
 
                     const b64Pcm = float32ToInt16Base64(inputChannel);
                     const elapsedMs = liveStartTimestamp ? (Date.now() - liveStartTimestamp) : 0;
@@ -521,9 +873,7 @@
                 if (broadcasterAudioCtx.state === 'suspended') {
                     broadcasterAudioCtx.resume().catch(() => {});
                 }
-            } catch (e) {
-                console.warn('Audio streaming init warning:', e);
-            }
+            } catch (e) {}
         }
 
         function stopAudioStreaming() {
@@ -602,9 +952,9 @@
                 src.connect(ctx.destination);
 
                 const now = ctx.currentTime;
-                // Keep audio tight to real-time so audio never lags behind video
-                if (viewerAudioNextPlayTime < now || (viewerAudioNextPlayTime - now) > 0.16) {
-                    viewerAudioNextPlayTime = now + 0.02;
+                // Keep audio tight (max 60ms ahead) so audio does not lag behind video
+                if (viewerAudioNextPlayTime < now || (viewerAudioNextPlayTime - now) > 0.06) {
+                    viewerAudioNextPlayTime = now + 0.005;
                 }
                 src.start(viewerAudioNextPlayTime);
                 viewerAudioNextPlayTime += audioBuffer.duration;
@@ -627,12 +977,17 @@
                 : (liveStartTimestamp && viewingLiveId ? formatElapsedDuration(Date.now() - liveStartTimestamp) : '00:00');
             const studioTimer = document.getElementById('studio-timer-display');
             const viewerTimer = document.getElementById('viewer-timer-display');
+            const viewerBottomTime = document.getElementById('viewer-bottom-time');
             if (studioTimer) studioTimer.textContent = text;
             if (viewerTimer) viewerTimer.textContent = text;
+            if (viewerBottomTime) viewerBottomTime.textContent = `⏱ ${text}`;
         }
 
         function updateViewerCountLabels(count) {
             currentViewerCount = Math.max(0, count);
+            if (currentViewerCount > peakViewerCount) {
+                peakViewerCount = currentViewerCount;
+            }
             const studioCount = document.getElementById('studio-viewer-count');
             const viewerCount = document.getElementById('viewer-count-display');
             if (studioCount) studioCount.textContent = `👁 ${currentViewerCount}`;
@@ -751,6 +1106,20 @@
             loadFeed();
             loadChatList();
             loadProfile();
+            loadNotificationsFromDb();
+
+            if (globalNotiChannel) {
+                supabaseClient.removeChannel(globalNotiChannel);
+            }
+            globalNotiChannel = supabaseClient
+                .channel('global-live-notifications')
+                .on('broadcast', { event: 'live_started' }, payload => {
+                    const p = payload && payload.payload;
+                    if (p && p.actorId !== currentUser.id) {
+                        addNotificationItem(p);
+                    }
+                })
+                .subscribe();
 
             supabaseClient
                 .channel('public:messages')
@@ -767,7 +1136,10 @@
             const { data } = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
             if (!data) {
                 const defaultName = user.user_metadata?.username || user.email.split('@')[0];
-                await supabaseClient.from('profiles').insert([{ id: user.id, username: defaultName }]);
+                const { data: created } = await supabaseClient.from('profiles').insert([{ id: user.id, username: defaultName }]).select().maybeSingle();
+                currentProfileData = created || { id: user.id, username: defaultName };
+            } else {
+                currentProfileData = data;
             }
         }
 
@@ -783,9 +1155,196 @@
                 if (tabs[tabName] !== undefined) {
                     document.querySelectorAll('.tab-btn')[tabs[tabName]].classList.add('active');
                 }
-                if (tabName === 'chat') {
+                if (tabName === 'notification') {
+                    hasUnreadNoti = false;
+                    updateNotiDot();
+                    renderNotificationsList();
+                    loadNotificationsFromDb();
+                } else if (tabName === 'chat') {
                     backToChatList();
                 }
+            }
+        }
+
+        /* ==================== LIVE SUMMARY CARD IMAGE ==================== */
+        function generateLiveSummaryCardImage(hostName, avatarUrl, coverUrl, caption, totalViews, totalComments, durationText) {
+            return new Promise((resolve) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 640;
+                canvas.height = 380;
+                const ctx = canvas.getContext('2d');
+
+                const loadImg = (src) => new Promise((res) => {
+                    if (!src) return res(null);
+                    const im = new Image();
+                    im.crossOrigin = 'anonymous';
+                    im.onload = () => res(im);
+                    im.onerror = () => res(null);
+                    im.src = src;
+                });
+
+                Promise.all([loadImg(coverUrl), loadImg(avatarUrl)]).then(([coverImg, avatarImg]) => {
+                    // Dark gradient background
+                    const grad = ctx.createLinearGradient(0, 0, 640, 380);
+                    grad.addColorStop(0, '#18191a');
+                    grad.addColorStop(1, '#2c2e33');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, 640, 380);
+
+                    if (coverImg) {
+                        ctx.save();
+                        ctx.globalAlpha = 0.25;
+                        ctx.drawImage(coverImg, 0, 0, 640, 380);
+                        ctx.restore();
+                    }
+
+                    // Header badge
+                    ctx.fillStyle = '#e41e3f';
+                    ctx.fillRect(28, 24, 132, 32);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 15px Arial';
+                    ctx.fillText('LIVE ENDED', 40, 45);
+
+                    ctx.fillStyle = '#b0b3b8';
+                    ctx.font = '14px Arial';
+                    ctx.fillText(`Duration: ${durationText || '00:00'}`, 175, 45);
+
+                    // Profile avatar circle
+                    const cx = 82;
+                    const cy = 128;
+                    const r = 46;
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                    ctx.closePath();
+                    ctx.clip();
+                    if (avatarImg) {
+                        ctx.drawImage(avatarImg, cx - r, cy - r, r * 2, r * 2);
+                    } else {
+                        ctx.fillStyle = '#1877f2';
+                        ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+                        ctx.fillStyle = '#fff';
+                        ctx.font = 'bold 34px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText((hostName || 'U').charAt(0).toUpperCase(), cx, cy);
+                    }
+                    ctx.restore();
+
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Host Name & Caption
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'alphabetic';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 24px Arial';
+                    ctx.fillText(hostName || 'Host', 148, 118);
+
+                    ctx.fillStyle = '#e4e6eb';
+                    ctx.font = '16px Arial';
+                    const shortCap = (caption || 'Live Stream Summary').slice(0, 48);
+                    ctx.fillText(shortCap, 148, 150);
+
+                    // Stat boxes: Total Views & Total Comments
+                    const drawStatBox = (x, y, w, h, label, value, accent) => {
+                        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+                        ctx.fillRect(x, y, w, h);
+                        ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+                        ctx.lineWidth = 1.5;
+                        ctx.strokeRect(x, y, w, h);
+
+                        ctx.fillStyle = accent;
+                        ctx.font = 'bold 34px Arial';
+                        ctx.fillText(String(value), x + 22, y + 52);
+
+                        ctx.fillStyle = '#d0d3d8';
+                        ctx.font = '15px Arial';
+                        ctx.fillText(label, x + 22, y + 84);
+                    };
+
+                    drawStatBox(28, 208, 282, 108, 'Total Views', totalViews, '#4dabf7');
+                    drawStatBox(330, 208, 282, 108, 'Total Comments', totalComments, '#ff6b6b');
+
+                    ctx.fillStyle = '#8a8d91';
+                    ctx.font = '13px Arial';
+                    ctx.fillText('SocialChat Live Summary', 28, 352);
+
+                    resolve(canvas.toDataURL('image/png', 0.85));
+                });
+            });
+        }
+
+        async function openLiveEndedSummaryModal(finalViews, finalComments, finalDurationText, finalCaption, finalCover) {
+            const hostName = (currentProfileData && currentProfileData.username) || document.getElementById('profile-name')?.textContent || 'Host';
+            const avatarUrl = (currentProfileData && currentProfileData.avatar_url) || '';
+
+            lastLiveSummaryCaption = finalCaption || '';
+            const cardDataUrl = await generateLiveSummaryCardImage(
+                hostName,
+                avatarUrl,
+                finalCover,
+                lastLiveSummaryCaption,
+                finalViews,
+                finalComments,
+                finalDurationText
+            );
+            lastLiveSummaryImageDataUrl = cardDataUrl;
+
+            document.getElementById('summary-stats-text').textContent = `Total Views: ${finalViews}  •  Total Comments: ${finalComments}  •  Time: ${finalDurationText}`;
+            document.getElementById('live-summary-card-img').src = cardDataUrl;
+            document.getElementById('summary-share-caption').value = lastLiveSummaryCaption;
+
+            const shareBtn = document.getElementById('summary-share-post-btn');
+            shareBtn.disabled = false;
+            shareBtn.textContent = 'Share Post';
+            setPublishStatus('summary-publish-status', null, '');
+
+            document.getElementById('live-ended-summary-modal').style.display = 'flex';
+        }
+
+        function closeLiveSummaryModal() {
+            document.getElementById('live-ended-summary-modal').style.display = 'none';
+            setPublishStatus('summary-publish-status', null, '');
+        }
+
+        async function publishLiveSummaryPost() {
+            if (!currentUser || !lastLiveSummaryImageDataUrl) return;
+            const shareBtn = document.getElementById('summary-share-post-btn');
+            const cap = document.getElementById('summary-share-caption').value.trim();
+
+            shareBtn.disabled = true;
+            setPublishStatus('summary-publish-status', 'uploading', 'Share posting...');
+
+            try {
+                const { error } = await supabaseClient.from('posts').insert([{
+                    content: cap || 'Live Summary',
+                    media_url: lastLiveSummaryImageDataUrl,
+                    privacy: 'public',
+                    user_id: currentUser.id
+                }]);
+
+                if (error) {
+                    alert('Error sharing post: ' + error.message);
+                    shareBtn.disabled = false;
+                    setPublishStatus('summary-publish-status', null, '');
+                    return;
+                }
+
+                setPublishStatus('summary-publish-status', 'finished', 'Finished');
+                await loadFeed();
+                await loadProfile();
+
+                setTimeout(() => {
+                    closeLiveSummaryModal();
+                    switchTab('feed');
+                }, 700);
+            } catch (e) {
+                shareBtn.disabled = false;
+                setPublishStatus('summary-publish-status', null, '');
             }
         }
 
@@ -985,6 +1544,7 @@
         }
 
         function pushStudioComment(username, text) {
+            liveTotalCommentsCount++;
             studioCommentsQueue.push({ username, text });
             while (studioCommentsQueue.length > 6) {
                 studioCommentsQueue.shift();
@@ -1023,6 +1583,8 @@
             closeLiveSetupModal();
 
             studioCommentsQueue = [];
+            liveTotalCommentsCount = 0;
+            peakViewerCount = 0;
             document.getElementById('studio-comments-list').innerHTML = '';
 
             isCameraEnabled = true;
@@ -1104,6 +1666,8 @@
         async function startLiveBroadcast() {
             if (!currentUser) return;
             activeLiveId = 'live_' + currentUser.id + '_' + Date.now();
+            peakViewerCount = 0;
+            liveTotalCommentsCount = 0;
             const privacy = document.getElementById('post-privacy') ? document.getElementById('post-privacy').value : 'public';
 
             compressCoverImage(selectedLiveCoverDataUrl, async (compactCover) => {
@@ -1134,6 +1698,9 @@
                 startLiveTimer(startMs);
                 startAudioStreaming();
 
+                // Notify users about live stream start
+                broadcastLiveStartNotification(activeLiveId, compactCover, selectedLiveCaption, startMs);
+
                 document.getElementById('studio-live-badge').style.display = 'inline-block';
                 document.getElementById('studio-close-btn').style.display = 'none';
                 const btn = document.getElementById('live-action-btn');
@@ -1160,7 +1727,6 @@
                         }
                     });
 
-                // 125ms (~8 fps) frame broadcast paired with audio timestamp t (ms since startMs)
                 broadcastFrameInterval = setInterval(() => {
                     if (!isLiveActive || !broadcasterChannel || isSendingFrame) return;
                     isSendingFrame = true;
@@ -1226,11 +1792,11 @@
                                 height: targetH,
                                 isPortrait: isPortraitFrame,
                                 t: elapsedMs,
-                                startedAt: startMs
+                                startedAt: startMs,
+                                caption: selectedLiveCaption
                             }
                         }).catch(() => {});
                     } catch (e) {
-                        // Ignore transient frame capture errors
                     } finally {
                         isSendingFrame = false;
                     }
@@ -1242,6 +1808,12 @@
         }
 
         async function endLiveBroadcast(targetPostId = null, targetLiveId = null) {
+            const finalViews = Math.max(peakViewerCount, currentViewerCount);
+            const finalComments = liveTotalCommentsCount;
+            const finalDurationText = liveStartTimestamp ? formatElapsedDuration(Date.now() - liveStartTimestamp) : '00:00';
+            const finalCaption = selectedLiveCaption || '';
+            const finalCover = activeCoverImageUrl || selectedLiveCoverDataUrl || '';
+
             isLiveActive = false;
             closeEffectPickerModal();
             stopAudioStreaming();
@@ -1271,13 +1843,11 @@
             }
 
             if (postIdToDelete) {
-                const { error } = await supabaseClient.from('posts').delete().eq('id', postIdToDelete).eq('user_id', currentUser.id);
-                if (error) alert('Error ending live post: ' + error.message);
+                await supabaseClient.from('posts').delete().eq('id', postIdToDelete).eq('user_id', currentUser.id);
             }
 
             if (idToEnd) {
-                const { error } = await supabaseClient.from('posts').delete().ilike('content', `[LIVE_STREAM:${idToEnd}%`).eq('user_id', currentUser.id);
-                if (error) alert('Error cleaning live post: ' + error.message);
+                await supabaseClient.from('posts').delete().ilike('content', `[LIVE_STREAM:${idToEnd}%`).eq('user_id', currentUser.id);
             }
 
             if (!targetPostId && !targetLiveId && currentUser) {
@@ -1305,6 +1875,10 @@
 
             await loadFeed();
             await loadProfile();
+
+            if (!targetPostId && !targetLiveId) {
+                await openLiveEndedSummaryModal(finalViews, finalComments, finalDurationText, finalCaption, finalCover);
+            }
         }
 
         function parseLivePost(post) {
@@ -1332,7 +1906,8 @@
             const modal = document.getElementById('live-viewer-modal');
             modal.classList.remove('landscape-mode');
             document.getElementById('orientation-toggle-btn').textContent = '🔄 Landscape';
-            document.getElementById('viewer-host-name').textContent = `${hostName}${caption ? ' — ' + caption : ''}`;
+            document.getElementById('viewer-host-name').textContent = hostName || 'Host';
+            document.getElementById('viewer-caption-text').textContent = caption || '';
 
             const videoContainer = document.getElementById('viewer-video-container');
             videoContainer.classList.remove('portrait-video');
@@ -1401,6 +1976,10 @@
                 .on('broadcast', { event: 'live_frame' }, payload => {
                     if (payload.payload && payload.payload.startedAt && !liveStartTimestamp) {
                         startLiveTimer(payload.payload.startedAt);
+                    }
+                    if (payload.payload && typeof payload.payload.caption === 'string' && payload.payload.caption) {
+                        const capEl = document.getElementById('viewer-caption-text');
+                        if (capEl && !capEl.textContent) capEl.textContent = payload.payload.caption;
                     }
                     if (!isRenderingFrame && payload.payload && payload.payload.frame) {
                         isRenderingFrame = true;
@@ -1553,10 +2132,27 @@
                     </div>`;
             }
 
-            let mediaHtml = post.media_url ? `<img src="${post.media_url}" class="post-media" onclick="openLightbox('${post.media_url}')">` : '';
+            const parsedContent = parseMultiPhotoContent(post.content || '');
+            let mediaHtml = '';
+            const allPhotos = [];
+            if (parsedContent.photos.length > 0) {
+                parsedContent.photos.slice(0, 10).forEach(u => allPhotos.push(u));
+            } else if (post.media_url) {
+                allPhotos.push(post.media_url);
+            }
+
+            if (allPhotos.length === 1) {
+                mediaHtml = `<img src="${allPhotos[0]}" class="post-media" onclick="openLightbox('${allPhotos[0]}')">`;
+            } else if (allPhotos.length > 1) {
+                const countClass = allPhotos.length === 2 ? 'count-2' : 'count-3plus';
+                const itemsHtml = allPhotos.map(u => `<img src="${u}" class="multi-photo-item" onclick="openLightbox('${u}')">`).join('');
+                mediaHtml = `<div class="multi-photo-grid ${countClass}">${itemsHtml}</div>`;
+            }
+
+            const displayText = parsedContent.text;
             let actionButtons = '';
             if (post.user_id === currentUser.id) {
-                actionButtons = `<button onclick="editPost('${post.id}', '${post.content ? post.content.replace(/'/g, "\\'") : ''}')" style="width:auto; padding:3px 8px; font-size:11px; background:#65676b;">Edit</button> <button onclick="deletePost('${post.id}')" style="width:auto; padding:3px 8px; font-size:11px; background:#fa383e;">Delete</button>`;
+                actionButtons = `<button onclick="editPost('${post.id}', '${displayText.replace(/'/g, "\\'")}')" style="width:auto; padding:3px 8px; font-size:11px; background:#65676b;">Edit</button> <button onclick="deletePost('${post.id}')" style="width:auto; padding:3px 8px; font-size:11px; background:#fa383e;">Delete</button>`;
             }
 
             let commentsHtml = '';
@@ -1569,18 +2165,20 @@
                 ? `<div><span class="post-author" onclick="viewUserProfile('${post.user_id}', '${uname}', '${uBio}', '${uAvatar}')">${uname}</span><div class="post-time">${time} (${post.privacy})</div></div>`
                 : `<div style="font-size:11px; color:#65676b;">Privacy: ${post.privacy}</div>`;
 
+            const shareMediaParam = allPhotos[0] || post.media_url || '';
+
             return `
                 <div class="card post-item">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         ${headerLeft}
                         <div>${actionButtons}</div>
                     </div>
-                    <div class="post-body">${post.content || ''}</div>
+                    ${displayText ? `<div class="post-body">${displayText}</div>` : ''}
                     ${mediaHtml}
                     <div class="action-bar">
                         <span onclick="likePost('${post.id}', ${post.likes_count || 0})">❤️ Like (${post.likes_count || 0})</span>
                         <span onclick="toggleCommentBox('${post.id}')">💬 Comment</span>
-                        <span onclick="sharePost('${post.content ? post.content.replace(/'/g, "\\'") : ''}', '${post.media_url || ''}')">🔗 Share (${post.shares_count || 0})</span>
+                        <span onclick="sharePost('${displayText.replace(/'/g, "\\'")}', '${shareMediaParam}')">🔗 Share (${post.shares_count || 0})</span>
                     </div>
                     <div id="comment-section-${post.id}" class="comment-section" style="display:none;">
                         <div id="comments-list-${post.id}">${commentsHtml}</div>
@@ -1815,38 +2413,61 @@
         }
 
         async function createPost() {
-            const content = document.getElementById('post-content').value.trim();
+            if (!currentUser) return;
+            const caption = document.getElementById('post-content').value.trim();
             const privacy = document.getElementById('post-privacy').value;
             const fileInput = document.getElementById('media-file');
-            if (!content && fileInput.files.length === 0) return;
+            const submitBtn = document.getElementById('create-post-btn');
 
-            let mediaUrl = null;
-            if (fileInput.files.length > 0) {
-                const file = fileInput.files[0];
-                const fileName = `${Date.now()}_${file.name}`;
-                const { error: uploadError } = await supabaseClient.storage.from('media').upload(fileName, file);
+            if (!caption && selectedPostPhotos.length === 0) {
+                alert('Caption သို့မဟုတ် ဓာတ်ပုံ (၁ ပုံ မှ ၁၀ ပုံ) ရွေးချယ်ပါ။');
+                return;
+            }
 
-                if (uploadError) {
-                    alert('Error uploading media: ' + uploadError.message);
+            submitBtn.disabled = true;
+            setPublishStatus('post-publish-status', 'uploading', 'Share posting...');
+
+            try {
+                let photoUrls = [];
+                if (selectedPostPhotos.length > 0) {
+                    photoUrls = await uploadPostPhotos(selectedPostPhotos.slice(0, 10));
+                }
+
+                const encodedContent = encodePostPayload(caption, photoUrls);
+                const firstMediaUrl = photoUrls.length > 0 ? photoUrls[0] : null;
+
+                const { error } = await supabaseClient.from('posts').insert([{
+                    content: encodedContent,
+                    media_url: firstMediaUrl,
+                    privacy,
+                    user_id: currentUser.id
+                }]);
+
+                if (error) {
+                    alert('Error posting: ' + error.message);
+                    submitBtn.disabled = false;
+                    setPublishStatus('post-publish-status', null, '');
                     return;
                 }
 
-                const { data: publicUrlData } = supabaseClient.storage.from('media').getPublicUrl(fileName);
-                mediaUrl = publicUrlData.publicUrl;
-            }
-
-            const { error } = await supabaseClient.from('posts').insert([{
-                content, media_url: mediaUrl, privacy, user_id: currentUser.id
-            }]);
-
-            if (!error) {
+                setPublishStatus('post-publish-status', 'finished', 'Finished');
                 document.getElementById('post-content').value = '';
                 fileInput.value = '';
-                switchTab('feed');
-                loadFeed();
-                loadProfile();
-            } else {
-                alert('Error posting: ' + error.message);
+                selectedPostPhotos = [];
+                document.getElementById('selected-photos-preview').innerHTML = '';
+
+                await loadFeed();
+                await loadProfile();
+
+                setTimeout(() => {
+                    submitBtn.disabled = false;
+                    setPublishStatus('post-publish-status', null, '');
+                    switchTab('feed');
+                }, 650);
+            } catch (err) {
+                submitBtn.disabled = false;
+                setPublishStatus('post-publish-status', null, '');
+                alert('Error posting: ' + err.message);
             }
         }
 
@@ -1940,6 +2561,7 @@
 
         async function loadProfile() {
             const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', currentUser.id).single();
+            if (profile) currentProfileData = profile;
             const uname = profile ? profile.username : 'User';
             document.getElementById('profile-name').textContent = uname;
             document.getElementById('profile-initial').textContent = uname.charAt(0).toUpperCase();
