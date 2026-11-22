@@ -91,6 +91,10 @@
         #live-studio-modal { display: none; position: fixed; z-index: 1300; top: 0; left: 0; width: 100%; height: 100%; background: #111; color: white; flex-direction: column; justify-content: space-between; }
         .studio-top { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.75); }
         .studio-stage { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8px 12px; position: relative; overflow: hidden; min-height: 0; }
+        .studio-frame-box { position: relative; display: flex; justify-content: center; align-items: center; max-width: 100%; max-height: 100%; }
+        .studio-mic-top-left-btn { position: absolute; top: 10px; left: 10px; z-index: 10; width: auto; margin: 0; padding: 6px 10px; font-size: 12px; border-radius: 16px; background: rgba(0,0,0,0.65); color: #fff; border: 1px solid rgba(255,255,255,0.28); }
+        .studio-mic-top-left-btn:hover { background: rgba(0,0,0,0.85); }
+        .studio-mic-top-left-btn.muted-mic { background: rgba(176,42,55,0.88); border-color: rgba(255,255,255,0.4); }
         #studio-video { max-width: 100%; max-height: 100%; background: #000; border-radius: 8px; object-fit: contain; transition: filter 0.2s ease, transform 0.2s ease; }
         #studio-video.mirrored { transform: scaleX(-1); }
         #studio-cover-off-img { display: none; max-width: 100%; max-height: 100%; border-radius: 8px; object-fit: contain; background: #000; }
@@ -286,7 +290,7 @@
         </div>
     </div>
 
-    <!-- Broadcaster Live Studio (LIVE + Timer + Viewer Count + Cam On/Off + Flip + Effect List + Start/End Live + Comments) -->
+    <!-- Broadcaster Live Studio (LIVE + Timer + Viewer Count + Top-Left Mic Toggle + Cam On/Off + Flip + Effect List + Start/End Live + Comments) -->
     <div id="live-studio-modal">
         <div class="studio-top">
             <div style="display:flex; align-items:center; gap:8px;">
@@ -297,8 +301,11 @@
             <button onclick="closeStudioWithoutStarting()" id="studio-close-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#444; margin:0;">Close</button>
         </div>
         <div class="studio-stage">
-            <video id="studio-video" class="mirrored" autoplay playsinline muted></video>
-            <img id="studio-cover-off-img" src="" alt="Cover when camera off">
+            <div class="studio-frame-box">
+                <button id="toggle-mic-btn" type="button" class="studio-mic-top-left-btn" onclick="toggleMicPower()">🎤 Mic: ON</button>
+                <video id="studio-video" class="mirrored" autoplay playsinline muted></video>
+                <img id="studio-cover-off-img" src="" alt="Cover when camera off">
+            </div>
             <div id="studio-caption-display" style="margin-top:6px; font-size:13px; color:#ddd; text-align:center;"></div>
         </div>
         <div id="studio-camera-controls" class="studio-controls-row">
@@ -367,6 +374,7 @@
         let studioMediaStream = null;
         let currentFacingMode = 'user'; // 'user' (front) or 'environment' (back)
         let isCameraEnabled = true;
+        let isMicEnabled = true;
 
         // 14 effects: Normal + 3 skin whitening + 10 face smooth/soft effects
         let effectIndex = 0;
@@ -401,7 +409,6 @@
         let broadcasterAudioSource = null;
         let broadcasterAudioProcessor = null;
         let broadcasterAudioSilentGain = null;
-        let isSendingAudioChunk = false;
 
         // Viewer Audio state
         let viewerAudioCtx = null;
@@ -428,6 +435,23 @@
                 onLoginSuccess(session.user);
             }
         });
+
+        function syncMicButtonState() {
+            const micBtn = document.getElementById('toggle-mic-btn');
+            if (!micBtn) return;
+            micBtn.textContent = isMicEnabled ? '🎤 Mic: ON' : '🔇 Mic: OFF';
+            micBtn.classList.toggle('muted-mic', !isMicEnabled);
+        }
+
+        function toggleMicPower() {
+            isMicEnabled = !isMicEnabled;
+            if (studioMediaStream) {
+                studioMediaStream.getAudioTracks().forEach(track => {
+                    track.enabled = isMicEnabled;
+                });
+            }
+            syncMicButtonState();
+        }
 
         function float32ToInt16Base64(float32Array) {
             const int16 = new Int16Array(float32Array.length);
@@ -457,33 +481,37 @@
                 broadcasterAudioCtx = new AudioCtx({ sampleRate: 16000 });
                 const audioOnlyStream = new MediaStream([audioTracks[0]]);
                 broadcasterAudioSource = broadcasterAudioCtx.createMediaStreamSource(audioOnlyStream);
-                broadcasterAudioProcessor = broadcasterAudioCtx.createScriptProcessor(2048, 1, 1);
+                broadcasterAudioProcessor = broadcasterAudioCtx.createScriptProcessor(4096, 1, 1);
                 broadcasterAudioSilentGain = broadcasterAudioCtx.createGain();
                 broadcasterAudioSilentGain.gain.value = 0;
 
                 const actualSampleRate = broadcasterAudioCtx.sampleRate || 16000;
 
-                broadcasterAudioProcessor.onaudioprocess = async (event) => {
-                    if (!isLiveActive || !broadcasterChannel || isSendingAudioChunk) return;
+                broadcasterAudioProcessor.onaudioprocess = (event) => {
+                    if (!isLiveActive || !broadcasterChannel || !isMicEnabled) return;
                     const inputChannel = event.inputBuffer.getChannelData(0);
                     if (!inputChannel || inputChannel.length === 0) return;
 
-                    isSendingAudioChunk = true;
-                    try {
-                        const b64Pcm = float32ToInt16Base64(inputChannel);
-                        await broadcasterChannel.send({
-                            type: 'broadcast',
-                            event: 'live_audio',
-                            payload: {
-                                pcm: b64Pcm,
-                                sampleRate: actualSampleRate
-                            }
-                        });
-                    } catch (e) {
-                        // Ignore transient audio send errors
-                    } finally {
-                        isSendingAudioChunk = false;
+                    // Skip silent frames to reduce network backlog and sync drift
+                    let peak = 0;
+                    for (let i = 0; i < inputChannel.length; i += 8) {
+                        const v = Math.abs(inputChannel[i]);
+                        if (v > peak) peak = v;
                     }
+                    if (peak < 0.004) return;
+
+                    const b64Pcm = float32ToInt16Base64(inputChannel);
+                    const elapsedMs = liveStartTimestamp ? (Date.now() - liveStartTimestamp) : 0;
+                    broadcasterChannel.send({
+                        type: 'broadcast',
+                        event: 'live_audio',
+                        payload: {
+                            pcm: b64Pcm,
+                            sampleRate: actualSampleRate,
+                            t: elapsedMs,
+                            startedAt: liveStartTimestamp
+                        }
+                    }).catch(() => {});
                 };
 
                 broadcasterAudioSource.connect(broadcasterAudioProcessor);
@@ -499,7 +527,6 @@
         }
 
         function stopAudioStreaming() {
-            isSendingAudioChunk = false;
             try {
                 if (broadcasterAudioProcessor) {
                     broadcasterAudioProcessor.disconnect();
@@ -575,12 +602,9 @@
                 src.connect(ctx.destination);
 
                 const now = ctx.currentTime;
-                if (viewerAudioNextPlayTime < now) {
-                    viewerAudioNextPlayTime = now + 0.03;
-                }
-                if (viewerAudioNextPlayTime - now > 0.6) {
-                    // Drop excessive backlog to avoid delay build-up
-                    viewerAudioNextPlayTime = now + 0.05;
+                // Keep audio tight to real-time so audio never lags behind video
+                if (viewerAudioNextPlayTime < now || (viewerAudioNextPlayTime - now) > 0.16) {
+                    viewerAudioNextPlayTime = now + 0.02;
                 }
                 src.start(viewerAudioNextPlayTime);
                 viewerAudioNextPlayTime += audioBuffer.duration;
@@ -859,6 +883,8 @@
             const videoEl = document.getElementById('studio-video');
             const offImg = document.getElementById('studio-cover-off-img');
 
+            syncMicButtonState();
+
             if (camBtn) {
                 camBtn.textContent = isCameraEnabled ? '📷 Cam: ON' : '🚫 Cam: OFF';
                 camBtn.classList.toggle('active-off', !isCameraEnabled);
@@ -929,6 +955,9 @@
             studioMediaStream.getVideoTracks().forEach(track => {
                 track.enabled = isCameraEnabled;
             });
+            studioMediaStream.getAudioTracks().forEach(track => {
+                track.enabled = isMicEnabled;
+            });
 
             videoEl.srcObject = studioMediaStream;
             syncStudioControlButtons();
@@ -997,6 +1026,7 @@
             document.getElementById('studio-comments-list').innerHTML = '';
 
             isCameraEnabled = true;
+            isMicEnabled = true;
             currentFacingMode = 'user';
             effectIndex = 0;
             updateViewerCountLabels(0);
@@ -1029,7 +1059,11 @@
                         return;
                     }
                     studioMediaStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                    studioMediaStream.getAudioTracks().forEach(track => {
+                        track.enabled = isMicEnabled;
+                    });
                     videoEl.srcObject = studioMediaStream;
+                    syncMicButtonState();
                 }
             } catch (err) {
                 alert('Media access error: ' + err.message);
@@ -1126,8 +1160,8 @@
                         }
                     });
 
-                // Lightweight 100ms (~10 fps) frame broadcast with aspect ratio, mirror, effect, and off-camera cover preserved
-                broadcastFrameInterval = setInterval(async () => {
+                // 125ms (~8 fps) frame broadcast paired with audio timestamp t (ms since startMs)
+                broadcastFrameInterval = setInterval(() => {
                     if (!isLiveActive || !broadcasterChannel || isSendingFrame) return;
                     isSendingFrame = true;
                     try {
@@ -1151,7 +1185,6 @@
                         ctx.fillRect(0, 0, targetW, targetH);
 
                         if (selectedLiveMode === 'camera' && !isCameraEnabled) {
-                            // Draw cover image when camera is turned OFF
                             if (coverOffImgReady && coverOffImgElement.naturalWidth > 0) {
                                 const iw = coverOffImgElement.naturalWidth;
                                 const ih = coverOffImgElement.naturalHeight;
@@ -1182,8 +1215,9 @@
                         }
                         ctx.restore();
 
-                        const frameData = captureCanvas.toDataURL('image/jpeg', 0.32);
-                        await broadcasterChannel.send({
+                        const frameData = captureCanvas.toDataURL('image/jpeg', 0.3);
+                        const elapsedMs = Date.now() - startMs;
+                        broadcasterChannel.send({
                             type: 'broadcast',
                             event: 'live_frame',
                             payload: {
@@ -1191,15 +1225,16 @@
                                 width: targetW,
                                 height: targetH,
                                 isPortrait: isPortraitFrame,
+                                t: elapsedMs,
                                 startedAt: startMs
                             }
-                        });
+                        }).catch(() => {});
                     } catch (e) {
-                        // Ignore transient send errors to keep frame loop smooth
+                        // Ignore transient frame capture errors
                     } finally {
                         isSendingFrame = false;
                     }
-                }, 100);
+                }, 125);
 
                 loadFeed();
                 loadProfile();
@@ -1254,6 +1289,7 @@
             activeCoverImageUrl = '';
             coverOffImgReady = false;
             isCameraEnabled = true;
+            isMicEnabled = true;
             currentFacingMode = 'user';
             effectIndex = 0;
             syncStudioControlButtons();
