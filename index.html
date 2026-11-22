@@ -4,7 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SocialChat</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Primary CDN + Automatic Fallback CDNs -->
+    <script id="sb-cdn-1" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        if (!window.supabase) {
+            var s = document.createElement('script');
+            s.src = "https://unpkg.com/@supabase/supabase-js@2";
+            document.head.appendChild(s);
+        }
+    </script>
     <style>
         body { font-family: Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .auth-container { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 350px; text-align: center; }
@@ -13,7 +21,7 @@
         button:hover { background: #166fe5; }
         .toggle-btn { background: none; color: #1877f2; border: none; cursor: pointer; margin-top: 12px; font-size: 14px; }
         .toggle-btn:hover { text-decoration: underline; }
-        .error { color: #fa383e; font-size: 13px; margin-top: 5px; text-align: left; }
+        .error { color: #fa383e; font-size: 13px; margin-top: 8px; text-align: left; line-height: 1.4; }
         
         #app-container { display: none; width: 100%; max-width: 600px; height: 100vh; background: #f0f2f5; flex-direction: column; }
         header { background: white; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; }
@@ -201,16 +209,65 @@
     <script>
         const SUPABASE_URL = 'https://dwwubrcbwmxckeklfkan.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3d3VicmNid214Y2tla2xma2FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ3NTk0NjUsImV4cCI6MjExMDMzNTQ2NX0.QYu1M4zlTkOF8yTpOl944OAF5vGiXiL4mX3hbb0DhbY';
-        
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Custom fetch with timeout & clear network diagnostic
+        async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const res = await fetch(url, { ...options, signal: controller.signal });
+                clearTimeout(timer);
+                return res;
+            } catch (err) {
+                clearTimeout(timer);
+                throw err;
+            }
+        }
+
+        function initSupabaseClient() {
+            if (!window.supabase || !window.supabase.createClient) return null;
+            return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                global: {
+                    fetch: fetchWithTimeout
+                },
+                auth: {
+                    persistSession: true,
+                    autoRefreshToken: true,
+                    detectSessionInUrl: false
+                }
+            });
+        }
+
+        let supabaseClient = initSupabaseClient();
         let isLoginMode = false;
         let currentUser = null;
         let activeChatUser = null;
 
+        function formatNetworkError(err) {
+            const msg = (err && err.message) ? err.message : String(err || '');
+            if (err && err.name === 'AbortError' || msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('fetch')) {
+                return 'လက်ရှိ အင်တာနက်လိုင်း (သို့မဟုတ် ISP) မှ Supabase Server သို့ တိုက်ရိုက်ချိတ်ဆက်၍ မရပါ။ (VPN ပိတ်ထားချိန်တွင် ISP ဘက်က ပိတ်/နှေးနေခြင်း ဖြစ်နိုင်ပါသည်။)';
+            }
+            return msg;
+        }
+
         window.addEventListener('DOMContentLoaded', async () => {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (session) {
-                onLoginSuccess(session.user);
+            if (!supabaseClient) {
+                await new Promise(r => setTimeout(r, 800));
+                supabaseClient = initSupabaseClient();
+            }
+            if (!supabaseClient) {
+                document.getElementById('message').textContent = 'Library ချိတ်ဆက်မှု နှေးနေပါသည်။ Page ကို Refresh လုပ်ကြည့်ပါ။';
+                return;
+            }
+
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session) {
+                    onLoginSuccess(session.user);
+                }
+            } catch (e) {
+                // Ignore initial session check error when offline/blocked
             }
         });
 
@@ -241,6 +298,14 @@
             const username = document.getElementById('username').value.trim();
             const msgDiv = document.getElementById('message');
             msgDiv.textContent = '';
+
+            if (!supabaseClient) {
+                supabaseClient = initSupabaseClient();
+            }
+            if (!supabaseClient) {
+                msgDiv.textContent = 'Supabase Client မစတင်နိုင်ပါ။';
+                return;
+            }
 
             if (!email || !password || (!isLoginMode && !username)) {
                 msgDiv.textContent = 'ကျေးဇူးပြု၍ အချက်အလက်အားလုံး ဖြည့်ပါ။';
@@ -276,7 +341,7 @@
                     onLoginSuccess(data.user);
                 }
             } catch (err) {
-                msgDiv.textContent = err.message;
+                msgDiv.textContent = formatNetworkError(err);
             }
         }
 
@@ -291,22 +356,30 @@
             loadChatList();
             loadProfile();
 
-            supabaseClient
-                .channel('public:messages')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-                    const newMsg = payload.new;
-                    if (activeChatUser && ((newMsg.sender_id === currentUser.id && newMsg.receiver_id === activeChatUser.id) || (newMsg.sender_id === activeChatUser.id && newMsg.receiver_id === currentUser.id))) {
-                        appendMessageBubble(newMsg);
-                    }
-                })
-                .subscribe();
+            try {
+                supabaseClient
+                    .channel('public:messages')
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                        const newMsg = payload.new;
+                        if (activeChatUser && ((newMsg.sender_id === currentUser.id && newMsg.receiver_id === activeChatUser.id) || (newMsg.sender_id === activeChatUser.id && newMsg.receiver_id === currentUser.id))) {
+                            appendMessageBubble(newMsg);
+                        }
+                    })
+                    .subscribe();
+            } catch (e) {
+                // Realtime fallback to manual load
+            }
         }
 
         async function ensureProfileExists(user) {
-            const { data } = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
-            if (!data) {
-                const defaultName = user.user_metadata?.username || user.email.split('@')[0];
-                await supabaseClient.from('profiles').insert([{ id: user.id, username: defaultName }]);
+            try {
+                const { data } = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
+                if (!data) {
+                    const defaultName = user.user_metadata?.username || user.email.split('@')[0];
+                    await supabaseClient.from('profiles').insert([{ id: user.id, username: defaultName }]);
+                }
+            } catch (e) {
+                console.error(e);
             }
         }
 
@@ -335,18 +408,22 @@
                 return;
             }
 
-            const { data } = await supabaseClient
-                .from('profiles').select('*').ilike('username', `%${query}%`).limit(5);
+            try {
+                const { data } = await supabaseClient
+                    .from('profiles').select('*').ilike('username', `%${query}%`).limit(5);
 
-            resultsBox.innerHTML = '';
-            if (data && data.length > 0) {
-                resultsBox.style.display = 'block';
-                data.forEach(user => {
-                    if (user.id !== currentUser.id) {
-                        resultsBox.innerHTML += `<div class="search-item" onclick="viewUserProfile('${user.id}', '${user.username}', '${user.bio || ''}', '${user.avatar_url || ''}')">${user.username}</div>`;
-                    }
-                });
-            } else {
+                resultsBox.innerHTML = '';
+                if (data && data.length > 0) {
+                    resultsBox.style.display = 'block';
+                    data.forEach(user => {
+                        if (user.id !== currentUser.id) {
+                            resultsBox.innerHTML += `<div class="search-item" onclick="viewUserProfile('${user.id}', '${user.username}', '${user.bio || ''}', '${user.avatar_url || ''}')">${user.username}</div>`;
+                        }
+                    });
+                } else {
+                    resultsBox.style.display = 'none';
+                }
+            } catch (e) {
                 resultsBox.style.display = 'none';
             }
         }
@@ -374,47 +451,55 @@
                 existingMsgBtn.onclick = () => openDirectChat(userId, username, avatarUrl);
             }
 
-            const { data: posts } = await supabaseClient
-                .from('posts').select('*, profiles(username, avatar_url, bio)').eq('user_id', userId).order('created_at', { ascending: false });
+            try {
+                const { data: posts } = await supabaseClient
+                    .from('posts').select('*, profiles(username, avatar_url, bio)').eq('user_id', userId).order('created_at', { ascending: false });
 
-            const visitorPostsDiv = document.getElementById('visitor-posts');
-            visitorPostsDiv.innerHTML = '';
-            if (posts && posts.length > 0) {
-                posts.forEach(post => {
-                    let mediaHtml = post.media_url ? `<img src="${post.media_url}" class="post-media" onclick="openLightbox('${post.media_url}')">` : '';
-                    visitorPostsDiv.innerHTML += `
-                        <div class="card post-item">
-                            <div style="font-size:11px; color:#65676b;">Privacy: ${post.privacy}</div>
-                            <div class="post-body">${post.content || ''}</div>
-                            ${mediaHtml}
-                        </div>`;
-                });
-            } else {
-                visitorPostsDiv.innerHTML = '<p style="color:#65676b; font-size:13px;">No public posts.</p>';
+                const visitorPostsDiv = document.getElementById('visitor-posts');
+                visitorPostsDiv.innerHTML = '';
+                if (posts && posts.length > 0) {
+                    posts.forEach(post => {
+                        let mediaHtml = post.media_url ? `<img src="${post.media_url}" class="post-media" onclick="openLightbox('${post.media_url}')">` : '';
+                        visitorPostsDiv.innerHTML += `
+                            <div class="card post-item">
+                                <div style="font-size:11px; color:#65676b;">Privacy: ${post.privacy}</div>
+                                <div class="post-body">${post.content || ''}</div>
+                                ${mediaHtml}
+                            </div>`;
+                    });
+                } else {
+                    visitorPostsDiv.innerHTML = '<p style="color:#65676b; font-size:13px;">No public posts.</p>';
+                }
+            } catch (e) {
+                console.error(e);
             }
         }
 
         async function loadChatList() {
-            const { data: users } = await supabaseClient.from('profiles').select('*').neq('id', currentUser.id);
-            const listDiv = document.getElementById('conversations-list');
-            listDiv.innerHTML = '';
+            try {
+                const { data: users } = await supabaseClient.from('profiles').select('*').neq('id', currentUser.id);
+                const listDiv = document.getElementById('conversations-list');
+                listDiv.innerHTML = '';
 
-            if (users && users.length > 0) {
-                users.forEach(user => {
-                    let avatarHtml = user.avatar_url ? `<img src="${user.avatar_url}" style="width:100%; height:100%; object-fit:cover;">` : `<span>${user.username.charAt(0).toUpperCase()}</span>`;
-                    listDiv.innerHTML += `
-                        <div class="chat-user-list-item" onclick="openDirectChat('${user.id}', '${user.username}', '${user.avatar_url || ''}')">
-                            <div style="width: 45px; height: 45px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 18px;">
-                                ${avatarHtml}
-                            </div>
-                            <div>
-                                <div style="font-weight: bold; font-size: 15px; color: #050505;">${user.username}</div>
-                                <div style="font-size: 12px; color: #65676b;">Tap to chat</div>
-                            </div>
-                        </div>`;
-                });
-            } else {
-                listDiv.innerHTML = '<p style="color: #65676b; font-size: 13px;">No other users found.</p>';
+                if (users && users.length > 0) {
+                    users.forEach(user => {
+                        let avatarHtml = user.avatar_url ? `<img src="${user.avatar_url}" style="width:100%; height:100%; object-fit:cover;">` : `<span>${user.username.charAt(0).toUpperCase()}</span>`;
+                        listDiv.innerHTML += `
+                            <div class="chat-user-list-item" onclick="openDirectChat('${user.id}', '${user.username}', '${user.avatar_url || ''}')">
+                                <div style="width: 45px; height: 45px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 18px;">
+                                    ${avatarHtml}
+                                </div>
+                                <div>
+                                    <div style="font-weight: bold; font-size: 15px; color: #050505;">${user.username}</div>
+                                    <div style="font-size: 12px; color: #65676b;">Tap to chat</div>
+                                </div>
+                            </div>`;
+                    });
+                } else {
+                    listDiv.innerHTML = '<p style="color: #65676b; font-size: 13px;">No other users found.</p>';
+                }
+            } catch (e) {
+                console.error(e);
             }
         }
 
@@ -505,7 +590,7 @@
                 input.value = '';
                 appendMessageBubble(data[0]);
             } else {
-                alert('Error sending message: ' + (error ? error.message : 'Unknown error'));
+                alert('Error sending message: ' + (error ? formatNetworkError(error) : 'Unknown error'));
             }
         }
 
@@ -527,7 +612,7 @@
                     alert('Profile photo updated successfully!');
                     loadProfile();
                 } else {
-                    alert('Error uploading avatar: ' + error.message);
+                    alert('Error uploading avatar: ' + formatNetworkError(error));
                 }
             }
         }
@@ -551,7 +636,7 @@
                 alert('Profile updated successfully!');
                 loadProfile();
             } else {
-                alert('Error updating profile: ' + error.message);
+                alert('Error updating profile: ' + formatNetworkError(error));
             }
         }
 
@@ -568,7 +653,7 @@
                 const { error: uploadError } = await supabaseClient.storage.from('media').upload(fileName, file);
 
                 if (uploadError) {
-                    alert('Error uploading media: ' + uploadError.message);
+                    alert('Error uploading media: ' + formatNetworkError(uploadError));
                     return;
                 }
 
@@ -587,65 +672,69 @@
                 loadFeed();
                 loadProfile();
             } else {
-                alert('Error posting: ' + error.message);
+                alert('Error posting: ' + formatNetworkError(error));
             }
         }
 
         async function loadFeed() {
-            const { data } = await supabaseClient
-                .from('posts').select('*, profiles(username, avatar_url, bio)')
-                .order('created_at', { ascending: false });
+            try {
+                const { data } = await supabaseClient
+                    .from('posts').select('*, profiles(username, avatar_url, bio)')
+                    .order('created_at', { ascending: false });
 
-            const feed = document.getElementById('posts-feed');
-            feed.innerHTML = '';
-            if (data && data.length > 0) {
-                data.forEach(post => {
-                    if (post.privacy === 'only_me' && post.user_id !== currentUser.id) return;
+                const feed = document.getElementById('posts-feed');
+                feed.innerHTML = '';
+                if (data && data.length > 0) {
+                    data.forEach(post => {
+                        if (post.privacy === 'only_me' && post.user_id !== currentUser.id) return;
 
-                    const uname = post.profiles ? post.profiles.username : 'User';
-                    const uBio = post.profiles ? (post.profiles.bio || '') : '';
-                    const uAvatar = post.profiles ? (post.profiles.avatar_url || '') : '';
-                    const time = new Date(post.created_at).toLocaleString();
-                    let mediaHtml = post.media_url ? `<img src="${post.media_url}" class="post-media" onclick="openLightbox('${post.media_url}')">` : '';
-                    
-                    let actionButtons = '';
-                    if (post.user_id === currentUser.id) {
-                        actionButtons = `<button onclick="editPost('${post.id}', '${post.content ? post.content.replace(/'/g, "\\'") : ''}')" style="width:auto; padding:3px 8px; font-size:11px; background:#65676b;">Edit</button> <button onclick="deletePost('${post.id}')" style="width:auto; padding:3px 8px; font-size:11px; background:#fa383e;">Delete</button>`;
-                    }
+                        const uname = post.profiles ? post.profiles.username : 'User';
+                        const uBio = post.profiles ? (post.profiles.bio || '') : '';
+                        const uAvatar = post.profiles ? (post.profiles.avatar_url || '') : '';
+                        const time = new Date(post.created_at).toLocaleString();
+                        let mediaHtml = post.media_url ? `<img src="${post.media_url}" class="post-media" onclick="openLightbox('${post.media_url}')">` : '';
+                        
+                        let actionButtons = '';
+                        if (post.user_id === currentUser.id) {
+                            actionButtons = `<button onclick="editPost('${post.id}', '${post.content ? post.content.replace(/'/g, "\\'") : ''}')" style="width:auto; padding:3px 8px; font-size:11px; background:#65676b;">Edit</button> <button onclick="deletePost('${post.id}')" style="width:auto; padding:3px 8px; font-size:11px; background:#fa383e;">Delete</button>`;
+                        }
 
-                    let commentsHtml = '';
-                    let commentsArr = post.comments || [];
-                    commentsArr.forEach(c => {
-                        commentsHtml += `<div style="margin-top:4px; font-size:12px;"><b>${c.username}:</b> ${c.text}</div>`;
+                        let commentsHtml = '';
+                        let commentsArr = post.comments || [];
+                        commentsArr.forEach(c => {
+                            commentsHtml += `<div style="margin-top:4px; font-size:12px;"><b>${c.username}:</b> ${c.text}</div>`;
+                        });
+
+                        feed.innerHTML += `
+                            <div class="card post-item">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div>
+                                        <span class="post-author" onclick="viewUserProfile('${post.user_id}', '${uname}', '${uBio}', '${uAvatar}')">${uname}</span>
+                                        <div class="post-time">${time} (${post.privacy})</div>
+                                    </div>
+                                    <div>${actionButtons}</div>
+                                </div>
+                                <div class="post-body">${post.content || ''}</div>
+                                ${mediaHtml}
+                                <div class="action-bar">
+                                    <span onclick="likePost('${post.id}', ${post.likes_count || 0})">❤️ Like (${post.likes_count || 0})</span>
+                                    <span onclick="toggleCommentBox('${post.id}')">💬 Comment</span>
+                                    <span onclick="sharePost('${post.content ? post.content.replace(/'/g, "\\'") : ''}', '${post.media_url || ''}')">🔗 Share (${post.shares_count || 0})</span>
+                                </div>
+                                <div id="comment-section-${post.id}" class="comment-section" style="display:none;">
+                                    <div id="comments-list-${post.id}">${commentsHtml}</div>
+                                    <div style="display:flex; margin-top:6px; gap:5px;">
+                                        <input type="text" id="comment-input-${post.id}" placeholder="Write a comment..." style="margin:0; padding:6px; font-size:12px;">
+                                        <button onclick="addComment('${post.id}')" style="width:60px; margin:0; padding:6px; font-size:12px;">Post</button>
+                                    </div>
+                                </div>
+                            </div>`;
                     });
-
-                    feed.innerHTML += `
-                        <div class="card post-item">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <div>
-                                    <span class="post-author" onclick="viewUserProfile('${post.user_id}', '${uname}', '${uBio}', '${uAvatar}')">${uname}</span>
-                                    <div class="post-time">${time} (${post.privacy})</div>
-                                </div>
-                                <div>${actionButtons}</div>
-                            </div>
-                            <div class="post-body">${post.content || ''}</div>
-                            ${mediaHtml}
-                            <div class="action-bar">
-                                <span onclick="likePost('${post.id}', ${post.likes_count || 0})">❤️ Like (${post.likes_count || 0})</span>
-                                <span onclick="toggleCommentBox('${post.id}')">💬 Comment</span>
-                                <span onclick="sharePost('${post.content ? post.content.replace(/'/g, "\\'") : ''}', '${post.media_url || ''}')">🔗 Share (${post.shares_count || 0})</span>
-                            </div>
-                            <div id="comment-section-${post.id}" class="comment-section" style="display:none;">
-                                <div id="comments-list-${post.id}">${commentsHtml}</div>
-                                <div style="display:flex; margin-top:6px; gap:5px;">
-                                    <input type="text" id="comment-input-${post.id}" placeholder="Write a comment..." style="margin:0; padding:6px; font-size:12px;">
-                                    <button onclick="addComment('${post.id}')" style="width:60px; margin:0; padding:6px; font-size:12px;">Post</button>
-                                </div>
-                            </div>
-                        </div>`;
-                });
-            } else {
-                feed.innerHTML = '<p style="color:#65676b; text-align:center;">No posts available.</p>';
+                } else {
+                    feed.innerHTML = '<p style="color:#65676b; text-align:center;">No posts available.</p>';
+                }
+            } catch (e) {
+                console.error(e);
             }
         }
 
@@ -721,72 +810,78 @@
         }
 
         async function loadProfile() {
-            const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', currentUser.id).single();
-            const uname = profile ? profile.username : 'User';
-            document.getElementById('profile-name').textContent = uname;
-            document.getElementById('profile-initial').textContent = uname.charAt(0).toUpperCase();
-            document.getElementById('edit-username').value = uname;
-            
-            if (profile && profile.bio) {
-                document.getElementById('profile-bio-text').textContent = profile.bio;
-                document.getElementById('edit-bio').value = profile.bio;
-            } else {
-                document.getElementById('profile-bio-text').textContent = '';
-                document.getElementById('edit-bio').value = '';
-            }
+            try {
+                const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', currentUser.id).single();
+                const uname = profile ? profile.username : 'User';
+                document.getElementById('profile-name').textContent = uname;
+                document.getElementById('profile-initial').textContent = uname.charAt(0).toUpperCase();
+                document.getElementById('edit-username').value = uname;
+                
+                if (profile && profile.bio) {
+                    document.getElementById('profile-bio-text').textContent = profile.bio;
+                    document.getElementById('edit-bio').value = profile.bio;
+                } else {
+                    document.getElementById('profile-bio-text').textContent = '';
+                    document.getElementById('edit-bio').value = '';
+                }
 
-            if (profile && profile.avatar_url) {
-                document.getElementById('profile-avatar-container').innerHTML = `<img src="${profile.avatar_url}" style="width:100%; height:100%; object-fit:cover;">`;
-            } else {
-                document.getElementById('profile-avatar-container').innerHTML = `<span id="profile-initial">${uname.charAt(0).toUpperCase()}</span>`;
-            }
+                if (profile && profile.avatar_url) {
+                    document.getElementById('profile-avatar-container').innerHTML = `<img src="${profile.avatar_url}" style="width:100%; height:100%; object-fit:cover;">`;
+                } else {
+                    document.getElementById('profile-avatar-container').innerHTML = `<span id="profile-initial">${uname.charAt(0).toUpperCase()}</span>`;
+                }
 
-            const { data: myPosts } = await supabaseClient.from('posts').select('*, profiles(username, avatar_url, bio)').eq('user_id', currentUser.id).order('created_at', { ascending: false });
-            const myPostsDiv = document.getElementById('my-posts');
-            myPostsDiv.innerHTML = '';
-            if (myPosts && myPosts.length > 0) {
-                myPosts.forEach(post => {
-                    let mediaHtml = post.media_url ? `<img src="${post.media_url}" class="post-media" onclick="openLightbox('${post.media_url}')">` : '';
-                    let actionButtons = '';
-                    if (post.user_id === currentUser.id) {
-                        actionButtons = `<button onclick="editPost('${post.id}', '${post.content ? post.content.replace(/'/g, "\\'") : ''}')" style="width:auto; padding:3px 8px; font-size:11px; background:#65676b;">Edit</button> <button onclick="deletePost('${post.id}')" style="width:auto; padding:3px 8px; font-size:11px; background:#fa383e;">Delete</button>`;
-                    }
+                const { data: myPosts } = await supabaseClient.from('posts').select('*, profiles(username, avatar_url, bio)').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+                const myPostsDiv = document.getElementById('my-posts');
+                myPostsDiv.innerHTML = '';
+                if (myPosts && myPosts.length > 0) {
+                    myPosts.forEach(post => {
+                        let mediaHtml = post.media_url ? `<img src="${post.media_url}" class="post-media" onclick="openLightbox('${post.media_url}')">` : '';
+                        let actionButtons = '';
+                        if (post.user_id === currentUser.id) {
+                            actionButtons = `<button onclick="editPost('${post.id}', '${post.content ? post.content.replace(/'/g, "\\'") : ''}')" style="width:auto; padding:3px 8px; font-size:11px; background:#65676b;">Edit</button> <button onclick="deletePost('${post.id}')" style="width:auto; padding:3px 8px; font-size:11px; background:#fa383e;">Delete</button>`;
+                        }
 
-                    let commentsHtml = '';
-                    let commentsArr = post.comments || [];
-                    commentsArr.forEach(c => {
-                        commentsHtml += `<div style="margin-top:4px; font-size:12px;"><b>${c.username}:</b> ${c.text}</div>`;
-                    });
+                        let commentsHtml = '';
+                        let commentsArr = post.comments || [];
+                        commentsArr.forEach(c => {
+                            commentsHtml += `<div style="margin-top:4px; font-size:12px;"><b>${c.username}:</b> ${c.text}</div>`;
+                        });
 
-                    myPostsDiv.innerHTML += `
-                        <div class="card post-item">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <div style="font-size:11px; color:#65676b;">Privacy: ${post.privacy}</div>
-                                <div>${actionButtons}</div>
-                            </div>
-                            <div class="post-body">${post.content || ''}</div>
-                            ${mediaHtml}
-                            <div class="action-bar">
-                                <span onclick="likePost('${post.id}', ${post.likes_count || 0})">❤️ Like (${post.likes_count || 0})</span>
-                                <span onclick="toggleCommentBox('${post.id}')">💬 Comment</span>
-                                <span onclick="sharePost('${post.content ? post.content.replace(/'/g, "\\'") : ''}', '${post.media_url || ''}')">🔗 Share (${post.shares_count || 0})</span>
-                            </div>
-                            <div id="comment-section-${post.id}" class="comment-section" style="display:none;">
-                                <div id="comments-list-${post.id}">${commentsHtml}</div>
-                                <div style="display:flex; margin-top:6px; gap:5px;">
-                                    <input type="text" id="comment-input-${post.id}" placeholder="Write a comment..." style="margin:0; padding:6px; font-size:12px;">
-                                    <button onclick="addComment('${post.id}')" style="width:60px; margin:0; padding:6px; font-size:12px;">Post</button>
+                        myPostsDiv.innerHTML += `
+                            <div class="card post-item">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div style="font-size:11px; color:#65676b;">Privacy: ${post.privacy}</div>
+                                    <div>${actionButtons}</div>
                                 </div>
-                            </div>
-                        </div>`;
-                });
-            } else {
-                myPostsDiv.innerHTML = '<p style="color:#65676b; font-size:13px;">No posts yet.</p>';
+                                <div class="post-body">${post.content || ''}</div>
+                                ${mediaHtml}
+                                <div class="action-bar">
+                                    <span onclick="likePost('${post.id}', ${post.likes_count || 0})">❤️ Like (${post.likes_count || 0})</span>
+                                    <span onclick="toggleCommentBox('${post.id}')">💬 Comment</span>
+                                    <span onclick="sharePost('${post.content ? post.content.replace(/'/g, "\\'") : ''}', '${post.media_url || ''}')">🔗 Share (${post.shares_count || 0})</span>
+                                </div>
+                                <div id="comment-section-${post.id}" class="comment-section" style="display:none;">
+                                    <div id="comments-list-${post.id}">${commentsHtml}</div>
+                                    <div style="display:flex; margin-top:6px; gap:5px;">
+                                        <input type="text" id="comment-input-${post.id}" placeholder="Write a comment..." style="margin:0; padding:6px; font-size:12px;">
+                                        <button onclick="addComment('${post.id}')" style="width:60px; margin:0; padding:6px; font-size:12px;">Post</button>
+                                    </div>
+                                </div>
+                            </div>`;
+                    });
+                } else {
+                    myPostsDiv.innerHTML = '<p style="color:#65676b; font-size:13px;">No posts yet.</p>';
+                }
+            } catch (e) {
+                console.error(e);
             }
         }
 
         async function logout() {
-            await supabaseClient.auth.signOut();
+            try {
+                await supabaseClient.auth.signOut();
+            } catch (e) {}
             location.reload();
         }
     </script>
