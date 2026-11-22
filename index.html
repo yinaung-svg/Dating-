@@ -82,7 +82,13 @@
         #live-studio-modal { display: none; position: fixed; z-index: 1300; top: 0; left: 0; width: 100%; height: 100%; background: #111; color: white; flex-direction: column; justify-content: space-between; }
         .studio-top { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.75); }
         .studio-stage { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8px 12px; position: relative; overflow: hidden; min-height: 0; }
-        #studio-video { max-width: 100%; max-height: 100%; background: #000; border-radius: 8px; object-fit: contain; }
+        #studio-video { max-width: 100%; max-height: 100%; background: #000; border-radius: 8px; object-fit: contain; transition: filter 0.2s ease, transform 0.2s ease; }
+        #studio-video.mirrored { transform: scaleX(-1); }
+        .studio-controls-row { display: flex; gap: 8px; padding: 6px 15px; max-width: 560px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+        .studio-ctrl-btn { flex: 1; width: auto; margin: 0; padding: 8px 6px; font-size: 12px; background: #2c2e30; color: #fff; border-radius: 6px; }
+        .studio-ctrl-btn:hover { background: #3d4043; }
+        .studio-ctrl-btn.active-off { background: #b02a37; }
+        .studio-ctrl-btn.active-effect { background: #1877f2; }
         .studio-footer-stack { margin-top: auto; width: 100%; background: rgba(0,0,0,0.88); }
         .studio-comments-box { width: 100%; max-width: 560px; margin: 0 auto; padding: 8px 15px 4px 15px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; gap: 5px; max-height: 210px; overflow: hidden; }
         .studio-comment-line { background: rgba(255,255,255,0.12); padding: 6px 10px; border-radius: 8px; font-size: 13px; line-height: 1.35; color: #fff; }
@@ -261,7 +267,7 @@
         </div>
     </div>
 
-    <!-- Broadcaster Live Studio (Start Live -> End Live + Live Comments at Bottom) -->
+    <!-- Broadcaster Live Studio (Cam On/Off + Flip Camera + Brighten Effect + Start/End Live + Live Comments) -->
     <div id="live-studio-modal">
         <div class="studio-top">
             <div>
@@ -271,8 +277,13 @@
             <button onclick="closeStudioWithoutStarting()" id="studio-close-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#444; margin:0;">Close</button>
         </div>
         <div class="studio-stage">
-            <video id="studio-video" autoplay playsinline muted></video>
+            <video id="studio-video" class="mirrored" autoplay playsinline muted></video>
             <div id="studio-caption-display" style="margin-top:6px; font-size:13px; color:#ddd; text-align:center;"></div>
+        </div>
+        <div id="studio-camera-controls" class="studio-controls-row">
+            <button id="toggle-cam-btn" class="studio-ctrl-btn" onclick="toggleCameraPower()">📷 Cam: ON</button>
+            <button id="flip-cam-btn" class="studio-ctrl-btn" onclick="flipCameraFacing()">🔄 Front</button>
+            <button id="brighten-effect-btn" class="studio-ctrl-btn" onclick="cycleBrightenEffect()">✨ Tone: Off</button>
         </div>
         <div class="studio-footer-stack">
             <div id="studio-comments-list" class="studio-comments-box"></div>
@@ -328,6 +339,15 @@
         let selectedLiveCoverDataUrl = '';
         let selectedLiveCaption = '';
         let studioMediaStream = null;
+        let currentFacingMode = 'user'; // 'user' (front) or 'environment' (back)
+        let isCameraEnabled = true;
+        let brightenLevelIndex = 0; // 0: Off, 1: Soft, 2: Glow
+        const brightenPresets = [
+            { label: 'Off', cssFilter: 'none', canvasFilter: 'none' },
+            { label: 'Soft', cssFilter: 'brightness(1.12) contrast(1.03) saturate(1.06)', canvasFilter: 'brightness(1.12) contrast(1.03) saturate(1.06)' },
+            { label: 'Glow', cssFilter: 'brightness(1.22) contrast(1.05) saturate(1.1)', canvasFilter: 'brightness(1.22) contrast(1.05) saturate(1.1)' }
+        ];
+
         let isLiveActive = false;
         let activeLiveId = null;
         let activeLivePostId = null;
@@ -526,6 +546,104 @@
             img.src = dataUrl;
         }
 
+        function syncStudioControlButtons() {
+            const camBtn = document.getElementById('toggle-cam-btn');
+            const flipBtn = document.getElementById('flip-cam-btn');
+            const brightBtn = document.getElementById('brighten-effect-btn');
+            const videoEl = document.getElementById('studio-video');
+
+            if (camBtn) {
+                camBtn.textContent = isCameraEnabled ? '📷 Cam: ON' : '🚫 Cam: OFF';
+                camBtn.classList.toggle('active-off', !isCameraEnabled);
+            }
+
+            if (flipBtn) {
+                flipBtn.textContent = currentFacingMode === 'user' ? '🔄 Front' : '🔄 Back';
+            }
+
+            if (videoEl) {
+                if (selectedLiveMode === 'camera' && currentFacingMode === 'user') {
+                    videoEl.classList.add('mirrored');
+                } else {
+                    videoEl.classList.remove('mirrored');
+                }
+                const preset = brightenPresets[brightenLevelIndex] || brightenPresets[0];
+                videoEl.style.filter = isCameraEnabled ? preset.cssFilter : 'none';
+            }
+
+            if (brightBtn) {
+                const preset = brightenPresets[brightenLevelIndex] || brightenPresets[0];
+                brightBtn.textContent = `✨ Tone: ${preset.label}`;
+                brightBtn.classList.toggle('active-effect', brightenLevelIndex > 0);
+            }
+        }
+
+        async function initCameraStream(facing = 'user') {
+            const videoEl = document.getElementById('studio-video');
+            const existingAudioTracks = studioMediaStream ? studioMediaStream.getAudioTracks() : [];
+
+            if (studioMediaStream) {
+                studioMediaStream.getVideoTracks().forEach(t => t.stop());
+            }
+
+            let newStream = null;
+            try {
+                newStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { ideal: facing },
+                        width: { ideal: 640 },
+                        height: { ideal: 360 },
+                        frameRate: { ideal: 24, max: 30 }
+                    },
+                    audio: existingAudioTracks.length === 0
+                });
+            } catch (err) {
+                // Fallback constraint if exact/ideal facingMode fails on some devices
+                newStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: existingAudioTracks.length === 0
+                });
+            }
+
+            if (existingAudioTracks.length > 0) {
+                existingAudioTracks.forEach(track => newStream.addTrack(track));
+            }
+
+            studioMediaStream = newStream;
+            studioMediaStream.getVideoTracks().forEach(track => {
+                track.enabled = isCameraEnabled;
+            });
+
+            videoEl.srcObject = studioMediaStream;
+            syncStudioControlButtons();
+        }
+
+        function toggleCameraPower() {
+            if (selectedLiveMode !== 'camera' || !studioMediaStream) return;
+            isCameraEnabled = !isCameraEnabled;
+            studioMediaStream.getVideoTracks().forEach(track => {
+                track.enabled = isCameraEnabled;
+            });
+            syncStudioControlButtons();
+        }
+
+        async function flipCameraFacing() {
+            if (selectedLiveMode !== 'camera') return;
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            try {
+                await initCameraStream(currentFacingMode);
+            } catch (err) {
+                alert('Camera switch error: ' + err.message);
+                currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+                syncStudioControlButtons();
+            }
+        }
+
+        function cycleBrightenEffect() {
+            brightenLevelIndex = (brightenLevelIndex + 1) % brightenPresets.length;
+            syncStudioControlButtons();
+        }
+
         function pushStudioComment(username, text) {
             studioCommentsQueue.push({ username, text });
             while (studioCommentsQueue.length > 6) {
@@ -553,6 +671,16 @@
             studioCommentsQueue = [];
             document.getElementById('studio-comments-list').innerHTML = '';
 
+            isCameraEnabled = true;
+            currentFacingMode = 'user';
+            brightenLevelIndex = 0;
+
+            const controlsRow = document.getElementById('studio-camera-controls');
+            if (controlsRow) {
+                controlsRow.style.display = selectedLiveMode === 'camera' ? 'flex' : 'none';
+            }
+            syncStudioControlButtons();
+
             const videoEl = document.getElementById('studio-video');
             document.getElementById('studio-mode-label').textContent = selectedLiveMode === 'camera' ? 'Camera Live' : 'Screen Share Live';
             document.getElementById('studio-caption-display').textContent = selectedLiveCaption;
@@ -567,10 +695,7 @@
 
             try {
                 if (selectedLiveMode === 'camera') {
-                    studioMediaStream = await navigator.mediaDevices.getUserMedia({
-                        video: { width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 24, max: 30 } },
-                        audio: true
-                    });
+                    await initCameraStream(currentFacingMode);
                 } else {
                     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
                         alert('Screen share is not supported in this browser/WebView.');
@@ -578,8 +703,8 @@
                         return;
                     }
                     studioMediaStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                    videoEl.srcObject = studioMediaStream;
                 }
-                videoEl.srcObject = studioMediaStream;
             } catch (err) {
                 alert('Media access error: ' + err.message);
                 closeStudioWithoutStarting();
@@ -655,7 +780,7 @@
                     })
                     .subscribe();
 
-                // Lightweight 100ms (~10 fps) frame broadcast with portrait/landscape aspect preserved
+                // Lightweight 100ms (~10 fps) frame broadcast with aspect ratio, mirror, and brighten effect preserved
                 broadcastFrameInterval = setInterval(async () => {
                     if (!isLiveActive || !broadcasterChannel || isSendingFrame) return;
                     const videoEl = document.getElementById('studio-video');
@@ -675,16 +800,31 @@
                             }
 
                             const ctx = captureCanvas.getContext('2d');
+                            ctx.save();
+                            ctx.filter = 'none';
                             ctx.fillStyle = '#000';
                             ctx.fillRect(0, 0, targetW, targetH);
 
-                            const scale = Math.min(targetW / vw, targetH / vh);
-                            const drawW = Math.round(vw * scale);
-                            const drawH = Math.round(vh * scale);
-                            const drawX = Math.round((targetW - drawW) / 2);
-                            const drawY = Math.round((targetH - drawH) / 2);
+                            if (isCameraEnabled) {
+                                const preset = brightenPresets[brightenLevelIndex] || brightenPresets[0];
+                                ctx.filter = preset.canvasFilter;
 
-                            ctx.drawImage(videoEl, drawX, drawY, drawW, drawH);
+                                const scale = Math.min(targetW / vw, targetH / vh);
+                                const drawW = Math.round(vw * scale);
+                                const drawH = Math.round(vh * scale);
+                                const drawX = Math.round((targetW - drawW) / 2);
+                                const drawY = Math.round((targetH - drawH) / 2);
+
+                                if (selectedLiveMode === 'camera' && currentFacingMode === 'user') {
+                                    ctx.translate(drawX + drawW, drawY);
+                                    ctx.scale(-1, 1);
+                                    ctx.drawImage(videoEl, 0, 0, drawW, drawH);
+                                } else {
+                                    ctx.drawImage(videoEl, drawX, drawY, drawW, drawH);
+                                }
+                            }
+                            ctx.restore();
+
                             const frameData = captureCanvas.toDataURL('image/jpeg', 0.32);
                             await broadcasterChannel.send({
                                 type: 'broadcast',
@@ -750,6 +890,10 @@
 
             activeLivePostId = null;
             activeLiveId = null;
+            isCameraEnabled = true;
+            currentFacingMode = 'user';
+            brightenLevelIndex = 0;
+            syncStudioControlButtons();
             studioCommentsQueue = [];
             document.getElementById('studio-comments-list').innerHTML = '';
 
