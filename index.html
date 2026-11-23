@@ -2428,7 +2428,7 @@
                     avatarContainer.innerHTML = `<span id="profile-initial">${initialChar}</span>`;
                 }
             }
-
+            
             const { data: myPosts } = await supabaseClient.from('posts').select('*, profiles(username, avatar_url, bio)').eq('user_id', currentUser.id).order('created_at', { ascending: false });
             const myPostsDiv = document.getElementById('my-posts');
             if (myPostsDiv) {
