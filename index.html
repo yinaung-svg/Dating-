@@ -3657,7 +3657,116 @@
                 }
             };
 
-            function tagPostsAndAttachCommentHandlers() {
+            async function checkIsCurrentUserPostOwner(postId, postCard) {
+                if (postCard && postCard.querySelector(`button[onclick*="deletePost('${postId}')"]`)) {
+                    return true;
+                }
+                if (postCard && postCard.closest('#my-posts')) {
+                    return true;
+                }
+                if (!currentUser || !postId) return false;
+                try {
+                    const { data } = await supabaseClient
+                        .from('posts')
+                        .select('user_id')
+                        .eq('id', postId)
+                        .maybeSingle();
+                    return Boolean(data && data.user_id === currentUser.id);
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            function bindLongPressToCommentItem(child, postId, idx, canDelete) {
+                if (!child || child.dataset.commentBound === '1') return;
+                child.dataset.commentBound = '1';
+                child.classList.add('comment-row-item');
+
+                if (!canDelete) return;
+
+                let pressTimer = null;
+                let startX = 0;
+                let startY = 0;
+
+                const showDeleteButton = () => {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
+                    child.classList.remove('pressing');
+                    if (child.querySelector('.comment-longpress-delete-btn')) return;
+
+                    const delBtn = document.createElement('button');
+                    delBtn.type = 'button';
+                    delBtn.className = 'comment-longpress-delete-btn';
+                    delBtn.textContent = 'Delete';
+                    delBtn.addEventListener('click', async (ev) => {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        delBtn.disabled = true;
+                        delBtn.textContent = 'Deleting...';
+                        await deleteCommentAtIndex(postId, idx);
+                    });
+                    child.appendChild(delBtn);
+                };
+
+                const cancelPress = () => {
+                    if (pressTimer) {
+                        clearTimeout(pressTimer);
+                        pressTimer = null;
+                    }
+                    child.classList.remove('pressing');
+                };
+
+                const beginPress = (clientX, clientY, targetEl) => {
+                    if (targetEl && targetEl.classList && targetEl.classList.contains('comment-longpress-delete-btn')) return;
+                    cancelPress();
+                    startX = clientX || 0;
+                    startY = clientY || 0;
+                    child.classList.add('pressing');
+
+                    pressTimer = setTimeout(() => {
+                        showDeleteButton();
+                    }, LONG_PRESS_MS);
+                };
+
+                const checkMoveDistance = (clientX, clientY) => {
+                    if (!pressTimer) return;
+                    const dx = Math.abs((clientX || 0) - startX);
+                    const dy = Math.abs((clientY || 0) - startY);
+                    if (dx > 18 || dy > 18) {
+                        cancelPress();
+                    }
+                };
+
+                child.addEventListener('touchstart', (e) => {
+                    if (e.touches && e.touches.length > 0) {
+                        beginPress(e.touches[0].clientX, e.touches[0].clientY, e.target);
+                    }
+                }, { passive: true });
+
+                child.addEventListener('touchmove', (e) => {
+                    if (e.touches && e.touches.length > 0) {
+                        checkMoveDistance(e.touches[0].clientX, e.touches[0].clientY);
+                    }
+                }, { passive: true });
+
+                child.addEventListener('touchend', cancelPress);
+                child.addEventListener('touchcancel', cancelPress);
+
+                child.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0) return;
+                    beginPress(e.clientX, e.clientY, e.target);
+                });
+
+                child.addEventListener('mousemove', (e) => {
+                    checkMoveDistance(e.clientX, e.clientY);
+                });
+
+                child.addEventListener('mouseup', cancelPress);
+                child.addEventListener('mouseleave', cancelPress);
+                child.addEventListener('contextmenu', (e) => e.preventDefault());
+            }
+
+            async function tagPostsAndAttachCommentHandlers() {
                 document.querySelectorAll('.post-item').forEach(card => {
                     if (card.dataset.postId) return;
                     const likeSpan = card.querySelector('.action-bar span[onclick^="likePost("]');
@@ -3669,54 +3778,17 @@
                     }
                 });
 
-                document.querySelectorAll('[id^="comments-list-"]').forEach(listDiv => {
+                const listDivs = Array.from(document.querySelectorAll('[id^="comments-list-"]'));
+                for (const listDiv of listDivs) {
                     const postId = listDiv.id.replace('comments-list-', '');
-                    const postCard = document.querySelector(`.post-item[data-post-id="${postId}"]`);
-                    const isPostOwner = Boolean(postCard && postCard.querySelector(`button[onclick^="deletePost('${postId}')"]`));
+                    const postCard = listDiv.closest('.post-item') || document.querySelector(`.post-item[data-post-id="${postId}"]`);
+                    const canDelete = await checkIsCurrentUserPostOwner(postId, postCard);
 
                     const children = Array.from(listDiv.children);
                     children.forEach((child, idx) => {
-                        if (child.dataset.commentBound === '1') return;
-                        child.dataset.commentBound = '1';
-                        child.classList.add('comment-row-item');
-
-                        if (!isPostOwner) return;
-
-                        let pressTimer = null;
-
-                        const startPress = (e) => {
-                            if (e.target && e.target.classList.contains('comment-longpress-delete-btn')) return;
-                            clearTimeout(pressTimer);
-                            child.classList.add('pressing');
-
-                            pressTimer = setTimeout(() => {
-                                child.classList.remove('pressing');
-                                if (child.querySelector('.comment-longpress-delete-btn')) return;
-
-                                const delBtn = document.createElement('button');
-                                delBtn.type = 'button';
-                                delBtn.className = 'comment-longpress-delete-btn';
-                                delBtn.textContent = 'Delete';
-                                delBtn.onclick = async (ev) => {
-                                    ev.stopPropagation();
-                                    await deleteCommentAtIndex(postId, idx);
-                                };
-                                child.appendChild(delBtn);
-                            }, LONG_PRESS_MS);
-                        };
-
-                        const cancelPress = () => {
-                            clearTimeout(pressTimer);
-                            child.classList.remove('pressing');
-                        };
-
-                        child.addEventListener('pointerdown', startPress);
-                        child.addEventListener('pointerup', cancelPress);
-                        child.addEventListener('pointercancel', cancelPress);
-                        child.addEventListener('pointerleave', cancelPress);
-                        child.addEventListener('contextmenu', (e) => e.preventDefault());
+                        bindLongPressToCommentItem(child, postId, idx, canDelete);
                     });
-                });
+                }
             }
 
             async function deleteCommentAtIndex(postId, indexToRemove) {
@@ -3759,7 +3831,7 @@
             if (typeof origLoadFeed === 'function') {
                 window.loadFeed = async function(...args) {
                     await origLoadFeed.apply(this, args);
-                    tagPostsAndAttachCommentHandlers();
+                    await tagPostsAndAttachCommentHandlers();
                     if (pendingTargetPostId) {
                         const found = scrollAndHighlightPost(pendingTargetPostId);
                         if (found) pendingTargetPostId = null;
@@ -3771,7 +3843,7 @@
             if (typeof origLoadProfile === 'function') {
                 window.loadProfile = async function(...args) {
                     await origLoadProfile.apply(this, args);
-                    tagPostsAndAttachCommentHandlers();
+                    await tagPostsAndAttachCommentHandlers();
                 };
             }
 
