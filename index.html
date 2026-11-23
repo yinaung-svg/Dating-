@@ -21,9 +21,10 @@
         header h2 { margin: 0; color: #1877f2; font-size: 20px; }
         
         .nav-tabs { display: flex; background: white; border-bottom: 1px solid #ddd; justify-content: space-around; flex-shrink: 0; }
-        .tab-btn { flex: 1; padding: 12px 5px; background: none; border: none; font-size: 13px; font-weight: bold; color: #65676b; cursor: pointer; border-bottom: 3px solid transparent; text-align: center; position: relative; }
+        .tab-btn { flex: 1; padding: 12px 4px; background: none; border: none; font-size: 13px; font-weight: bold; color: #65676b; cursor: pointer; border-bottom: 3px solid transparent; text-align: center; position: relative; margin-top: 0; }
+        .tab-btn:hover { background: transparent; color: #1877f2; }
         .tab-btn.active { color: #1877f2; border-bottom: 3px solid #1877f2; }
-        .noti-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #e41e3f; margin-left: 4px; vertical-align: middle; }
+        .tab-count-badge { position: absolute; top: 4px; right: 4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: #e41e3f; color: #fff; font-size: 10px; font-weight: bold; line-height: 16px; text-align: center; box-sizing: border-box; pointer-events: none; }
         
         .tab-content { flex: 1; overflow-y: auto; padding: 15px; display: none; min-height: 0; box-sizing: border-box; }
         .tab-content.active { display: block; }
@@ -59,6 +60,8 @@
 
         .noti-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border-radius: 8px; background: #f7f8fa; border: 1px solid #e4e6eb; margin-bottom: 8px; cursor: pointer; }
         .noti-item:hover { background: #eef3f8; }
+        .noti-item.unread { background: #e7f3ff; border-color: #b6d9ff; }
+        .noti-tag-pill { background: #1877f2; color: #fff; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
         .noti-live-pill { background: #e41e3f; color: #fff; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
 
         .action-bar { display: flex; justify-content: space-around; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 8px 0; margin-top: 10px; font-size: 13px; color: #65676b; cursor: pointer; }
@@ -102,6 +105,7 @@
 
         .chat-user-list-item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; gap: 12px; background: white; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
         .chat-user-list-item:hover { background: #f0f2f5; }
+        .chat-user-unread-pill { background: #e41e3f; color: #fff; font-size: 11px; font-weight: bold; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; flex-shrink: 0; }
 
         .comment-section { margin-top: 8px; background: #f0f2f5; padding: 8px; border-radius: 6px; font-size: 13px; }
 
@@ -197,8 +201,8 @@
         <div class="nav-tabs">
             <button id="tab-btn-feed" class="tab-btn active" onclick="handleFeedTabClick()">Feed</button>
             <button id="tab-btn-post" class="tab-btn" onclick="switchTab('post')">Post</button>
-            <button id="tab-btn-chat" class="tab-btn" onclick="switchTab('chat')">Chat</button>
-            <button id="tab-btn-notification" class="tab-btn" onclick="switchTab('notification')">Noti<span id="noti-badge-dot" class="noti-dot" style="display:none;"></span></button>
+            <button id="tab-btn-chat" class="tab-btn" onclick="switchTab('chat')">Chat<span id="chat-unread-badge" class="tab-count-badge" style="display:none;">0</span></button>
+            <button id="tab-btn-notification" class="tab-btn" onclick="switchTab('notification')">Noti<span id="noti-unread-badge" class="tab-count-badge" style="display:none;">0</span></button>
             <button id="tab-btn-profile" class="tab-btn" onclick="switchTab('profile')">Profile</button>
         </div>
 
@@ -438,6 +442,10 @@
         let isCurrentlyTyping = false;
         let remoteTypingClearTimer = null;
 
+        // Unread message counts per senderId
+        let unreadBySenderMap = {};
+        let totalUnreadMessages = 0;
+
         // Multi-photo selection state (1 to 10 photos, image/* only)
         let selectedPostPhotos = [];
 
@@ -446,9 +454,10 @@
 
         // Notifications state
         let notificationsList = [];
-        let hasUnreadNoti = false;
+        let unreadNotiCount = 0;
         let globalNotiChannel = null;
         let globalNotiSubscribed = false;
+        let handledMessageIds = new Set();
 
         // Live state (No stream video/audio saved to DB)
         let selectedLiveMode = 'camera';
@@ -535,6 +544,7 @@
                 } else if (document.visibilityState === 'visible') {
                     trackMyPresence();
                     updateMyLastSeen();
+                    refreshUnreadMessageCounts();
                 }
             });
 
@@ -549,6 +559,82 @@
                 onLoginSuccess(session.user);
             }
         });
+
+        /* ==================== BADGE FORMATTER (1..99, 99+) ==================== */
+        function formatBadgeNumber(num) {
+            const n = Math.max(0, Number(num) || 0);
+            return n > 99 ? '99+' : String(n);
+        }
+
+        function updateChatBadgeDisplay() {
+            const badge = document.getElementById('chat-unread-badge');
+            if (!badge) return;
+            if (totalUnreadMessages > 0) {
+                badge.textContent = formatBadgeNumber(totalUnreadMessages);
+                badge.style.display = 'inline-block';
+            } else {
+                badge.textContent = '0';
+                badge.style.display = 'none';
+            }
+
+            // Also update individual unread pills in chat list
+            document.querySelectorAll('.chat-user-list-item[data-user-id]').forEach(item => {
+                const uid = item.getAttribute('data-user-id');
+                const pill = item.querySelector('.chat-user-unread-pill');
+                const cnt = unreadBySenderMap[uid] || 0;
+                if (pill) {
+                    if (cnt > 0) {
+                        pill.textContent = formatBadgeNumber(cnt);
+                        pill.style.display = 'inline-flex';
+                    } else {
+                        pill.textContent = '0';
+                        pill.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        function updateNotiBadgeDisplay() {
+            const badge = document.getElementById('noti-unread-badge');
+            if (!badge) return;
+            if (unreadNotiCount > 0) {
+                badge.textContent = formatBadgeNumber(unreadNotiCount);
+                badge.style.display = 'inline-block';
+            } else {
+                badge.textContent = '0';
+                badge.style.display = 'none';
+            }
+        }
+
+        async function refreshUnreadMessageCounts() {
+            if (!currentUser) return;
+            try {
+                const { data, error } = await supabaseClient
+                    .from('messages')
+                    .select('id, sender_id')
+                    .eq('receiver_id', currentUser.id)
+                    .is('seen_at', null);
+
+                if (error || !data) return;
+
+                const map = {};
+                let total = 0;
+                const chatTabActive = document.getElementById('chat-tab')?.classList.contains('active');
+                const chatBoxVisible = document.getElementById('chat-box-view')?.style.display !== 'none';
+
+                data.forEach(row => {
+                    if (chatTabActive && chatBoxVisible && activeChatUser && row.sender_id === activeChatUser.id) {
+                        return;
+                    }
+                    map[row.sender_id] = (map[row.sender_id] || 0) + 1;
+                    total++;
+                });
+
+                unreadBySenderMap = map;
+                totalUnreadMessages = total;
+                updateChatBadgeDisplay();
+            } catch (e) {}
+        }
 
         /* ==================== ONLINE / LAST SEEN FORMATTER ==================== */
         function formatUserPresenceStatus(userId, lastSeenIso) {
@@ -628,7 +714,6 @@
         }
 
         function refreshAllPresenceDisplays() {
-            // 1. Refresh active chat header status
             if (activeChatUser) {
                 const profile = cachedUsersMap[activeChatUser.id] || activeChatUser;
                 const statusInfo = formatUserPresenceStatus(activeChatUser.id, profile.last_seen);
@@ -642,13 +727,11 @@
                     dotEl.style.display = statusInfo.isOnline ? 'block' : 'none';
                 }
 
-                // If partner came online while viewing chat, mark sent messages as delivered
                 if (statusInfo.isOnline) {
                     promoteSentToDeliveredInUI();
                 }
             }
 
-            // 2. Refresh chat list items if chat list is visible
             const chatListView = document.getElementById('chat-list-view');
             if (chatListView && chatListView.style.display !== 'none') {
                 document.querySelectorAll('.chat-user-list-item[data-user-id]').forEach(item => {
@@ -700,7 +783,6 @@
                     onlineUserIds = nextOnline;
                     activeChatBoxUsersMap = nextChatMap;
 
-                    // When someone goes offline, refresh profiles to get their latest last_seen
                     let someoneWentOffline = false;
                     prevOnline.forEach(uid => {
                         if (!nextOnline.has(uid)) someoneWentOffline = true;
@@ -877,7 +959,7 @@
             }
         }
 
-        /* ==================== NOTIFICATIONS ==================== */
+        /* ==================== NOTIFICATIONS (LIVE + DM + POST LIKE/COMMENT/SHARE) ==================== */
         function addNotificationItem(noti) {
             if (!noti) return;
             const exists = noti.id && notificationsList.some(n => n.id === noti.id);
@@ -885,32 +967,149 @@
 
             notificationsList.unshift({
                 id: noti.id || ('noti_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
+                type: noti.type || 'live',
+                actorId: noti.actorId || '',
                 actorName: noti.actorName || 'Someone',
-                message: noti.message || 'started a live stream!',
+                message: noti.message || '',
+                detailText: noti.detailText || '',
                 liveId: noti.liveId || '',
                 coverUrl: noti.coverUrl || '',
                 caption: noti.caption || '',
                 startedAt: noti.startedAt || Date.now(),
-                createdAt: noti.createdAt || new Date().toISOString()
+                createdAt: noti.createdAt || new Date().toISOString(),
+                isRead: false
             });
 
-            if (notificationsList.length > 50) {
-                notificationsList = notificationsList.slice(0, 50);
+            if (notificationsList.length > 120) {
+                notificationsList = notificationsList.slice(0, 120);
             }
 
             const notiTabActive = document.getElementById('notification-tab')?.classList.contains('active');
             if (!notiTabActive) {
-                hasUnreadNoti = true;
-                updateNotiDot();
+                unreadNotiCount++;
+                updateNotiBadgeDisplay();
+            } else {
+                notificationsList[0].isRead = true;
+                unreadNotiCount = 0;
+                updateNotiBadgeDisplay();
             }
             renderNotificationsList();
         }
 
-        function updateNotiDot() {
-            const dot = document.getElementById('noti-badge-dot');
-            if (dot) {
-                dot.style.display = hasUnreadNoti ? 'inline-block' : 'none';
+        function markAllNotificationsRead() {
+            unreadNotiCount = 0;
+            notificationsList.forEach(n => { n.isRead = true; });
+            updateNotiBadgeDisplay();
+        }
+
+        async function getUsernameById(userId) {
+            if (!userId) return 'Someone';
+            if (cachedUsersMap[userId] && cachedUsersMap[userId].username) {
+                return cachedUsersMap[userId].username;
             }
+            try {
+                const { data } = await supabaseClient
+                    .from('profiles')
+                    .select('username, avatar_url, bio, last_seen')
+                    .eq('id', userId)
+                    .maybeSingle();
+                if (data) {
+                    cachedUsersMap[userId] = data;
+                    if (data.username) return data.username;
+                }
+            } catch (e) {}
+            return 'Someone';
+        }
+
+        async function handleIncomingMessageNotification(msgRow) {
+            if (!msgRow || !currentUser || msgRow.receiver_id !== currentUser.id) return;
+            if (msgRow.id && handledMessageIds.has(msgRow.id)) return;
+            if (msgRow.id) handledMessageIds.add(msgRow.id);
+
+            const chatTabActive = document.getElementById('chat-tab')?.classList.contains('active');
+            const chatBoxVisible = document.getElementById('chat-box-view')?.style.display !== 'none';
+            const currentlyReadingThisChat = chatTabActive && chatBoxVisible && activeChatUser && activeChatUser.id === msgRow.sender_id;
+
+            if (!currentlyReadingThisChat) {
+                unreadBySenderMap[msgRow.sender_id] = (unreadBySenderMap[msgRow.sender_id] || 0) + 1;
+                totalUnreadMessages++;
+                updateChatBadgeDisplay();
+            }
+
+            const senderName = await getUsernameById(msgRow.sender_id);
+            addNotificationItem({
+                id: 'msg_noti_' + (msgRow.id || (Date.now() + '_' + Math.random().toString(36).slice(2, 6))),
+                type: 'message',
+                actorId: msgRow.sender_id,
+                actorName: senderName,
+                message: 'sent you a message',
+                detailText: msgRow.content || '',
+                createdAt: msgRow.created_at || new Date().toISOString()
+            });
+        }
+
+        async function emitPostInteractionNotification(postId, actionType, detailText = '') {
+            if (!currentUser || !postId) return;
+            try {
+                const { data: postRow } = await supabaseClient
+                    .from('posts')
+                    .select('id, user_id, content')
+                    .eq('id', postId)
+                    .maybeSingle();
+
+                if (!postRow || !postRow.user_id || postRow.user_id === currentUser.id) return;
+
+                const actorName = (currentProfileData && currentProfileData.username) ||
+                                  document.getElementById('profile-name')?.textContent ||
+                                  await getUsernameById(currentUser.id);
+
+                const parsed = parseMultiPhotoContent(postRow.content || '');
+                const postSnippet = (parsed.text || '').trim().slice(0, 45);
+
+                const ch = await ensureGlobalNotiChannel();
+                if (ch) {
+                    await ch.send({
+                        type: 'broadcast',
+                        event: 'post_interaction',
+                        payload: {
+                            id: `post_act_${actionType}_${postId}_${currentUser.id}_${Date.now()}`,
+                            type: 'post_' + actionType,
+                            actionType,
+                            postId,
+                            postOwnerId: postRow.user_id,
+                            actorId: currentUser.id,
+                            actorName,
+                            detailText: detailText || (postSnippet ? `"${postSnippet}"` : ''),
+                            createdAt: new Date().toISOString()
+                        }
+                    });
+                }
+            } catch (e) {}
+        }
+
+        function handleIncomingPostInteractionNoti(payload) {
+            if (!payload || !currentUser) return;
+            if (payload.postOwnerId !== currentUser.id) return;
+            if (payload.actorId === currentUser.id) return;
+
+            let actionPhrase = 'interacted with your post';
+            if (payload.actionType === 'like') {
+                actionPhrase = 'liked your post';
+            } else if (payload.actionType === 'comment') {
+                actionPhrase = 'commented on your post';
+            } else if (payload.actionType === 'share') {
+                actionPhrase = 'shared your post';
+            }
+
+            addNotificationItem({
+                id: payload.id,
+                type: payload.type || 'post_interaction',
+                actorId: payload.actorId,
+                actorName: payload.actorName || 'Someone',
+                message: actionPhrase,
+                detailText: payload.detailText || '',
+                createdAt: payload.createdAt || new Date().toISOString()
+            });
         }
 
         function renderNotificationsList() {
@@ -925,24 +1124,39 @@
             container.innerHTML = '';
             notificationsList.forEach(item => {
                 const div = document.createElement('div');
-                div.className = 'noti-item';
-                const safeHost = (item.actorName || 'Host').replace(/'/g, "\\'");
+                div.className = 'noti-item' + (!item.isRead ? ' unread' : '');
+                const safeHost = (item.actorName || 'User').replace(/'/g, "\\'");
                 const safeCover = (item.coverUrl || '').replace(/'/g, "\\'");
                 const safeCap = (item.caption || '').replace(/'/g, "\\'");
+                const safeAvatar = ((cachedUsersMap[item.actorId] && cachedUsersMap[item.actorId].avatar_url) || '').replace(/'/g, "\\'");
+
+                let pillHtml = `<span class="noti-tag-pill">POST</span>`;
+                if (item.type === 'live') {
+                    pillHtml = `<span class="noti-live-pill">LIVE</span>`;
+                } else if (item.type === 'message') {
+                    pillHtml = `<span class="noti-tag-pill" style="background:#31a24c;">CHAT</span>`;
+                }
 
                 div.innerHTML = `
                     <div style="min-width:0;">
                         <div style="font-size:13px; color:#050505;"><b>${item.actorName}</b> ${item.message}</div>
-                        ${item.caption ? `<div style="font-size:12px; color:#65676b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">"${item.caption}"</div>` : ''}
+                        ${item.detailText ? `<div style="font-size:12px; color:#4b4f56; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;">${item.detailText}</div>` : (item.caption ? `<div style="font-size:12px; color:#65676b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">"${item.caption}"</div>` : '')}
                         <div style="font-size:11px; color:#8a8d91; margin-top:2px;">${new Date(item.createdAt).toLocaleTimeString()}</div>
                     </div>
-                    <span class="noti-live-pill">LIVE</span>
+                    ${pillHtml}
                 `;
-                if (item.liveId) {
-                    div.onclick = () => {
+
+                div.onclick = () => {
+                    item.isRead = true;
+                    div.classList.remove('unread');
+                    if (item.type === 'live' && item.liveId) {
                         openLiveViewer(item.liveId, safeHost, safeCover, safeCap, item.startedAt);
-                    };
-                }
+                    } else if (item.type === 'message' && item.actorId) {
+                        openDirectChat(item.actorId, safeHost, safeAvatar);
+                    } else {
+                        switchTab('feed');
+                    }
+                };
                 container.appendChild(div);
             });
         }
@@ -961,7 +1175,13 @@
                     .on('broadcast', { event: 'live_started' }, payload => {
                         const p = payload && payload.payload;
                         if (p && currentUser && p.actorId !== currentUser.id) {
-                            addNotificationItem(p);
+                            addNotificationItem({ ...p, type: 'live' });
+                        }
+                    })
+                    .on('broadcast', { event: 'post_interaction' }, payload => {
+                        const p = payload && payload.payload;
+                        if (p && currentUser) {
+                            handleIncomingPostInteractionNoti(p);
                         }
                     })
                     .subscribe(status => {
@@ -981,18 +1201,12 @@
             const liveInfo = parseLivePost(postRow);
             if (!liveInfo || !liveInfo.liveId) return;
 
-            let actorName = 'User';
-            try {
-                const { data: prof } = await supabaseClient
-                    .from('profiles')
-                    .select('username')
-                    .eq('id', postRow.user_id)
-                    .maybeSingle();
-                if (prof && prof.username) actorName = prof.username;
-            } catch (e) {}
+            const actorName = await getUsernameById(postRow.user_id);
 
             addNotificationItem({
                 id: 'live_post_noti_' + postRow.id,
+                type: 'live',
+                actorId: postRow.user_id,
                 actorName,
                 message: 'started a live stream!',
                 liveId: liveInfo.liveId,
@@ -1008,6 +1222,7 @@
             const actorName = (currentProfileData && currentProfileData.username) || document.getElementById('profile-name')?.textContent || 'User';
             const notiPayload = {
                 id: 'live_noti_' + liveId,
+                type: 'live',
                 actorId: currentUser.id,
                 actorName,
                 message: 'started a live stream!',
@@ -1350,6 +1565,7 @@
             loadProfile();
             ensureGlobalNotiChannel();
             markIncomingMessagesDelivered();
+            refreshUnreadMessageCounts();
 
             chatSyncBroadcastChannel = supabaseClient
                 .channel('global-chat-sync')
@@ -1358,6 +1574,7 @@
                     if (!p || !currentUser) return;
                     if (p.receiver_id === currentUser.id) {
                         markSingleMessageDelivered(p.id, p.sender_id);
+                        handleIncomingMessageNotification(p);
                         if (activeChatUser && activeChatUser.id === p.sender_id && document.getElementById('chat-tab')?.classList.contains('active')) {
                             hideRemoteTyping();
                             appendMessageBubble(p);
@@ -1422,6 +1639,7 @@
                     if (payload.eventType === 'INSERT') {
                         if (row.receiver_id === currentUser.id) {
                             markSingleMessageDelivered(row.id, row.sender_id);
+                            handleIncomingMessageNotification(row);
                         }
                         if (activeChatUser && ((row.sender_id === currentUser.id && row.receiver_id === activeChatUser.id) || (row.sender_id === activeChatUser.id && row.receiver_id === currentUser.id))) {
                             if (row.sender_id === activeChatUser.id) {
@@ -1436,6 +1654,9 @@
                         if (row.sender_id === currentUser.id && activeChatUser && row.receiver_id === activeChatUser.id) {
                             const statusLabel = computeMessageStatusLabel(row);
                             updateMessageBubbleStatus(null, row, statusLabel.text, statusLabel.type);
+                        }
+                        if (row.receiver_id === currentUser.id && row.seen_at) {
+                            refreshUnreadMessageCounts();
                         }
                     }
                 })
@@ -1466,6 +1687,9 @@
                     .maybeSingle();
                 currentProfileData = updated || data;
             }
+            if (currentProfileData) {
+                cachedUsersMap[user.id] = currentProfileData;
+            }
         }
 
         function switchTab(tabName) {
@@ -1481,8 +1705,7 @@
                     document.querySelectorAll('.tab-btn')[tabs[tabName]].classList.add('active');
                 }
                 if (tabName === 'notification') {
-                    hasUnreadNoti = false;
-                    updateNotiDot();
+                    markAllNotificationsRead();
                     renderNotificationsList();
                 } else if (tabName === 'chat') {
                     if (activeChatUser) {
@@ -2259,7 +2482,6 @@
                     </div>`;
             }
 
-            // 4 to 10 photos: 2x2 collage with +N overlay on 4th tile
             const extraCount = list.length - 4;
             const fourthOverlay = extraCount > 0 ? `<div class="collage-more-overlay">+${extraCount}</div>` : '';
             return `
@@ -2342,7 +2564,7 @@
                     <div class="action-bar">
                         <span onclick="likePost('${post.id}', ${post.likes_count || 0})">❤️ Like (${post.likes_count || 0})</span>
                         <span onclick="toggleCommentBox('${post.id}')">💬 Comment</span>
-                        <span onclick="sharePost('${displayText.replace(/'/g, "\\'")}', '${shareMediaParam}')">🔗 Share (${post.shares_count || 0})</span>
+                        <span onclick="sharePost('${post.id}', '${displayText.replace(/'/g, "\\'")}', '${shareMediaParam}')">🔗 Share (${post.shares_count || 0})</span>
                     </div>
                     <div id="comment-section-${post.id}" class="comment-section" style="display:none;">
                         <div id="comments-list-${post.id}">${commentsHtml}</div>
@@ -2437,6 +2659,7 @@
                     const safeAvatar = (user.avatar_url || '').replace(/'/g, "\\'");
                     const initialChar = (user.username || 'U').charAt(0).toUpperCase();
                     const presenceInfo = formatUserPresenceStatus(user.id, user.last_seen);
+                    const unreadCnt = unreadBySenderMap[user.id] || 0;
                     let avatarHtml = user.avatar_url
                         ? `<img src="${user.avatar_url}" style="width:100%; height:100%; object-fit:cover;">`
                         : `<span>${initialChar}</span>`;
@@ -2453,6 +2676,7 @@
                                 <div style="font-weight: bold; font-size: 15px; color: #050505; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${user.username || 'User'}</div>
                                 <div class="chat-list-status-sub" style="font-size: 12px; color: ${presenceInfo.isOnline ? '#31a24c' : '#65676b'};">${presenceInfo.text}</div>
                             </div>
+                            <span class="chat-user-unread-pill" style="display:${unreadCnt > 0 ? 'inline-flex' : 'none'};">${formatBadgeNumber(unreadCnt)}</span>
                         </div>`;
                 });
             } else {
@@ -2541,6 +2765,13 @@
                 avatar_url: avatarUrl,
                 last_seen: cached.last_seen || null
             };
+
+            if (unreadBySenderMap[userId]) {
+                totalUnreadMessages = Math.max(0, totalUnreadMessages - unreadBySenderMap[userId]);
+                delete unreadBySenderMap[userId];
+                updateChatBadgeDisplay();
+            }
+
             hideRemoteTyping();
             switchTab('chat');
 
@@ -2574,6 +2805,7 @@
             document.getElementById('chat-box-view').style.display = 'none';
             document.getElementById('chat-list-view').style.display = 'block';
             loadChatList();
+            refreshUnreadMessageCounts();
         }
 
         /* ==================== MESSAGE DELIVERY & SEEN SYNC ==================== */
@@ -2653,6 +2885,12 @@
                     .eq('receiver_id', currentUser.id)
                     .is('seen_at', null)
                     .select('id');
+
+                if (unreadBySenderMap[partnerId]) {
+                    totalUnreadMessages = Math.max(0, totalUnreadMessages - unreadBySenderMap[partnerId]);
+                    delete unreadBySenderMap[partnerId];
+                    updateChatBadgeDisplay();
+                }
 
                 if (updatedRows && updatedRows.length > 0 && chatSyncBroadcastChannel) {
                     updatedRows.forEach(r => {
@@ -2902,6 +3140,10 @@
                     return;
                 }
 
+                if (data && data.id) {
+                    handledMessageIds.add(data.id);
+                }
+
                 let finalLabel = 'sent';
                 let finalType = 'sent';
                 if (data.seen_at || partnerInSameChat) {
@@ -3044,6 +3286,14 @@
             if (data && data.length > 0) {
                 data.forEach(post => {
                     if (post.privacy === 'only_me' && post.user_id !== currentUser.id) return;
+                    if (post.profiles && post.user_id) {
+                        cachedUsersMap[post.user_id] = {
+                            ...(cachedUsersMap[post.user_id] || {}),
+                            username: post.profiles.username,
+                            avatar_url: post.profiles.avatar_url,
+                            bio: post.profiles.bio
+                        };
+                    }
                     feed.innerHTML += buildPostCardHtml(post, true);
                 });
             } else {
@@ -3070,6 +3320,7 @@
 
         async function likePost(postId, currentLikes) {
             await supabaseClient.from('posts').update({ likes_count: currentLikes + 1 }).eq('id', postId);
+            await emitPostInteractionNotification(postId, 'like');
             loadFeed();
             loadProfile();
         }
@@ -3092,12 +3343,13 @@
             comments.push({ username: uname, text: text });
 
             await supabaseClient.from('posts').update({ comments: comments }).eq('id', postId);
+            await emitPostInteractionNotification(postId, 'comment', `"${text}"`);
             input.value = '';
             loadFeed();
             loadProfile();
         }
 
-        async function sharePost(content, mediaUrl) {
+        async function sharePost(postId, content, mediaUrl) {
             const privacy = prompt('Share privacy (public, friends, only_me):', 'public');
             if (privacy) {
                 await supabaseClient.from('posts').insert([{
@@ -3106,6 +3358,7 @@
                     privacy: privacy,
                     user_id: currentUser.id
                 }]);
+                await emitPostInteractionNotification(postId, 'share');
                 
                 alert('Post shared successfully to your profile & feed!');
                 loadFeed();
@@ -3124,7 +3377,10 @@
 
         async function loadProfile() {
             const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
-            if (profile) currentProfileData = profile;
+            if (profile) {
+                currentProfileData = profile;
+                cachedUsersMap[currentUser.id] = profile;
+            }
             const uname = profile ? profile.username : 'User';
             const initialChar = uname.charAt(0).toUpperCase() || 'U';
 
