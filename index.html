@@ -67,15 +67,18 @@
         #chat-tab { display: none; flex-direction: column; height: 100%; padding: 0; }
         #chat-tab.active { display: flex; }
         
-        .chat-messenger-header { display: flex; align-items: center; padding: 10px 15px; background: white; border-bottom: 1px solid #ddd; gap: 10px; }
-        .chat-header-avatar { width: 35px; height: 35px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 14px; }
+        #chat-list-view { flex: 1; overflow-y: auto; padding: 15px; box-sizing: border-box; }
+        #chat-box-view { display: none; flex-direction: column; height: 100%; flex: 1; min-height: 0; }
+
+        .chat-messenger-header { display: flex; align-items: center; padding: 10px 15px; background: white; border-bottom: 1px solid #ddd; gap: 10px; flex-shrink: 0; }
+        .chat-header-avatar { width: 35px; height: 35px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 14px; flex-shrink: 0; }
         
-        .chat-box { flex: 1; padding: 15px; overflow-y: auto; background: #fff; display: flex; flex-direction: column; }
+        .chat-box { flex: 1; padding: 15px; overflow-y: auto; background: #fff; display: flex; flex-direction: column; min-height: 0; }
         .msg-bubble { max-width: 70%; padding: 10px 14px; border-radius: 15px; margin-bottom: 8px; font-size: 14px; word-break: break-word; }
         .msg-left { background: #e4e6eb; color: #050505; align-self: flex-start; border-bottom-left-radius: 2px; }
         .msg-right { background: #1877f2; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
         
-        .chat-input-area { display: flex; padding: 10px; background: white; border-top: 1px solid #ddd; }
+        .chat-input-area { display: flex; padding: 10px; background: white; border-top: 1px solid #ddd; flex-shrink: 0; }
         .chat-input-area input { margin: 0; flex: 1; }
         .chat-input-area button { width: 80px; margin: 0 0 0 8px; padding: 0; }
         
@@ -83,7 +86,7 @@
         .search-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 14px; }
         .search-item:hover { background: #f0f2f5; }
 
-        .chat-user-list-item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; gap: 12px; background: white; border-radius: 8px; margin-bottom: 8px; }
+        .chat-user-list-item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; gap: 12px; background: white; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
         .chat-user-list-item:hover { background: #f0f2f5; }
 
         .comment-section { margin-top: 8px; background: #f0f2f5; padding: 8px; border-radius: 6px; font-size: 13px; }
@@ -1100,24 +1103,33 @@
                         }
                         return;
                     }
-                    onLoginSuccess(data.user);
+                    onLoginSuccess(data.user, username);
                 }
             } catch (err) {
                 msgDiv.textContent = err.message;
             }
         }
 
-        async function onLoginSuccess(user) {
+        async function onLoginSuccess(user, explicitUsername = '') {
             currentUser = user;
             document.getElementById('auth-container').style.display = 'none';
             document.getElementById('app-container').style.display = 'flex';
             
-            await ensureProfileExists(user);
+            await ensureProfileExists(user, explicitUsername);
 
             loadFeed();
             loadChatList();
             loadProfile();
             ensureGlobalNotiChannel();
+
+            supabaseClient
+                .channel('public:profiles:chat-list')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+                    if (currentUser) {
+                        loadChatList();
+                    }
+                })
+                .subscribe();
 
             supabaseClient
                 .channel('public:posts:live-noti')
@@ -1132,6 +1144,7 @@
                 .channel('public:messages')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
                     const newMsg = payload.new;
+                    if (!newMsg || !currentUser) return;
                     if (activeChatUser && ((newMsg.sender_id === currentUser.id && newMsg.receiver_id === activeChatUser.id) || (newMsg.sender_id === activeChatUser.id && newMsg.receiver_id === currentUser.id))) {
                         appendMessageBubble(newMsg);
                     }
@@ -1139,14 +1152,28 @@
                 .subscribe();
         }
 
-        async function ensureProfileExists(user) {
+        async function ensureProfileExists(user, explicitUsername = '') {
             const { data } = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
+            const preferredName = explicitUsername || user.user_metadata?.username || (user.email ? user.email.split('@')[0] : 'User');
             if (!data) {
-                const defaultName = user.user_metadata?.username || user.email.split('@')[0];
-                const { data: created } = await supabaseClient.from('profiles').insert([{ id: user.id, username: defaultName }]).select().maybeSingle();
-                currentProfileData = created || { id: user.id, username: defaultName };
+                const { data: created } = await supabaseClient
+                    .from('profiles')
+                    .upsert([{ id: user.id, username: preferredName }], { onConflict: 'id' })
+                    .select()
+                    .maybeSingle();
+                currentProfileData = created || { id: user.id, username: preferredName };
             } else {
-                currentProfileData = data;
+                if (explicitUsername && data.username !== explicitUsername) {
+                    const { data: updated } = await supabaseClient
+                        .from('profiles')
+                        .update({ username: explicitUsername })
+                        .eq('id', user.id)
+                        .select()
+                        .maybeSingle();
+                    currentProfileData = updated || data;
+                } else {
+                    currentProfileData = data;
+                }
             }
         }
 
@@ -1167,7 +1194,13 @@
                     updateNotiDot();
                     renderNotificationsList();
                 } else if (tabName === 'chat') {
-                    backToChatList();
+                    if (activeChatUser) {
+                        document.getElementById('chat-list-view').style.display = 'none';
+                        document.getElementById('chat-box-view').style.display = 'flex';
+                        loadMessages();
+                    } else {
+                        backToChatList();
+                    }
                 }
             }
         }
@@ -2090,26 +2123,42 @@
         }
 
         async function loadChatList() {
-            const { data: users } = await supabaseClient.from('profiles').select('*').neq('id', currentUser.id);
+            if (!currentUser) return;
             const listDiv = document.getElementById('conversations-list');
-            listDiv.innerHTML = '';
+            const { data: users, error } = await supabaseClient
+                .from('profiles')
+                .select('*')
+                .neq('id', currentUser.id)
+                .order('username', { ascending: true });
 
+            if (error) {
+                listDiv.innerHTML = `<p style="color: #fa383e; font-size: 13px;">Could not load users: ${error.message}</p>`;
+                return;
+            }
+
+            listDiv.innerHTML = '';
             if (users && users.length > 0) {
                 users.forEach(user => {
-                    let avatarHtml = user.avatar_url ? `<img src="${user.avatar_url}" style="width:100%; height:100%; object-fit:cover;">` : `<span>${user.username.charAt(0).toUpperCase()}</span>`;
+                    const safeName = (user.username || 'User').replace(/'/g, "\\'");
+                    const safeAvatar = (user.avatar_url || '').replace(/'/g, "\\'");
+                    const initialChar = (user.username || 'U').charAt(0).toUpperCase();
+                    let avatarHtml = user.avatar_url
+                        ? `<img src="${user.avatar_url}" style="width:100%; height:100%; object-fit:cover;">`
+                        : `<span>${initialChar}</span>`;
+
                     listDiv.innerHTML += `
-                        <div class="chat-user-list-item" onclick="openDirectChat('${user.id}', '${user.username}', '${user.avatar_url || ''}')">
-                            <div style="width: 45px; height: 45px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 18px;">
+                        <div class="chat-user-list-item" onclick="openDirectChat('${user.id}', '${safeName}', '${safeAvatar}')">
+                            <div style="width: 45px; height: 45px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 18px; flex-shrink: 0;">
                                 ${avatarHtml}
                             </div>
-                            <div>
-                                <div style="font-weight: bold; font-size: 15px; color: #050505;">${user.username}</div>
+                            <div style="min-width:0; flex:1;">
+                                <div style="font-weight: bold; font-size: 15px; color: #050505; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${user.username || 'User'}</div>
                                 <div style="font-size: 12px; color: #65676b;">Tap to chat</div>
                             </div>
                         </div>`;
                 });
             } else {
-                listDiv.innerHTML = '<p style="color: #65676b; font-size: 13px;">No other users found.</p>';
+                listDiv.innerHTML = '<p style="color: #65676b; font-size: 13px;">No other users found yet.</p>';
             }
         }
 
@@ -2125,7 +2174,7 @@
             if (avatarUrl) {
                 avatarContainer.innerHTML = `<img src="${avatarUrl}" style="width:100%; height:100%; object-fit:cover;">`;
             } else {
-                avatarContainer.innerHTML = username.charAt(0).toUpperCase();
+                avatarContainer.innerHTML = (username || 'U').charAt(0).toUpperCase();
             }
 
             loadMessages();
@@ -2139,15 +2188,20 @@
         }
 
         async function loadMessages() {
-            if (!activeChatUser) return;
+            if (!activeChatUser || !currentUser) return;
             try {
-                const { data } = await supabaseClient
+                const { data, error } = await supabaseClient
                     .from('messages')
                     .select('*')
                     .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${activeChatUser.id}),and(sender_id.eq.${activeChatUser.id},receiver_id.eq.${currentUser.id})`)
                     .order('created_at', { ascending: true });
 
                 const chatBox = document.getElementById('chat-box');
+                if (error) {
+                    chatBox.innerHTML = `<p style="color:#fa383e; text-align:center; font-size:13px; margin-top:20px;">Error loading messages: ${error.message}</p>`;
+                    return;
+                }
+
                 chatBox.innerHTML = '';
                 
                 if (data && data.length > 0) {
@@ -2165,15 +2219,16 @@
 
         function appendMessageBubble(msg) {
             const chatBox = document.getElementById('chat-box');
+            if (!chatBox || !currentUser) return;
             if (chatBox.innerHTML.includes('No messages yet')) {
                 chatBox.innerHTML = '';
             }
             const isMe = msg.sender_id === currentUser.id;
             const bubbleClass = isMe ? 'msg-right' : 'msg-left';
             
-            const existingBubbles = chatBox.querySelectorAll('.msg-bubble');
-            for (let b of existingBubbles) {
-                if (b.textContent === msg.content && b.getAttribute('data-id') === msg.id) return;
+            if (msg.id) {
+                const existingById = chatBox.querySelector(`.msg-bubble[data-id="${msg.id}"]`);
+                if (existingById) return;
             }
 
             const div = document.createElement('div');
@@ -2190,15 +2245,19 @@
             const content = input.value.trim();
             if (!content || !currentUser || !activeChatUser) return;
 
-            const { data, error } = await supabaseClient.from('messages').insert([{
-                content: content,
-                sender_id: currentUser.id,
-                receiver_id: activeChatUser.id
-            }]).select();
+            const { data, error } = await supabaseClient
+                .from('messages')
+                .insert([{
+                    content: content,
+                    sender_id: currentUser.id,
+                    receiver_id: activeChatUser.id
+                }])
+                .select()
+                .single();
 
-            if (!error && data && data.length > 0) {
+            if (!error && data) {
                 input.value = '';
-                appendMessageBubble(data[0]);
+                appendMessageBubble(data);
             } else {
                 alert('Error sending message: ' + (error ? error.message : 'Unknown error'));
             }
@@ -2245,6 +2304,7 @@
             if (!error) {
                 alert('Profile updated successfully!');
                 loadProfile();
+                loadChatList();
             } else {
                 alert('Error updating profile: ' + error.message);
             }
@@ -2428,7 +2488,7 @@
                     avatarContainer.innerHTML = `<span id="profile-initial">${initialChar}</span>`;
                 }
             }
-            
+
             const { data: myPosts } = await supabaseClient.from('posts').select('*, profiles(username, avatar_url, bio)').eq('user_id', currentUser.id).order('created_at', { ascending: false });
             const myPostsDiv = document.getElementById('my-posts');
             if (myPostsDiv) {
