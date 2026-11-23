@@ -643,7 +643,11 @@
                     try {
                         const parsed = JSON.parse(e.newValue);
                         if (parsed && currentUser && parsed.actorId !== currentUser.id) {
-                            addNotificationItem({ ...parsed, type: 'live' });
+                            addNotificationItem({
+                                ...parsed,
+                                type: 'live',
+                                message: 'live is now'
+                            });
                         }
                     } catch (err) {}
                 } else if (e.key === 'socialchat_post_noti_sync' && e.newValue) {
@@ -673,6 +677,7 @@
                     refreshUnreadMessageCounts();
                     checkMyPostsEngagementChanges();
                     refreshAllPresenceDisplays();
+                    checkStorageLiveNoti();
                 }
             });
 
@@ -687,6 +692,22 @@
                 onLoginSuccess(session.user);
             }
         });
+
+        function checkStorageLiveNoti() {
+            if (!currentUser) return;
+            try {
+                const raw = localStorage.getItem('socialchat_live_noti_sync');
+                if (!raw) return;
+                const parsed = JSON.parse(raw);
+                if (parsed && parsed.actorId && parsed.actorId !== currentUser.id) {
+                    addNotificationItem({
+                        ...parsed,
+                        type: 'live',
+                        message: 'live is now'
+                    });
+                }
+            } catch (e) {}
+        }
 
         function formatBadgeNumber(num) {
             const n = Math.max(0, Number(num) || 0);
@@ -1320,7 +1341,6 @@
             return `${(b / (1024 * 1024)).toFixed(1)} MB`;
         }
 
-        /* Save photo directly as an image (not forcing file download) */
         function savePhotoAsImage(url) {
             if (!url) return;
             if (url.startsWith('data:image/')) {
@@ -1342,7 +1362,6 @@
             window.open(url, '_blank', 'noopener,noreferrer');
         }
 
-        /* Save non-photo file attachment */
         async function saveFileAttachment(url, filename = 'download') {
             if (!url) return;
             try {
@@ -1759,7 +1778,7 @@
             if (!noti) return;
             if (noti.type === 'message') return;
 
-            const dedupKey = noti.id || `${noti.type}_${noti.actorId}_${noti.message}_${noti.detailText}`;
+            const dedupKey = noti.id || `${noti.type}_${noti.actorId}_${noti.liveId || ''}_${noti.message}_${noti.detailText}`;
             if (dedupKey && handledNotiKeys.has(dedupKey)) return;
             if (dedupKey) handledNotiKeys.add(dedupKey);
 
@@ -1769,7 +1788,7 @@
                 postId: noti.postId || '',
                 actorId: noti.actorId || '',
                 actorName: noti.actorName || 'Someone',
-                message: noti.message || '',
+                message: noti.message || (noti.type === 'live' ? 'live is now' : ''),
                 detailText: noti.detailText || '',
                 liveId: noti.liveId || '',
                 coverUrl: noti.coverUrl || '',
@@ -2012,18 +2031,19 @@
             filtered.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'noti-item' + (!item.isRead ? ' unread' : '');
-                const safeHost = (item.actorName || 'User').replace(/'/g, "\\'");
-                const safeCover = (item.coverUrl || '').replace(/'/g, "\\'");
-                const safeCap = (item.caption || '').replace(/'/g, "\\'");
 
                 let pillHtml = `<span class="noti-tag-pill">POST</span>`;
                 if (item.type === 'live') {
                     pillHtml = `<span class="noti-live-pill">LIVE</span>`;
                 }
 
+                const titleLine = item.type === 'live'
+                    ? `<b>${item.actorName}</b> live is now`
+                    : `<b>${item.actorName}</b> ${item.message}`;
+
                 div.innerHTML = `
                     <div style="min-width:0;">
-                        <div style="font-size:13px; color:#050505;"><b>${item.actorName}</b> ${item.message}</div>
+                        <div style="font-size:13px; color:#050505;">${titleLine}</div>
                         ${item.detailText ? `<div style="font-size:12px; color:#4b4f56; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;">${item.detailText}</div>` : (item.caption ? `<div style="font-size:12px; color:#65676b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">"${item.caption}"</div>` : '')}
                         <div style="font-size:11px; color:#8a8d91; margin-top:2px;">${new Date(item.createdAt).toLocaleTimeString()}</div>
                     </div>
@@ -2034,7 +2054,7 @@
                     item.isRead = true;
                     div.classList.remove('unread');
                     if (item.type === 'live' && item.liveId) {
-                        openLiveViewer(item.liveId, safeHost, safeCover, safeCap, item.startedAt);
+                        openLiveViewer(item.liveId, item.actorName || 'Host', item.coverUrl || '', item.caption || '', item.startedAt);
                     } else if (item.postId) {
                         if (typeof window.__jumpToPostById === 'function') {
                             window.__jumpToPostById(item.postId);
@@ -2063,7 +2083,11 @@
                     .on('broadcast', { event: 'live_started' }, payload => {
                         const p = payload && payload.payload;
                         if (p && currentUser && p.actorId !== currentUser.id) {
-                            addNotificationItem({ ...p, type: 'live' });
+                            addNotificationItem({
+                                ...p,
+                                type: 'live',
+                                message: 'live is now'
+                            });
                         }
                     })
                     .on('broadcast', { event: 'post_interaction' }, payload => {
@@ -2092,11 +2116,11 @@
             const actorName = await getUsernameById(postRow.user_id);
 
             addNotificationItem({
-                id: 'live_post_noti_' + postRow.id,
+                id: 'live_post_noti_' + liveInfo.liveId,
                 type: 'live',
                 actorId: postRow.user_id,
                 actorName,
-                message: 'started a live stream!',
+                message: 'live is now',
                 liveId: liveInfo.liveId,
                 coverUrl: postRow.media_url || '',
                 caption: liveInfo.caption || '',
@@ -2107,13 +2131,15 @@
 
         async function broadcastLiveStartNotification(liveId, coverUrl, caption, startedAtMs) {
             if (!currentUser) return;
-            const actorName = (currentProfileData && currentProfileData.username) || document.getElementById('profile-name')?.textContent || 'User';
+            const actorName = (currentProfileData && currentProfileData.username) ||
+                              document.getElementById('profile-name')?.textContent ||
+                              await getUsernameById(currentUser.id);
             const notiPayload = {
                 id: 'live_noti_' + liveId,
                 type: 'live',
                 actorId: currentUser.id,
                 actorName,
-                message: 'started a live stream!',
+                message: 'live is now',
                 liveId,
                 coverUrl: coverUrl || '',
                 caption: caption || '',
@@ -2451,6 +2477,7 @@
             loadChatList();
             loadProfile();
             ensureGlobalNotiChannel();
+            checkStorageLiveNoti();
             markIncomingMessagesDelivered();
             await refreshUnreadMessageCounts();
             await checkMyPostsEngagementChanges();
@@ -2977,7 +3004,7 @@
                 startLiveTimer(startMs);
                 startAudioStreaming();
 
-                broadcastLiveStartNotification(activeLiveId, compactCover, selectedLiveCaption, startMs);
+                await broadcastLiveStartNotification(activeLiveId, compactCover, selectedLiveCaption, startMs);
 
                 document.getElementById('studio-live-badge').style.display = 'inline-block';
                 document.getElementById('studio-close-btn').style.display = 'none';
@@ -3163,6 +3190,7 @@
         }
 
         function openLiveViewer(liveId, hostName, coverUrl, caption, startedAtMs = null) {
+            if (!liveId) return;
             viewingLiveId = liveId;
             liveCommentsQueue = [];
             isLandscapeView = false;
