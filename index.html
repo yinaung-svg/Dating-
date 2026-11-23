@@ -86,14 +86,14 @@
         .msg-left { background: #e4e6eb; color: #050505; border-bottom-left-radius: 2px; }
         .msg-right { background: #1877f2; color: white; border-bottom-right-radius: 2px; }
         .msg-photo-img { max-width: 220px; max-height: 240px; border-radius: 10px; display: block; cursor: pointer; object-fit: cover; }
-        .msg-file-card { display: flex; align-items: center; gap: 8px; text-decoration: none; font-size: 13px; font-weight: bold; padding: 4px 2px; }
+        .msg-file-card { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; padding: 4px 2px; cursor: pointer; }
         .msg-right .msg-file-card { color: #ffffff; }
         .msg-left .msg-file-card { color: #050505; }
         .msg-file-meta { font-size: 11px; opacity: 0.85; font-weight: normal; }
-        .msg-loc-box { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
-        .msg-loc-link { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: bold; text-decoration: underline; }
-        .msg-right .msg-loc-link { color: #ffffff; }
-        .msg-left .msg-loc-link { color: #1877f2; }
+        .msg-loc-box { display: flex; flex-direction: column; gap: 4px; font-size: 13px; cursor: pointer; }
+        .msg-loc-hint { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: bold; text-decoration: underline; }
+        .msg-right .msg-loc-hint { color: #ffffff; }
+        .msg-left .msg-loc-hint { color: #1877f2; }
 
         .msg-status { font-size: 11px; margin-top: 2px; padding: 0 4px; color: #65676b; text-transform: lowercase; }
         .msg-status.sent { color: #65676b; }
@@ -123,9 +123,26 @@
 
         .comment-section { margin-top: 8px; background: #f0f2f5; padding: 8px; border-radius: 6px; font-size: 13px; }
 
-        #lightbox-modal { display: none; position: fixed; z-index: 999; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; }
-        #lightbox-modal img { max-width: 92%; max-height: 92%; border-radius: 8px; object-fit: contain; }
-        #lightbox-close { position: absolute; top: 20px; right: 30px; color: white; font-size: 35px; font-weight: bold; cursor: pointer; }
+        #lightbox-modal { display: none; position: fixed; z-index: 1600; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); flex-direction: column; justify-content: space-between; align-items: center; padding: 16px; box-sizing: border-box; }
+        .lightbox-top-bar { width: 100%; max-width: 640px; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 2; }
+        .lightbox-save-btn { width: auto; margin: 0; padding: 8px 14px; font-size: 13px; font-weight: bold; background: #1877f2; color: #fff; border-radius: 8px; }
+        #lightbox-close { color: white; font-size: 30px; line-height: 1; font-weight: bold; cursor: pointer; background: rgba(255,255,255,0.14); width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .lightbox-center-stage { flex: 1; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        #lightbox-img { max-width: 95%; max-height: 82vh; border-radius: 8px; object-fit: contain; }
+
+        #file-preview-modal { display: none; position: fixed; z-index: 1650; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.72); justify-content: center; align-items: center; padding: 16px; box-sizing: border-box; }
+        .file-preview-card { background: #fff; color: #050505; width: 100%; max-width: 380px; border-radius: 12px; padding: 18px; box-sizing: border-box; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+        .file-preview-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .modal-red-x-btn { width: 34px; height: 34px; margin: 0; padding: 0; border-radius: 50%; background: #e41e3f; color: #ffffff; font-size: 16px; font-weight: bold; display: inline-flex; align-items: center; justify-content: center; }
+        .modal-red-x-btn:hover { background: #c81634; }
+
+        #location-frame-modal { display: none; position: fixed; z-index: 1650; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.72); justify-content: center; align-items: center; padding: 14px; box-sizing: border-box; }
+        .location-frame-box { width: 100%; max-width: 480px; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.35); display: flex; flex-direction: column; }
+        .location-frame-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #f8f9fa; border-bottom: 1px solid #e4e6eb; gap: 8px; }
+        .location-open-browser-btn { width: auto; margin: 0; padding: 7px 12px; font-size: 12px; font-weight: bold; background: #1877f2; color: #ffffff; border-radius: 8px; }
+        .location-open-browser-btn:hover { background: #166fe5; }
+        .location-map-frame { width: 100%; height: 320px; border: 0; display: block; background: #e9ecef; }
+        .location-coords-footer { padding: 10px 12px; font-size: 12px; color: #4b4f56; background: #fff; border-top: 1px solid #e4e6eb; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
         .live-btn { background: #e41e3f; }
         .live-btn:hover { background: #c81634; }
@@ -430,9 +447,46 @@
         </div>
     </div>
 
+    <!-- Photo Lightbox with Save -->
     <div id="lightbox-modal" onclick="closeLightbox()">
-        <span id="lightbox-close">&times;</span>
-        <img id="lightbox-img" src="">
+        <div class="lightbox-top-bar" onclick="event.stopPropagation()">
+            <button id="lightbox-save-btn" type="button" class="lightbox-save-btn" onclick="saveCurrentLightboxPhoto()">⬇ Save</button>
+            <span id="lightbox-close" onclick="closeLightbox()">&times;</span>
+        </div>
+        <div class="lightbox-center-stage" onclick="event.stopPropagation()">
+            <img id="lightbox-img" src="" onclick="closeLightbox()">
+        </div>
+    </div>
+
+    <!-- File Preview & Save Modal -->
+    <div id="file-preview-modal" onclick="closeFilePreviewModal()">
+        <div class="file-preview-card" onclick="event.stopPropagation()">
+            <div class="file-preview-top">
+                <span style="font-weight:bold; font-size:15px;">📎 File Attachment</span>
+                <button type="button" class="modal-red-x-btn" onclick="closeFilePreviewModal()">✕</button>
+            </div>
+            <div id="file-preview-name" style="font-size:14px; font-weight:bold; word-break:break-word; margin-bottom:4px;">File</div>
+            <div id="file-preview-size" style="font-size:12px; color:#65676b; margin-bottom:14px;">0 KB</div>
+            <button id="file-preview-save-btn" type="button" onclick="saveCurrentPreviewFile()">⬇ Save to Phone</button>
+        </div>
+    </div>
+
+    <!-- In-Page Location Box Modal -->
+    <div id="location-frame-modal" onclick="closeLocationFrameModal()">
+        <div class="location-frame-box" onclick="event.stopPropagation()">
+            <div class="location-frame-header">
+                <span style="font-weight:bold; font-size:14px; color:#050505;">📍 Shared Location</span>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <button type="button" class="location-open-browser-btn" onclick="openLocationInExternalBrowser()">Open Browser</button>
+                    <button type="button" class="modal-red-x-btn" onclick="closeLocationFrameModal()">✕</button>
+                </div>
+            </div>
+            <iframe id="location-map-iframe" class="location-map-frame" src="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            <div class="location-coords-footer">
+                <span id="location-coords-text">Lat: -, Lng: -</span>
+                <span style="color:#65676b;">Google Maps</span>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -469,6 +523,10 @@
         let handledMessageIds = new Set();
         let handledNotiKeys = new Set();
         let postStateSnapshotMap = {};
+
+        let currentLightboxMeta = { url: '', name: 'photo.jpg' };
+        let currentFilePreviewMeta = { url: '', name: 'file', size: 0 };
+        let currentLocationMeta = { lat: 0, lng: 0, browserUrl: '' };
 
         let selectedLiveMode = 'camera';
         let selectedLiveCoverDataUrl = '';
@@ -978,7 +1036,7 @@
         }
 
         function parseMultiPhotoContent(rawContent) {
-            const str = rawContent || '';
+            const str = (rawContent || '').trim();
             if (str.startsWith(PHOTO_PACK_PREFIX) && str.endsWith(PHOTO_PACK_SUFFIX)) {
                 const inner = str.slice(PHOTO_PACK_PREFIX.length, str.length - PHOTO_PACK_SUFFIX.length);
                 try {
@@ -991,7 +1049,7 @@
                     return { photos: [], text: '' };
                 }
             }
-            return { photos: [], text: str };
+            return { photos: [], text: rawContent || '' };
         }
 
         /* ==================== CHAT ATTACHMENTS (PHOTO / FILE / LOCATION) ==================== */
@@ -1003,9 +1061,11 @@
         }
 
         function parseChatMediaContent(rawContent) {
-            const str = rawContent || '';
-            if (str.startsWith(CHAT_MEDIA_PREFIX) && str.endsWith(CHAT_MEDIA_SUFFIX)) {
-                const inner = str.slice(CHAT_MEDIA_PREFIX.length, str.length - CHAT_MEDIA_SUFFIX.length);
+            const str = (rawContent || '').trim();
+            const startIdx = str.indexOf(CHAT_MEDIA_PREFIX);
+            const endIdx = str.lastIndexOf(CHAT_MEDIA_SUFFIX);
+            if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+                const inner = str.slice(startIdx + CHAT_MEDIA_PREFIX.length, endIdx).trim();
                 try {
                     return JSON.parse(inner);
                 } catch (e) {
@@ -1022,6 +1082,114 @@
             return `${(b / (1024 * 1024)).toFixed(1)} MB`;
         }
 
+        async function triggerSaveUrlToPhone(url, filename = 'download') {
+            if (!url) return;
+            try {
+                if (url.startsWith('data:')) {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename || 'download';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    return;
+                }
+
+                const resp = await fetch(url);
+                if (resp.ok) {
+                    const blob = await resp.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = blobUrl;
+                    a.download = filename || 'download';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
+                    return;
+                }
+            } catch (e) {}
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename || 'download';
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+
+        function openFilePreviewModal(url, name, size) {
+            currentFilePreviewMeta = {
+                url: url || '',
+                name: name || 'file',
+                size: Number(size) || 0
+            };
+            const nameEl = document.getElementById('file-preview-name');
+            const sizeEl = document.getElementById('file-preview-size');
+            if (nameEl) nameEl.textContent = currentFilePreviewMeta.name;
+            if (sizeEl) sizeEl.textContent = formatBytesSize(currentFilePreviewMeta.size);
+            document.getElementById('file-preview-modal').style.display = 'flex';
+        }
+
+        function closeFilePreviewModal() {
+            document.getElementById('file-preview-modal').style.display = 'none';
+        }
+
+        async function saveCurrentPreviewFile() {
+            if (!currentFilePreviewMeta.url) return;
+            const btn = document.getElementById('file-preview-save-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+            }
+            try {
+                await triggerSaveUrlToPhone(currentFilePreviewMeta.url, currentFilePreviewMeta.name);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '⬇ Save to Phone';
+                }
+            }
+        }
+
+        function openLocationFrameModal(lat, lng, browserUrl = '') {
+            const nLat = Number(lat);
+            const nLng = Number(lng);
+            const finalBrowserUrl = browserUrl || `https://www.google.com/maps?q=${nLat},${nLng}`;
+            const embedUrl = `https://maps.google.com/maps?q=${nLat},${nLng}&z=15&output=embed`;
+
+            currentLocationMeta = {
+                lat: nLat,
+                lng: nLng,
+                browserUrl: finalBrowserUrl
+            };
+
+            const coordsEl = document.getElementById('location-coords-text');
+            if (coordsEl) {
+                coordsEl.textContent = `Lat: ${nLat.toFixed(6)}, Lng: ${nLng.toFixed(6)}`;
+            }
+
+            const iframeEl = document.getElementById('location-map-iframe');
+            if (iframeEl) {
+                iframeEl.src = embedUrl;
+            }
+
+            document.getElementById('location-frame-modal').style.display = 'flex';
+        }
+
+        function closeLocationFrameModal() {
+            document.getElementById('location-frame-modal').style.display = 'none';
+            const iframeEl = document.getElementById('location-map-iframe');
+            if (iframeEl) iframeEl.src = '';
+        }
+
+        function openLocationInExternalBrowser() {
+            if (!currentLocationMeta.browserUrl) return;
+            window.open(currentLocationMeta.browserUrl, '_blank', 'noopener,noreferrer');
+        }
+
         function renderMessageBubbleInner(bubble, rawContent) {
             const mediaObj = parseChatMediaContent(rawContent);
             if (!mediaObj || !mediaObj.kind) {
@@ -1036,27 +1204,27 @@
                 img.alt = mediaObj.name || 'Photo';
                 img.onclick = (ev) => {
                     ev.stopPropagation();
-                    openLightbox(mediaObj.url);
+                    openLightbox(mediaObj.url, mediaObj.name || 'photo.jpg');
                 };
                 bubble.appendChild(img);
                 return;
             }
 
             if (mediaObj.kind === 'file' && mediaObj.url) {
-                const link = document.createElement('a');
-                link.href = mediaObj.url;
-                link.download = mediaObj.name || 'file';
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-                link.className = 'msg-file-card';
-                link.innerHTML = `
+                const fileCard = document.createElement('div');
+                fileCard.className = 'msg-file-card';
+                fileCard.innerHTML = `
                     <span style="font-size:20px;">📎</span>
                     <span style="min-width:0;">
                         <div style="word-break:break-word;">${mediaObj.name || 'Attached File'}</div>
-                        <div class="msg-file-meta">${formatBytesSize(mediaObj.size)} · Tap to download</div>
+                        <div class="msg-file-meta">${formatBytesSize(mediaObj.size)} · Tap to view & save</div>
                     </span>
                 `;
-                bubble.appendChild(link);
+                fileCard.onclick = (ev) => {
+                    ev.stopPropagation();
+                    openFilePreviewModal(mediaObj.url, mediaObj.name || 'file', mediaObj.size || 0);
+                };
+                bubble.appendChild(fileCard);
                 return;
             }
 
@@ -1069,8 +1237,12 @@
                 wrap.innerHTML = `
                     <div><b>📍 Shared Location</b></div>
                     <div style="font-size:12px;">Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}</div>
-                    <a href="${mapUrl}" target="_blank" rel="noopener noreferrer" class="msg-loc-link">Open in Google Maps ↗</a>
+                    <span class="msg-loc-hint">Tap to view map</span>
                 `;
+                wrap.onclick = (ev) => {
+                    ev.stopPropagation();
+                    openLocationFrameModal(lat, lng, mapUrl);
+                };
                 bubble.appendChild(wrap);
                 return;
             }
@@ -3770,13 +3942,31 @@
             }
         }
 
-        function openLightbox(url) {
+        function openLightbox(url, filename = 'photo.jpg') {
+            currentLightboxMeta = { url: url || '', name: filename || 'photo.jpg' };
             document.getElementById('lightbox-img').src = url;
             document.getElementById('lightbox-modal').style.display = 'flex';
         }
 
         function closeLightbox() {
             document.getElementById('lightbox-modal').style.display = 'none';
+        }
+
+        async function saveCurrentLightboxPhoto() {
+            if (!currentLightboxMeta.url) return;
+            const btn = document.getElementById('lightbox-save-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+            }
+            try {
+                await triggerSaveUrlToPhone(currentLightboxMeta.url, currentLightboxMeta.name);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '⬇ Save';
+                }
+            }
         }
 
         async function loadProfile() {
