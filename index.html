@@ -549,7 +549,6 @@
             document.addEventListener('visibilitychange', () => {
                 if (!currentUser) return;
                 if (document.visibilityState === 'hidden') {
-                    updateMyLastSeen();
                     if (globalPresenceChannel) {
                         globalPresenceChannel.untrack().catch(() => {});
                     }
@@ -558,6 +557,7 @@
                     updateMyLastSeen();
                     refreshUnreadMessageCounts();
                     checkMyPostsEngagementChanges();
+                    refreshAllPresenceDisplays();
                 }
             });
 
@@ -591,7 +591,6 @@
                 }
             }
 
-            // Also update individual unread pills on each user's avatar in chat list
             document.querySelectorAll('.chat-user-list-item[data-user-id]').forEach(item => {
                 const uid = item.getAttribute('data-user-id');
                 const pill = item.querySelector('.chat-user-unread-pill');
@@ -623,7 +622,6 @@
         async function refreshUnreadMessageCounts() {
             if (!currentUser) return;
             try {
-                // First fetch messages addressed to currentUser
                 const { data, error } = await supabaseClient
                     .from('messages')
                     .select('*')
@@ -642,7 +640,6 @@
                     if (chatTabActive && chatBoxVisible && activeChatUser && row.sender_id === activeChatUser.id) {
                         return;
                     }
-                    // Count as unread if seen_at is not set (or false)
                     const isSeen = Boolean(row.seen_at);
                     if (!isSeen) {
                         map[row.sender_id] = (map[row.sender_id] || 0) + 1;
@@ -657,8 +654,17 @@
         }
 
         /* ==================== ONLINE / LAST SEEN FORMATTER ==================== */
+        function isUserRecentlyActive(userId, lastSeenIso) {
+            if (userId && currentUser && userId === currentUser.id) return true;
+            if (userId && onlineUserIds.has(userId)) return true;
+            if (!lastSeenIso) return false;
+            const lastMs = new Date(lastSeenIso).getTime();
+            if (isNaN(lastMs)) return false;
+            return (Date.now() - lastMs) <= 12000;
+        }
+
         function formatUserPresenceStatus(userId, lastSeenIso) {
-            if (userId && onlineUserIds.has(userId)) {
+            if (isUserRecentlyActive(userId, lastSeenIso)) {
                 return { text: 'Active', isOnline: true };
             }
 
@@ -669,14 +675,13 @@
             const lastDate = new Date(lastSeenIso);
             const diffMs = Date.now() - lastDate.getTime();
             if (isNaN(diffMs) || diffMs < 0) {
-                return { text: '1 minute ago', isOnline: false };
+                return { text: 'Active', isOnline: true };
             }
 
             const diffMins = Math.max(1, Math.floor(diffMs / 60000));
             const diffHours = Math.floor(diffMs / 3600000);
             const diffDays = Math.floor(diffHours / 24);
 
-            // Under 1 hour -> 1 minute ago, 2 minutes ago ...
             if (diffHours < 1) {
                 return {
                     text: diffMins === 1 ? '1 minute ago' : `${diffMins} minutes ago`,
@@ -684,7 +689,6 @@
                 };
             }
 
-            // 1 hour to under 24 hours -> 1 hour ago, 2 hours ago ...
             if (diffHours < 24) {
                 return {
                     text: diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`,
@@ -692,7 +696,6 @@
                 };
             }
 
-            // 24 hours (1 day) to under 3 days -> 1 day ago, 2 days ago
             if (diffDays < 3) {
                 return {
                     text: diffDays === 1 ? '1 day ago' : `${diffDays} days ago`,
@@ -700,7 +703,6 @@
                 };
             }
 
-            // 3 days or more -> show last online date
             const formattedDate = lastDate.toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'short',
@@ -712,11 +714,41 @@
         async function updateMyLastSeen() {
             if (!currentUser) return;
             const nowIso = new Date().toISOString();
+            if (cachedUsersMap[currentUser.id]) {
+                cachedUsersMap[currentUser.id].last_seen = nowIso;
+            }
             try {
                 await supabaseClient
                     .from('profiles')
                     .update({ last_seen: nowIso })
                     .eq('id', currentUser.id);
+            } catch (e) {}
+        }
+
+        async function syncOtherUsersPresenceFromDB() {
+            if (!currentUser) return;
+            try {
+                const { data, error } = await supabaseClient
+                    .from('profiles')
+                    .select('id, username, bio, avatar_url, last_seen');
+                if (error || !data) return;
+
+                let changed = false;
+                data.forEach(p => {
+                    if (!p || !p.id) return;
+                    const prev = cachedUsersMap[p.id];
+                    const wasOnline = prev ? isUserRecentlyActive(p.id, prev.last_seen) : false;
+                    cachedUsersMap[p.id] = { ...(prev || {}), ...p };
+                    const nowOnline = isUserRecentlyActive(p.id, p.last_seen);
+                    if (wasOnline !== nowOnline) {
+                        changed = true;
+                    }
+                });
+
+                refreshAllPresenceDisplays();
+                if (changed && document.getElementById('chat-list-view')?.style.display !== 'none') {
+                    loadChatList();
+                }
             } catch (e) {}
         }
 
@@ -799,17 +831,8 @@
                         }
                     });
 
-                    const prevOnline = onlineUserIds;
                     onlineUserIds = nextOnline;
                     activeChatBoxUsersMap = nextChatMap;
-
-                    let someoneWentOffline = false;
-                    prevOnline.forEach(uid => {
-                        if (!nextOnline.has(uid)) someoneWentOffline = true;
-                    });
-                    if (someoneWentOffline) {
-                        loadChatList();
-                    }
 
                     refreshAllPresenceDisplays();
                     markIncomingMessagesDelivered();
@@ -818,16 +841,19 @@
                     if (status === 'SUBSCRIBED') {
                         await trackMyPresence();
                         await updateMyLastSeen();
+                        await syncOtherUsersPresenceFromDB();
                     }
                 });
 
             if (heartbeatInterval) clearInterval(heartbeatInterval);
-            heartbeatInterval = setInterval(() => {
-                if (currentUser && document.visibilityState === 'visible') {
-                    updateMyLastSeen();
-                    refreshAllPresenceDisplays();
+            heartbeatInterval = setInterval(async () => {
+                if (!currentUser) return;
+                if (document.visibilityState === 'visible') {
+                    await updateMyLastSeen();
+                    await trackMyPresence();
                 }
-            }, 30000);
+                await syncOtherUsersPresenceFromDB();
+            }, 4000);
         }
 
         function setPublishStatus(bannerId, state, text) {
@@ -979,9 +1005,12 @@
             }
         }
 
-        /* ==================== NOTIFICATIONS (LIVE + DM + POST LIKE/COMMENT/SHARE) ==================== */
+        /* ==================== NOTIFICATIONS (LIVE + POST LIKE/COMMENT/SHARE ONLY) ==================== */
         function addNotificationItem(noti) {
             if (!noti) return;
+            // Do NOT show sent/incoming chat message notifications in Noti tab
+            if (noti.type === 'message') return;
+
             const dedupKey = noti.id || `${noti.type}_${noti.actorId}_${noti.message}_${noti.detailText}`;
             if (dedupKey && handledNotiKeys.has(dedupKey)) return;
             if (dedupKey) handledNotiKeys.add(dedupKey);
@@ -1042,9 +1071,8 @@
             return 'Someone';
         }
 
-        async function handleIncomingMessageNotification(msgRow) {
+        async function handleIncomingMessageCountOnly(msgRow) {
             if (!msgRow || !currentUser || msgRow.receiver_id !== currentUser.id) return;
-
             const chatTabActive = document.getElementById('chat-tab')?.classList.contains('active');
             const chatBoxVisible = document.getElementById('chat-box-view')?.style.display !== 'none';
             const currentlyReadingThisChat = chatTabActive && chatBoxVisible && activeChatUser && activeChatUser.id === msgRow.sender_id;
@@ -1057,20 +1085,6 @@
                     updateChatBadgeDisplay();
                 }
             }
-
-            const msgKey = msgRow.id ? ('msg_noti_' + msgRow.id) : null;
-            if (msgKey && handledNotiKeys.has(msgKey)) return;
-
-            const senderName = await getUsernameById(msgRow.sender_id);
-            addNotificationItem({
-                id: msgKey || ('msg_noti_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
-                type: 'message',
-                actorId: msgRow.sender_id,
-                actorName: senderName,
-                message: 'sent you a message',
-                detailText: msgRow.content || '',
-                createdAt: msgRow.created_at || new Date().toISOString()
-            });
         }
 
         async function emitPostInteractionNotification(postId, actionType, detailText = '') {
@@ -1168,11 +1182,14 @@
                     myPosts = data || [];
                 }
 
+                const myName = (currentProfileData && currentProfileData.username) ||
+                               document.getElementById('profile-name')?.textContent || '';
+
                 myPosts.forEach(p => {
-                    const likes = p.likes_count || 0;
+                    const likes = Number(p.likes_count || 0);
                     const commentsArr = Array.isArray(p.comments) ? p.comments : [];
                     const commentsLen = commentsArr.length;
-                    const shares = p.shares_count || 0;
+                    const shares = Number(p.shares_count || 0);
 
                     const prev = postStateSnapshotMap[p.id];
                     if (!prev) {
@@ -1184,6 +1201,7 @@
                         for (let i = prev.commentsLen; i < commentsLen; i++) {
                             const cObj = commentsArr[i] || {};
                             const commenter = cObj.username || 'Someone';
+                            if (myName && commenter === myName) continue;
                             const cText = cObj.text || '';
                             addNotificationItem({
                                 id: `db_cmt_${p.id}_${i}_${cText.slice(0, 12)}`,
@@ -1232,25 +1250,23 @@
             const container = document.getElementById('notifications-list');
             if (!container) return;
 
-            if (!notificationsList || notificationsList.length === 0) {
+            const filtered = (notificationsList || []).filter(item => item.type !== 'message');
+            if (filtered.length === 0) {
                 container.innerHTML = '<p style="color: #65676b; font-size: 14px;">No new notifications right now.</p>';
                 return;
             }
 
             container.innerHTML = '';
-            notificationsList.forEach(item => {
+            filtered.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'noti-item' + (!item.isRead ? ' unread' : '');
                 const safeHost = (item.actorName || 'User').replace(/'/g, "\\'");
                 const safeCover = (item.coverUrl || '').replace(/'/g, "\\'");
                 const safeCap = (item.caption || '').replace(/'/g, "\\'");
-                const safeAvatar = ((cachedUsersMap[item.actorId] && cachedUsersMap[item.actorId].avatar_url) || '').replace(/'/g, "\\'");
 
                 let pillHtml = `<span class="noti-tag-pill">POST</span>`;
                 if (item.type === 'live') {
                     pillHtml = `<span class="noti-live-pill">LIVE</span>`;
-                } else if (item.type === 'message') {
-                    pillHtml = `<span class="noti-tag-pill" style="background:#31a24c;">CHAT</span>`;
                 }
 
                 div.innerHTML = `
@@ -1267,8 +1283,6 @@
                     div.classList.remove('unread');
                     if (item.type === 'live' && item.liveId) {
                         openLiveViewer(item.liveId, safeHost, safeCover, safeCap, item.startedAt);
-                    } else if (item.type === 'message' && item.actorId) {
-                        openDirectChat(item.actorId, safeHost, safeAvatar);
                     } else {
                         switchTab('feed');
                     }
@@ -1686,7 +1700,7 @@
 
             if (badgeSyncInterval) clearInterval(badgeSyncInterval);
             badgeSyncInterval = setInterval(async () => {
-                if (!currentUser || document.visibilityState !== 'visible') return;
+                if (!currentUser) return;
                 await refreshUnreadMessageCounts();
                 await checkMyPostsEngagementChanges();
             }, 2500);
@@ -1698,7 +1712,7 @@
                     if (!p || !currentUser) return;
                     if (p.receiver_id === currentUser.id) {
                         markSingleMessageDelivered(p.id, p.sender_id);
-                        handleIncomingMessageNotification(p);
+                        handleIncomingMessageCountOnly(p);
                         if (activeChatUser && activeChatUser.id === p.sender_id && document.getElementById('chat-tab')?.classList.contains('active')) {
                             hideRemoteTyping();
                             appendMessageBubble(p);
@@ -1738,10 +1752,9 @@
                 .channel('public:profiles:chat-list')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, payload => {
                     if (payload && payload.new && payload.new.id) {
-                        cachedUsersMap[payload.new.id] = payload.new;
+                        cachedUsersMap[payload.new.id] = { ...(cachedUsersMap[payload.new.id] || {}), ...payload.new };
                     }
                     if (currentUser) {
-                        loadChatList();
                         refreshAllPresenceDisplays();
                     }
                 })
@@ -1770,7 +1783,7 @@
                     if (payload.eventType === 'INSERT') {
                         if (row.receiver_id === currentUser.id) {
                             markSingleMessageDelivered(row.id, row.sender_id);
-                            handleIncomingMessageNotification(row);
+                            handleIncomingMessageCountOnly(row);
                         }
                         if (activeChatUser && ((row.sender_id === currentUser.id && row.receiver_id === activeChatUser.id) || (row.sender_id === activeChatUser.id && row.receiver_id === currentUser.id))) {
                             if (row.sender_id === activeChatUser.id) {
@@ -1849,7 +1862,9 @@
                     }
                 }
             }
+            updateMyLastSeen();
             trackMyPresence();
+            refreshAllPresenceDisplays();
         }
 
         /* ==================== LIVE STREAM LOGIC ==================== */
@@ -2785,7 +2800,7 @@
             listDiv.innerHTML = '';
             if (users && users.length > 0) {
                 users.forEach(user => {
-                    cachedUsersMap[user.id] = user;
+                    cachedUsersMap[user.id] = { ...(cachedUsersMap[user.id] || {}), ...user };
                     const safeName = (user.username || 'User').replace(/'/g, "\\'");
                     const safeAvatar = (user.avatar_url || '').replace(/'/g, "\\'");
                     const initialChar = (user.username || 'U').charAt(0).toUpperCase();
@@ -2911,6 +2926,7 @@
 
             document.getElementById('chat-header-name').textContent = username;
             refreshAllPresenceDisplays();
+            syncOtherUsersPresenceFromDB();
 
             let avatarContainer = document.getElementById('chat-header-avatar-container');
             if (avatarUrl) {
@@ -2945,7 +2961,9 @@
             if (msg.seen_at) {
                 return { text: 'seen', type: 'seen' };
             }
-            if (msg.delivered_at || (activeChatUser && onlineUserIds.has(activeChatUser.id))) {
+            const partnerProf = activeChatUser ? (cachedUsersMap[activeChatUser.id] || activeChatUser) : null;
+            const partnerActive = activeChatUser && isUserRecentlyActive(activeChatUser.id, partnerProf ? partnerProf.last_seen : null);
+            if (msg.delivered_at || partnerActive) {
                 return { text: 'delivered', type: 'delivered' };
             }
             return { text: 'sent', type: 'sent' };
@@ -3247,7 +3265,8 @@
             }, 'sending...', tempId);
 
             try {
-                const partnerIsOnline = onlineUserIds.has(targetUser.id);
+                const partnerProf = cachedUsersMap[targetUser.id] || targetUser;
+                const partnerIsOnline = isUserRecentlyActive(targetUser.id, partnerProf.last_seen);
                 const partnerInSameChat = activeChatBoxUsersMap[targetUser.id] === currentUser.id;
                 const nowIso = new Date().toISOString();
 
@@ -3409,7 +3428,7 @@
 
         async function loadFeed() {
             const { data } = await supabaseClient
-                .from('posts').select('*, profiles(username, avatar_url, bio)')
+                .from('posts').select('*, profiles(username, avatar_url, bio, last_seen)')
                 .order('created_at', { ascending: false });
 
             const feed = document.getElementById('posts-feed');
@@ -3430,7 +3449,8 @@
                             ...(cachedUsersMap[post.user_id] || {}),
                             username: post.profiles.username,
                             avatar_url: post.profiles.avatar_url,
-                            bio: post.profiles.bio
+                            bio: post.profiles.bio,
+                            last_seen: post.profiles.last_seen || (cachedUsersMap[post.user_id] && cachedUsersMap[post.user_id].last_seen)
                         };
                     }
                     feed.innerHTML += buildPostCardHtml(post, true);
