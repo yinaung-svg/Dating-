@@ -527,6 +527,7 @@
         let chatSyncBroadcastChannel = null;
         let chatPollInterval = null;
         let badgeSyncInterval = null;
+        let notiPollInterval = null;
         let globalPresenceChannel = null;
         let onlineUserIds = new Set();
         let activeChatBoxUsersMap = {};
@@ -694,7 +695,7 @@
                         if (parsed && currentUser && parsed.actorId !== currentUser.id) {
                             addNotificationItem({
                                 ...parsed,
-                                id: parsed.liveId ? `live_noti_${parsed.liveId}` : parsed.id,
+                                id: parsed.id || (parsed.liveId ? `live_noti_${parsed.liveId}_${Date.now()}` : undefined),
                                 type: 'live',
                                 message: 'live is now'
                             });
@@ -727,7 +728,7 @@
                     refreshUnreadMessageCounts();
                     checkMyPostsEngagementChanges();
                     refreshAllPresenceDisplays();
-                    checkStorageLiveNoti();
+                    pollActiveLivePostsForNoti();
                 }
             });
 
@@ -743,18 +744,38 @@
             }
         });
 
-        function checkStorageLiveNoti() {
+        async function pollActiveLivePostsForNoti() {
             if (!currentUser) return;
             try {
-                const raw = localStorage.getItem('socialchat_live_noti_sync');
-                if (!raw) return;
-                const parsed = JSON.parse(raw);
-                if (parsed && parsed.actorId && parsed.actorId !== currentUser.id) {
+                const { data, error } = await supabaseClient
+                    .from('posts')
+                    .select('id, user_id, content, media_url, created_at')
+                    .ilike('content', '[LIVE_STREAM:%')
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+
+                if (error || !data) return;
+
+                for (const postRow of data) {
+                    if (!postRow || postRow.user_id === currentUser.id) continue;
+                    const liveInfo = parseLivePost(postRow);
+                    if (!liveInfo || !liveInfo.liveId) continue;
+
+                    const notiKey = `live_post_noti_${postRow.id}_${liveInfo.liveId}`;
+                    if (handledNotiKeys.has(notiKey)) continue;
+
+                    const actorName = await getUsernameById(postRow.user_id);
                     addNotificationItem({
-                        ...parsed,
-                        id: parsed.liveId ? `live_noti_${parsed.liveId}` : parsed.id,
+                        id: notiKey,
                         type: 'live',
-                        message: 'live is now'
+                        actorId: postRow.user_id,
+                        actorName,
+                        message: 'live is now',
+                        liveId: liveInfo.liveId,
+                        coverUrl: postRow.media_url || '',
+                        caption: liveInfo.caption || '',
+                        startedAt: liveInfo.startedAt,
+                        createdAt: postRow.created_at || new Date().toISOString()
                     });
                 }
             } catch (e) {}
@@ -1829,26 +1850,15 @@
             if (!noti) return;
             if (noti.type === 'message') return;
 
-            const canonicalId = noti.type === 'live' && noti.liveId
-                ? `live_noti_${noti.liveId}`
-                : (noti.id || `${noti.type}_${noti.actorId}_${noti.liveId || ''}_${noti.message}_${noti.detailText}`);
+            const uniqueKey = noti.id || `${noti.type}_${noti.actorId}_${noti.liveId || ''}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
-            if (canonicalId && handledNotiKeys.has(canonicalId)) {
+            if (handledNotiKeys.has(uniqueKey)) {
                 return;
             }
-
-            if (noti.type === 'live' && noti.liveId) {
-                const alreadyInList = notificationsList.some(n => n.type === 'live' && n.liveId === noti.liveId);
-                if (alreadyInList) {
-                    handledNotiKeys.add(canonicalId);
-                    return;
-                }
-            }
-
-            if (canonicalId) handledNotiKeys.add(canonicalId);
+            handledNotiKeys.add(uniqueKey);
 
             notificationsList.unshift({
-                id: canonicalId || ('noti_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
+                id: uniqueKey,
                 type: noti.type || 'live',
                 postId: noti.postId || '',
                 actorId: noti.actorId || '',
@@ -1863,8 +1873,8 @@
                 isRead: false
             });
 
-            if (notificationsList.length > 120) {
-                notificationsList = notificationsList.slice(0, 120);
+            if (notificationsList.length > 150) {
+                notificationsList = notificationsList.slice(0, 150);
             }
 
             const notiTabActive = document.getElementById('notification-tab')?.classList.contains('active');
@@ -2037,7 +2047,7 @@
                             if (myName && commenter === myName) continue;
                             const cText = cObj.text || '';
                             addNotificationItem({
-                                id: `db_cmt_${p.id}_${i}_${cText.slice(0, 12)}`,
+                                id: `db_cmt_${p.id}_${i}_${Date.now()}`,
                                 type: 'post_comment',
                                 postId: p.id,
                                 actorId: '',
@@ -2052,7 +2062,7 @@
                     if (likes > prev.likes) {
                         const diff = likes - prev.likes;
                         addNotificationItem({
-                            id: `db_like_${p.id}_${likes}`,
+                            id: `db_like_${p.id}_${likes}_${Date.now()}`,
                             type: 'post_like',
                             postId: p.id,
                             actorId: '',
@@ -2066,7 +2076,7 @@
                     if (shares > prev.shares) {
                         const diff = shares - prev.shares;
                         addNotificationItem({
-                            id: `db_share_${p.id}_${shares}`,
+                            id: `db_share_${p.id}_${shares}_${Date.now()}`,
                             type: 'post_share',
                             postId: p.id,
                             actorId: '',
@@ -2160,7 +2170,7 @@
                         if (p && currentUser && p.actorId !== currentUser.id) {
                             addNotificationItem({
                                 ...p,
-                                id: p.liveId ? `live_noti_${p.liveId}` : p.id,
+                                id: p.id || (p.liveId ? `live_bcast_${p.liveId}_${Date.now()}` : undefined),
                                 type: 'live',
                                 message: 'live is now'
                             });
@@ -2183,7 +2193,7 @@
                         }
                     });
 
-                setTimeout(() => finish(globalNotiChannel || ch), 2500);
+                setTimeout(() => finish(globalNotiChannel || ch), 2000);
             });
         }
 
@@ -2192,10 +2202,13 @@
             const liveInfo = parseLivePost(postRow);
             if (!liveInfo || !liveInfo.liveId) return;
 
+            const notiKey = `live_post_noti_${postRow.id}_${liveInfo.liveId}`;
+            if (handledNotiKeys.has(notiKey)) return;
+
             const actorName = await getUsernameById(postRow.user_id);
 
             addNotificationItem({
-                id: 'live_noti_' + liveInfo.liveId,
+                id: notiKey,
                 type: 'live',
                 actorId: postRow.user_id,
                 actorName,
@@ -2214,7 +2227,7 @@
                               document.getElementById('profile-name')?.textContent ||
                               await getUsernameById(currentUser.id);
             const notiPayload = {
-                id: 'live_noti_' + liveId,
+                id: `live_noti_${liveId}_${Date.now()}`,
                 type: 'live',
                 actorId: currentUser.id,
                 actorName,
@@ -2555,11 +2568,17 @@
             loadFeed();
             loadChatList();
             loadProfile();
-            ensureGlobalNotiChannel();
-            checkStorageLiveNoti();
+            await ensureGlobalNotiChannel();
+            await pollActiveLivePostsForNoti();
             markIncomingMessagesDelivered();
             await refreshUnreadMessageCounts();
             await checkMyPostsEngagementChanges();
+
+            if (notiPollInterval) clearInterval(notiPollInterval);
+            notiPollInterval = setInterval(async () => {
+                if (!currentUser) return;
+                await pollActiveLivePostsForNoti();
+            }, 2000);
 
             if (badgeSyncInterval) clearInterval(badgeSyncInterval);
             badgeSyncInterval = setInterval(async () => {
@@ -2721,8 +2740,10 @@
                     document.querySelectorAll('.tab-btn')[tabs[tabName]].classList.add('active');
                 }
                 if (tabName === 'notification') {
-                    markAllNotificationsRead();
-                    renderNotificationsList();
+                    pollActiveLivePostsForNoti().then(() => {
+                        markAllNotificationsRead();
+                        renderNotificationsList();
+                    });
                 } else if (tabName === 'chat') {
                     if (activeChatUser) {
                         document.getElementById('chat-list-view').style.display = 'none';
