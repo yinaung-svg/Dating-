@@ -16,16 +16,16 @@
         .toggle-btn:hover { text-decoration: underline; }
         .error { color: #fa383e; font-size: 13px; margin-top: 5px; text-align: left; }
         
-        #app-container { display: none; width: 100%; max-width: 600px; height: 100vh; background: #f0f2f5; flex-direction: column; }
-        header { background: white; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; }
+        #app-container { display: none; width: 100%; max-width: 600px; height: 100dvh; background: #f0f2f5; flex-direction: column; overflow: hidden; }
+        header { background: white; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; flex-shrink: 0; }
         header h2 { margin: 0; color: #1877f2; font-size: 20px; }
         
-        .nav-tabs { display: flex; background: white; border-bottom: 1px solid #ddd; justify-content: space-around; }
+        .nav-tabs { display: flex; background: white; border-bottom: 1px solid #ddd; justify-content: space-around; flex-shrink: 0; }
         .tab-btn { flex: 1; padding: 12px 5px; background: none; border: none; font-size: 13px; font-weight: bold; color: #65676b; cursor: pointer; border-bottom: 3px solid transparent; text-align: center; position: relative; }
         .tab-btn.active { color: #1877f2; border-bottom: 3px solid #1877f2; }
         .noti-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #e41e3f; margin-left: 4px; vertical-align: middle; }
         
-        .tab-content { flex: 1; overflow-y: auto; padding: 15px; display: none; }
+        .tab-content { flex: 1; overflow-y: auto; padding: 15px; display: none; min-height: 0; box-sizing: border-box; }
         .tab-content.active { display: block; }
         
         .card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
@@ -64,19 +64,25 @@
         .action-bar { display: flex; justify-content: space-around; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 8px 0; margin-top: 10px; font-size: 13px; color: #65676b; cursor: pointer; }
         .action-bar span:hover { color: #1877f2; }
 
-        #chat-tab { display: none; flex-direction: column; height: 100%; padding: 0; }
+        #chat-tab { display: none; flex-direction: column; height: 100%; padding: 0; overflow: hidden; }
         #chat-tab.active { display: flex; }
         
-        #chat-list-view { flex: 1; overflow-y: auto; padding: 15px; box-sizing: border-box; }
-        #chat-box-view { display: none; flex-direction: column; height: 100%; flex: 1; min-height: 0; }
+        #chat-list-view { flex: 1; overflow-y: auto; padding: 15px; box-sizing: border-box; min-height: 0; }
+        #chat-box-view { display: none; flex-direction: column; height: 100%; flex: 1; min-height: 0; overflow: hidden; }
 
         .chat-messenger-header { display: flex; align-items: center; padding: 10px 15px; background: white; border-bottom: 1px solid #ddd; gap: 10px; flex-shrink: 0; }
         .chat-header-avatar { width: 35px; height: 35px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 14px; flex-shrink: 0; }
         
         .chat-box { flex: 1; padding: 15px; overflow-y: auto; background: #fff; display: flex; flex-direction: column; min-height: 0; }
-        .msg-bubble { max-width: 70%; padding: 10px 14px; border-radius: 15px; margin-bottom: 8px; font-size: 14px; word-break: break-word; }
-        .msg-left { background: #e4e6eb; color: #050505; align-self: flex-start; border-bottom-left-radius: 2px; }
-        .msg-right { background: #1877f2; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .msg-wrapper { display: flex; flex-direction: column; margin-bottom: 10px; max-width: 76%; }
+        .msg-wrapper-left { align-self: flex-start; align-items: flex-start; }
+        .msg-wrapper-right { align-self: flex-end; align-items: flex-end; }
+        .msg-bubble { padding: 10px 14px; border-radius: 15px; font-size: 14px; word-break: break-word; }
+        .msg-left { background: #e4e6eb; color: #050505; border-bottom-left-radius: 2px; }
+        .msg-right { background: #1877f2; color: white; border-bottom-right-radius: 2px; }
+        .msg-status { font-size: 10px; margin-top: 2px; padding: 0 4px; color: #65676b; }
+        .msg-status.sent { color: #1877f2; font-weight: bold; }
+        .msg-status.failed { color: #fa383e; font-weight: bold; }
         
         .chat-input-area { display: flex; padding: 10px; background: white; border-top: 1px solid #ddd; flex-shrink: 0; }
         .chat-input-area input { margin: 0; flex: 1; }
@@ -233,13 +239,13 @@
                     <div id="chat-header-avatar-container" class="chat-header-avatar">U</div>
                     <div>
                         <div id="chat-header-name" style="font-weight: bold; font-size: 15px;">User</div>
-                        <div style="font-size: 11px; color: #42b72a;">Active</div>
+                        <div id="chat-delivery-banner" style="font-size: 11px; color: #42b72a;">Active</div>
                     </div>
                 </div>
                 <div class="chat-box" id="chat-box"></div>
                 <div class="chat-input-area">
                     <input type="text" id="chat-input" placeholder="Aa" onkeypress="handleChatKeyPress(event)">
-                    <button onclick="sendMessage()">Send</button>
+                    <button id="chat-send-btn" onclick="sendMessage()">Send</button>
                 </div>
             </div>
         </div>
@@ -407,6 +413,8 @@
         let currentUser = null;
         let currentProfileData = null;
         let activeChatUser = null;
+        let chatSyncBroadcastChannel = null;
+        let chatPollInterval = null;
 
         // Multi-photo selection state (1 to 10 photos, image/* only)
         let selectedPostPhotos = [];
@@ -1122,6 +1130,19 @@
             loadProfile();
             ensureGlobalNotiChannel();
 
+            chatSyncBroadcastChannel = supabaseClient
+                .channel('global-chat-sync')
+                .on('broadcast', { event: 'new_dm' }, payload => {
+                    const p = payload && payload.payload;
+                    if (!p || !currentUser) return;
+                    if (p.receiver_id === currentUser.id) {
+                        if (activeChatUser && activeChatUser.id === p.sender_id) {
+                            appendMessageBubble(p, 'Sent ✓');
+                        }
+                    }
+                })
+                .subscribe();
+
             supabaseClient
                 .channel('public:profiles:chat-list')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
@@ -1146,7 +1167,7 @@
                     const newMsg = payload.new;
                     if (!newMsg || !currentUser) return;
                     if (activeChatUser && ((newMsg.sender_id === currentUser.id && newMsg.receiver_id === activeChatUser.id) || (newMsg.sender_id === activeChatUser.id && newMsg.receiver_id === currentUser.id))) {
-                        appendMessageBubble(newMsg);
+                        appendMessageBubble(newMsg, newMsg.sender_id === currentUser.id ? 'Sent ✓' : '');
                     }
                 })
                 .subscribe();
@@ -1198,6 +1219,7 @@
                         document.getElementById('chat-list-view').style.display = 'none';
                         document.getElementById('chat-box-view').style.display = 'flex';
                         loadMessages();
+                        startChatPolling();
                     } else {
                         backToChatList();
                     }
@@ -2162,6 +2184,29 @@
             }
         }
 
+        function setDeliveryBanner(text, color = '#42b72a') {
+            const el = document.getElementById('chat-delivery-banner');
+            if (!el) return;
+            el.textContent = text;
+            el.style.color = color;
+        }
+
+        function startChatPolling() {
+            stopChatPolling();
+            chatPollInterval = setInterval(() => {
+                if (activeChatUser && currentUser && document.getElementById('chat-box-view')?.style.display !== 'none') {
+                    loadMessages(true);
+                }
+            }, 2500);
+        }
+
+        function stopChatPolling() {
+            if (chatPollInterval) {
+                clearInterval(chatPollInterval);
+                chatPollInterval = null;
+            }
+        }
+
         function openDirectChat(userId, username, avatarUrl) {
             activeChatUser = { id: userId, username, avatar_url: avatarUrl };
             switchTab('chat');
@@ -2170,6 +2215,8 @@
             document.getElementById('chat-box-view').style.display = 'flex';
 
             document.getElementById('chat-header-name').textContent = username;
+            setDeliveryBanner('Active', '#42b72a');
+
             let avatarContainer = document.getElementById('chat-header-avatar-container');
             if (avatarUrl) {
                 avatarContainer.innerHTML = `<img src="${avatarUrl}" style="width:100%; height:100%; object-fit:cover;">`;
@@ -2178,16 +2225,18 @@
             }
 
             loadMessages();
+            startChatPolling();
         }
 
         function backToChatList() {
+            stopChatPolling();
             activeChatUser = null;
             document.getElementById('chat-box-view').style.display = 'none';
             document.getElementById('chat-list-view').style.display = 'block';
             loadChatList();
         }
 
-        async function loadMessages() {
+        async function loadMessages(silent = false) {
             if (!activeChatUser || !currentUser) return;
             try {
                 const { data, error } = await supabaseClient
@@ -2197,18 +2246,26 @@
                     .order('created_at', { ascending: true });
 
                 const chatBox = document.getElementById('chat-box');
+                if (!chatBox) return;
+
                 if (error) {
-                    chatBox.innerHTML = `<p style="color:#fa383e; text-align:center; font-size:13px; margin-top:20px;">Error loading messages: ${error.message}</p>`;
+                    if (!silent) {
+                        chatBox.innerHTML = `<p style="color:#fa383e; text-align:center; font-size:13px; margin-top:20px;">Error loading messages: ${error.message}</p>`;
+                    }
                     return;
                 }
 
-                chatBox.innerHTML = '';
-                
+                if (!silent) {
+                    chatBox.innerHTML = '';
+                } else if (data && data.length > 0 && chatBox.innerHTML.includes('No messages yet')) {
+                    chatBox.innerHTML = '';
+                }
+
                 if (data && data.length > 0) {
                     data.forEach(msg => {
-                        appendMessageBubble(msg);
+                        appendMessageBubble(msg, msg.sender_id === currentUser.id ? 'Sent ✓' : '');
                     });
-                } else {
+                } else if (!silent) {
                     chatBox.innerHTML = '<p style="color:#65676b; text-align:center; font-size:13px; margin-top:20px;">No messages yet. Say hello!</p>';
                 }
                 chatBox.scrollTop = chatBox.scrollHeight;
@@ -2217,49 +2274,134 @@
             }
         }
 
-        function appendMessageBubble(msg) {
+        function updateMessageBubbleStatus(tempId, realMsg, statusText, statusType = '') {
+            const chatBox = document.getElementById('chat-box');
+            if (!chatBox) return;
+            const wrapper = chatBox.querySelector(`.msg-wrapper[data-temp-id="${tempId}"]`) ||
+                            (realMsg && realMsg.id ? chatBox.querySelector(`.msg-wrapper[data-id="${realMsg.id}"]`) : null);
+            if (!wrapper) return;
+
+            if (realMsg && realMsg.id) {
+                wrapper.setAttribute('data-id', realMsg.id);
+                wrapper.removeAttribute('data-temp-id');
+            }
+            const statusEl = wrapper.querySelector('.msg-status');
+            if (statusEl) {
+                statusEl.textContent = statusText;
+                statusEl.className = 'msg-status' + (statusType ? ` ${statusType}` : '');
+            }
+        }
+
+        function appendMessageBubble(msg, statusLabel = '', tempId = '') {
             const chatBox = document.getElementById('chat-box');
             if (!chatBox || !currentUser) return;
             if (chatBox.innerHTML.includes('No messages yet')) {
                 chatBox.innerHTML = '';
             }
             const isMe = msg.sender_id === currentUser.id;
+            const wrapperClass = isMe ? 'msg-wrapper-right' : 'msg-wrapper-left';
             const bubbleClass = isMe ? 'msg-right' : 'msg-left';
             
             if (msg.id) {
-                const existingById = chatBox.querySelector(`.msg-bubble[data-id="${msg.id}"]`);
-                if (existingById) return;
+                const existingById = chatBox.querySelector(`.msg-wrapper[data-id="${msg.id}"]`);
+                if (existingById) {
+                    if (statusLabel) {
+                        const st = existingById.querySelector('.msg-status');
+                        if (st) {
+                            st.textContent = statusLabel;
+                            st.className = 'msg-status sent';
+                        }
+                    }
+                    return;
+                }
             }
 
-            const div = document.createElement('div');
-            div.className = `msg-bubble ${bubbleClass}`;
-            div.textContent = msg.content;
-            if (msg.id) div.setAttribute('data-id', msg.id);
+            if (tempId) {
+                const existingTemp = chatBox.querySelector(`.msg-wrapper[data-temp-id="${tempId}"]`);
+                if (existingTemp) return;
+            }
+
+            const wrapper = document.createElement('div');
+            wrapper.className = `msg-wrapper ${wrapperClass}`;
+            if (msg.id) wrapper.setAttribute('data-id', msg.id);
+            if (tempId) wrapper.setAttribute('data-temp-id', tempId);
+
+            const bubble = document.createElement('div');
+            bubble.className = `msg-bubble ${bubbleClass}`;
+            bubble.textContent = msg.content;
+            wrapper.appendChild(bubble);
+
+            if (isMe && statusLabel) {
+                const statusEl = document.createElement('div');
+                statusEl.className = 'msg-status' + (statusLabel.includes('Sent') ? ' sent' : (statusLabel.includes('Failed') ? ' failed' : ''));
+                statusEl.textContent = statusLabel;
+                wrapper.appendChild(statusEl);
+            }
             
-            chatBox.appendChild(div);
+            chatBox.appendChild(wrapper);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
         async function sendMessage() {
             const input = document.getElementById('chat-input');
+            const sendBtn = document.getElementById('chat-send-btn');
             const content = input.value.trim();
             if (!content || !currentUser || !activeChatUser) return;
 
-            const { data, error } = await supabaseClient
-                .from('messages')
-                .insert([{
-                    content: content,
-                    sender_id: currentUser.id,
-                    receiver_id: activeChatUser.id
-                }])
-                .select()
-                .single();
+            const targetUser = { ...activeChatUser };
+            const tempId = 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
 
-            if (!error && data) {
-                input.value = '';
-                appendMessageBubble(data);
-            } else {
-                alert('Error sending message: ' + (error ? error.message : 'Unknown error'));
+            input.value = '';
+            if (sendBtn) sendBtn.disabled = true;
+            setDeliveryBanner(`Sending to ${targetUser.username}...`, '#1877f2');
+
+            appendMessageBubble({
+                content: content,
+                sender_id: currentUser.id,
+                receiver_id: targetUser.id
+            }, 'Sending...', tempId);
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('messages')
+                    .insert([{
+                        content: content,
+                        sender_id: currentUser.id,
+                        receiver_id: targetUser.id
+                    }])
+                    .select()
+                    .single();
+
+                if (error) {
+                    updateMessageBubbleStatus(tempId, null, `Failed ✕ (${error.message})`, 'failed');
+                    setDeliveryBanner(`Failed: ${error.message}`, '#fa383e');
+                    if (sendBtn) sendBtn.disabled = false;
+                    return;
+                }
+
+                // Verify message exists in DB
+                const { data: verifiedRow } = await supabaseClient
+                    .from('messages')
+                    .select('*')
+                    .eq('id', data.id)
+                    .maybeSingle();
+
+                const confirmedMsg = verifiedRow || data;
+                updateMessageBubbleStatus(tempId, confirmedMsg, 'Sent ✓ (Delivered to DB)', 'sent');
+                setDeliveryBanner(`Sent ✓ to ${targetUser.username}`, '#137333');
+
+                if (chatSyncBroadcastChannel) {
+                    chatSyncBroadcastChannel.send({
+                        type: 'broadcast',
+                        event: 'new_dm',
+                        payload: confirmedMsg
+                    }).catch(() => {});
+                }
+            } catch (err) {
+                updateMessageBubbleStatus(tempId, null, `Failed ✕ (${err.message || 'Error'})`, 'failed');
+                setDeliveryBanner(`Error: ${err.message || 'Send failed'}`, '#fa383e');
+            } finally {
+                if (sendBtn) sendBtn.disabled = false;
             }
         }
 
