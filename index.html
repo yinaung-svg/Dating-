@@ -2137,14 +2137,24 @@
         async function ensureGlobalNotiChannel() {
             if (globalNotiChannel && globalNotiSubscribed) return globalNotiChannel;
             if (globalNotiChannel) {
-                supabaseClient.removeChannel(globalNotiChannel);
+                try { await supabaseClient.removeChannel(globalNotiChannel); } catch (e) {}
                 globalNotiChannel = null;
                 globalNotiSubscribed = false;
             }
 
             return new Promise((resolve) => {
+                let settled = false;
+                const finish = (ch) => {
+                    if (!settled) {
+                        settled = true;
+                        resolve(ch);
+                    }
+                };
+
                 const ch = supabaseClient
-                    .channel('global-live-notifications')
+                    .channel('global-live-notifications', {
+                        config: { broadcast: { ack: false } }
+                    })
                     .on('broadcast', { event: 'live_started' }, payload => {
                         const p = payload && payload.payload;
                         if (p && currentUser && p.actorId !== currentUser.id) {
@@ -2166,11 +2176,14 @@
                         if (status === 'SUBSCRIBED') {
                             globalNotiChannel = ch;
                             globalNotiSubscribed = true;
-                            resolve(ch);
+                            finish(ch);
+                        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                            globalNotiSubscribed = false;
+                            finish(ch);
                         }
                     });
 
-                setTimeout(() => resolve(globalNotiChannel || ch), 1000);
+                setTimeout(() => finish(globalNotiChannel || ch), 2500);
             });
         }
 
@@ -4281,6 +4294,10 @@
                             bio: post.profiles.bio,
                             last_seen: post.profiles.last_seen || (cachedUsersMap[post.user_id] && cachedUsersMap[post.user_id].last_seen)
                         };
+                    }
+                    const liveInfoForNoti = parseLivePost(post);
+                    if (liveInfoForNoti && liveInfoForNoti.liveId && post.user_id !== currentUser.id) {
+                        handleLivePostInsertedNoti(post);
                     }
                     feed.innerHTML += buildPostCardHtml(post, true);
                 });
