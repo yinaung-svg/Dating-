@@ -79,12 +79,22 @@
         .online-dot-badge { position: absolute; bottom: 0; right: 0; width: 11px; height: 11px; background: #31a24c; border: 2px solid #fff; border-radius: 50%; z-index: 2; }
         
         .chat-box { flex: 1; padding: 15px 15px 6px 15px; overflow-y: auto; background: #fff; display: flex; flex-direction: column; min-height: 0; }
-        .msg-wrapper { display: flex; flex-direction: column; margin-bottom: 8px; max-width: 76%; }
+        .msg-wrapper { display: flex; flex-direction: column; margin-bottom: 8px; max-width: 78%; }
         .msg-wrapper-left { align-self: flex-start; align-items: flex-start; }
         .msg-wrapper-right { align-self: flex-end; align-items: flex-end; }
         .msg-bubble { padding: 10px 14px; border-radius: 15px; font-size: 14px; word-break: break-word; }
         .msg-left { background: #e4e6eb; color: #050505; border-bottom-left-radius: 2px; }
         .msg-right { background: #1877f2; color: white; border-bottom-right-radius: 2px; }
+        .msg-photo-img { max-width: 220px; max-height: 240px; border-radius: 10px; display: block; cursor: pointer; object-fit: cover; }
+        .msg-file-card { display: flex; align-items: center; gap: 8px; text-decoration: none; font-size: 13px; font-weight: bold; padding: 4px 2px; }
+        .msg-right .msg-file-card { color: #ffffff; }
+        .msg-left .msg-file-card { color: #050505; }
+        .msg-file-meta { font-size: 11px; opacity: 0.85; font-weight: normal; }
+        .msg-loc-box { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+        .msg-loc-link { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: bold; text-decoration: underline; }
+        .msg-right .msg-loc-link { color: #ffffff; }
+        .msg-left .msg-loc-link { color: #1877f2; }
+
         .msg-status { font-size: 11px; margin-top: 2px; padding: 0 4px; color: #65676b; text-transform: lowercase; }
         .msg-status.sent { color: #65676b; }
         .msg-status.delivered { color: #1877f2; }
@@ -94,8 +104,12 @@
         .typing-indicator-bar { background: #fff; padding: 2px 15px 6px 15px; min-height: 18px; display: none; align-items: center; justify-content: flex-start; flex-shrink: 0; }
         .typing-indicator-bar.visible { display: flex; }
         .typing-text { font-style: italic; font-size: 12px; color: #65676b; }
-        
-        .chat-input-area { display: flex; padding: 10px; background: white; border-top: 1px solid #ddd; flex-shrink: 0; }
+
+        .chat-attach-toolbar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #f8f9fa; border-top: 1px solid #e4e6eb; flex-shrink: 0; }
+        .chat-attach-btn { width: auto; margin: 0; padding: 6px 10px; font-size: 12px; font-weight: bold; background: #e4e6eb; color: #050505; border-radius: 16px; }
+        .chat-attach-btn:hover { background: #d8dadf; }
+
+        .chat-input-area { display: flex; padding: 8px 10px 10px 10px; background: white; border-top: 1px solid #ddd; flex-shrink: 0; }
         .chat-input-area input { margin: 0; flex: 1; }
         .chat-input-area button { width: 80px; margin: 0 0 0 8px; padding: 0; }
         
@@ -256,6 +270,15 @@
                 <div id="typing-indicator-bar" class="typing-indicator-bar">
                     <span class="typing-text">typing</span>
                 </div>
+
+                <div class="chat-attach-toolbar">
+                    <input type="file" id="chat-photo-input" accept="image/*" style="display:none;" onchange="handleChatPhotoSelected(this)">
+                    <input type="file" id="chat-file-input" accept="*/*" style="display:none;" onchange="handleChatFileSelected(this)">
+                    <button type="button" id="chat-photo-btn" class="chat-attach-btn" onclick="document.getElementById('chat-photo-input').click()">📷 Photo</button>
+                    <button type="button" id="chat-file-btn" class="chat-attach-btn" onclick="document.getElementById('chat-file-input').click()">📎 File</button>
+                    <button type="button" id="chat-loc-btn" class="chat-attach-btn" onclick="shareCurrentLocationInChat()">📍 Location</button>
+                </div>
+
                 <div class="chat-input-area">
                     <input type="text" id="chat-input" placeholder="Aa" oninput="handleChatTyping()" onkeypress="handleChatKeyPress(event)">
                     <button id="chat-send-btn" onclick="sendMessage()">Send</button>
@@ -910,6 +933,15 @@
             });
         }
 
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = err => reject(err);
+                reader.readAsDataURL(file);
+            });
+        }
+
         async function uploadPostPhotos(files) {
             const urls = [];
             for (let i = 0; i < files.length; i++) {
@@ -960,6 +992,313 @@
                 }
             }
             return { photos: [], text: str };
+        }
+
+        /* ==================== CHAT ATTACHMENTS (PHOTO / FILE / LOCATION) ==================== */
+        const CHAT_MEDIA_PREFIX = '<<<SC_CHAT_MEDIA:';
+        const CHAT_MEDIA_SUFFIX = ':SC_CHAT_MEDIA>>>';
+
+        function encodeChatMedia(obj) {
+            return `${CHAT_MEDIA_PREFIX}${JSON.stringify(obj)}${CHAT_MEDIA_SUFFIX}`;
+        }
+
+        function parseChatMediaContent(rawContent) {
+            const str = rawContent || '';
+            if (str.startsWith(CHAT_MEDIA_PREFIX) && str.endsWith(CHAT_MEDIA_SUFFIX)) {
+                const inner = str.slice(CHAT_MEDIA_PREFIX.length, str.length - CHAT_MEDIA_SUFFIX.length);
+                try {
+                    return JSON.parse(inner);
+                } catch (e) {
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        function formatBytesSize(bytes) {
+            const b = Number(bytes) || 0;
+            if (b < 1024) return `${b} B`;
+            if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+            return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+        }
+
+        function renderMessageBubbleInner(bubble, rawContent) {
+            const mediaObj = parseChatMediaContent(rawContent);
+            if (!mediaObj || !mediaObj.kind) {
+                bubble.textContent = rawContent || '';
+                return;
+            }
+
+            if (mediaObj.kind === 'photo' && mediaObj.url) {
+                const img = document.createElement('img');
+                img.src = mediaObj.url;
+                img.className = 'msg-photo-img';
+                img.alt = mediaObj.name || 'Photo';
+                img.onclick = (ev) => {
+                    ev.stopPropagation();
+                    openLightbox(mediaObj.url);
+                };
+                bubble.appendChild(img);
+                return;
+            }
+
+            if (mediaObj.kind === 'file' && mediaObj.url) {
+                const link = document.createElement('a');
+                link.href = mediaObj.url;
+                link.download = mediaObj.name || 'file';
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.className = 'msg-file-card';
+                link.innerHTML = `
+                    <span style="font-size:20px;">📎</span>
+                    <span style="min-width:0;">
+                        <div style="word-break:break-word;">${mediaObj.name || 'Attached File'}</div>
+                        <div class="msg-file-meta">${formatBytesSize(mediaObj.size)} · Tap to download</div>
+                    </span>
+                `;
+                bubble.appendChild(link);
+                return;
+            }
+
+            if (mediaObj.kind === 'location') {
+                const lat = Number(mediaObj.lat);
+                const lng = Number(mediaObj.lng);
+                const mapUrl = mediaObj.mapUrl || `https://www.google.com/maps?q=${lat},${lng}`;
+                const wrap = document.createElement('div');
+                wrap.className = 'msg-loc-box';
+                wrap.innerHTML = `
+                    <div><b>📍 Shared Location</b></div>
+                    <div style="font-size:12px;">Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}</div>
+                    <a href="${mapUrl}" target="_blank" rel="noopener noreferrer" class="msg-loc-link">Open in Google Maps ↗</a>
+                `;
+                bubble.appendChild(wrap);
+                return;
+            }
+
+            bubble.textContent = rawContent || '';
+        }
+
+        async function persistAndBroadcastChatContent(encodedContent) {
+            const sendBtn = document.getElementById('chat-send-btn');
+            if (!currentUser || !activeChatUser || !encodedContent) return;
+
+            if (isCurrentlyTyping) {
+                isCurrentlyTyping = false;
+                sendTypingSignal(false);
+            }
+            if (typingTimeout) clearTimeout(typingTimeout);
+
+            const targetUser = { ...activeChatUser };
+            const tempId = 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+            if (sendBtn) sendBtn.disabled = true;
+
+            appendMessageBubble({
+                content: encodedContent,
+                sender_id: currentUser.id,
+                receiver_id: targetUser.id
+            }, 'sending...', tempId);
+
+            try {
+                const partnerProf = cachedUsersMap[targetUser.id] || targetUser;
+                const partnerIsOnline = isUserRecentlyActive(targetUser.id, partnerProf.last_seen);
+                const partnerInSameChat = activeChatBoxUsersMap[targetUser.id] === currentUser.id;
+                const nowIso = new Date().toISOString();
+
+                const insertPayload = {
+                    content: encodedContent,
+                    sender_id: currentUser.id,
+                    receiver_id: targetUser.id
+                };
+                if (partnerIsOnline) insertPayload.delivered_at = nowIso;
+                if (partnerInSameChat) insertPayload.seen_at = nowIso;
+
+                let res = await supabaseClient
+                    .from('messages')
+                    .insert([insertPayload])
+                    .select()
+                    .single();
+
+                if (res.error && (res.error.message.includes('delivered_at') || res.error.message.includes('seen_at'))) {
+                    res = await supabaseClient
+                        .from('messages')
+                        .insert([{
+                            content: encodedContent,
+                            sender_id: currentUser.id,
+                            receiver_id: targetUser.id
+                        }])
+                        .select()
+                        .single();
+                }
+
+                const { data, error } = res;
+                if (error) {
+                    updateMessageBubbleStatus(tempId, null, `Failed (${error.message})`, 'failed');
+                    return;
+                }
+
+                if (data && data.id) {
+                    handledMessageIds.add(data.id);
+                }
+
+                let finalLabel = 'sent';
+                let finalType = 'sent';
+                if (data.seen_at || partnerInSameChat) {
+                    finalLabel = 'seen';
+                    finalType = 'seen';
+                } else if (data.delivered_at || partnerIsOnline) {
+                    finalLabel = 'delivered';
+                    finalType = 'delivered';
+                }
+
+                updateMessageBubbleStatus(tempId, data, finalLabel, finalType);
+
+                if (chatSyncBroadcastChannel) {
+                    chatSyncBroadcastChannel.send({
+                        type: 'broadcast',
+                        event: 'new_dm',
+                        payload: { ...data, delivered_at: data.delivered_at || (partnerIsOnline ? nowIso : null) }
+                    }).catch(() => {});
+                }
+            } catch (err) {
+                updateMessageBubbleStatus(tempId, null, `Failed (${err.message || 'Error'})`, 'failed');
+            } finally {
+                if (sendBtn) sendBtn.disabled = false;
+            }
+        }
+
+        async function handleChatPhotoSelected(input) {
+            if (!input.files || !input.files[0] || !currentUser || !activeChatUser) return;
+            const file = input.files[0];
+            input.value = '';
+
+            if (!file.type || !file.type.startsWith('image/')) {
+                alert('ဓာတ်ပုံ ဖိုင်တစ်ခု ရွေးချယ်ပါ။');
+                return;
+            }
+
+            const photoBtn = document.getElementById('chat-photo-btn');
+            if (photoBtn) photoBtn.disabled = true;
+
+            try {
+                let photoUrl = '';
+                const safeName = (file.name || 'chat_photo.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
+                const fileName = `chat_photo_${currentUser.id}_${Date.now()}_${safeName}`;
+                try {
+                    const { error: upErr } = await supabaseClient.storage.from('media').upload(fileName, file);
+                    if (!upErr) {
+                        const { data: pubData } = supabaseClient.storage.from('media').getPublicUrl(fileName);
+                        if (pubData && pubData.publicUrl) photoUrl = pubData.publicUrl;
+                    }
+                } catch (e) {}
+
+                if (!photoUrl) {
+                    photoUrl = await compressFileToDataUrl(file, 760, 0.65);
+                }
+
+                if (!photoUrl) {
+                    alert('ဓာတ်ပုံ ပို့၍ မရပါ။');
+                    return;
+                }
+
+                const encoded = encodeChatMedia({
+                    kind: 'photo',
+                    url: photoUrl,
+                    name: file.name || 'photo.jpg'
+                });
+                await persistAndBroadcastChatContent(encoded);
+            } finally {
+                if (photoBtn) photoBtn.disabled = false;
+            }
+        }
+
+        async function handleChatFileSelected(input) {
+            if (!input.files || !input.files[0] || !currentUser || !activeChatUser) return;
+            const file = input.files[0];
+            input.value = '';
+
+            if (file.size > 4 * 1024 * 1024) {
+                alert('ဖိုင်အရွယ်အစား 4 MB အောက် ဖြစ်ရပါမည်။');
+                return;
+            }
+
+            const fileBtn = document.getElementById('chat-file-btn');
+            if (fileBtn) fileBtn.disabled = true;
+
+            try {
+                let fileUrl = '';
+                const safeName = (file.name || 'attachment').replace(/[^a-zA-Z0-9._-]/g, '_');
+                const fileName = `chat_file_${currentUser.id}_${Date.now()}_${safeName}`;
+                try {
+                    const { error: upErr } = await supabaseClient.storage.from('media').upload(fileName, file);
+                    if (!upErr) {
+                        const { data: pubData } = supabaseClient.storage.from('media').getPublicUrl(fileName);
+                        if (pubData && pubData.publicUrl) fileUrl = pubData.publicUrl;
+                    }
+                } catch (e) {}
+
+                if (!fileUrl) {
+                    fileUrl = await readFileAsDataUrl(file);
+                }
+
+                if (!fileUrl) {
+                    alert('ဖိုင် ပို့၍ မရပါ။');
+                    return;
+                }
+
+                const encoded = encodeChatMedia({
+                    kind: 'file',
+                    url: fileUrl,
+                    name: file.name || 'file',
+                    size: file.size || 0
+                });
+                await persistAndBroadcastChatContent(encoded);
+            } finally {
+                if (fileBtn) fileBtn.disabled = false;
+            }
+        }
+
+        async function shareCurrentLocationInChat() {
+            if (!currentUser || !activeChatUser) return;
+            if (!navigator.geolocation) {
+                alert('ဤ Browser / WebView တွင် Location မရနိုင်ပါ။');
+                return;
+            }
+
+            const locBtn = document.getElementById('chat-loc-btn');
+            if (locBtn) {
+                locBtn.disabled = true;
+                locBtn.textContent = '📍 Getting...';
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                    try {
+                        const lat = pos.coords.latitude;
+                        const lng = pos.coords.longitude;
+                        const mapUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+                        const encoded = encodeChatMedia({
+                            kind: 'location',
+                            lat,
+                            lng,
+                            mapUrl
+                        });
+                        await persistAndBroadcastChatContent(encoded);
+                    } finally {
+                        if (locBtn) {
+                            locBtn.disabled = false;
+                            locBtn.textContent = '📍 Location';
+                        }
+                    }
+                },
+                (err) => {
+                    if (locBtn) {
+                        locBtn.disabled = false;
+                        locBtn.textContent = '📍 Location';
+                    }
+                    alert('Location ရယူ၍ မရပါ: ' + (err.message || 'Permission denied'));
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
         }
 
         function handleFeedTabClick() {
@@ -3204,7 +3543,7 @@
 
             const bubble = document.createElement('div');
             bubble.className = `msg-bubble ${bubbleClass}`;
-            bubble.textContent = msg.content;
+            renderMessageBubbleInner(bubble, msg.content);
             wrapper.appendChild(bubble);
 
             if (isMe) {
@@ -3220,95 +3559,10 @@
 
         async function sendMessage() {
             const input = document.getElementById('chat-input');
-            const sendBtn = document.getElementById('chat-send-btn');
             const content = input.value.trim();
             if (!content || !currentUser || !activeChatUser) return;
-
-            if (isCurrentlyTyping) {
-                isCurrentlyTyping = false;
-                sendTypingSignal(false);
-            }
-            if (typingTimeout) clearTimeout(typingTimeout);
-
-            const targetUser = { ...activeChatUser };
-            const tempId = 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-
             input.value = '';
-            if (sendBtn) sendBtn.disabled = true;
-
-            appendMessageBubble({
-                content: content,
-                sender_id: currentUser.id,
-                receiver_id: targetUser.id
-            }, 'sending...', tempId);
-
-            try {
-                const partnerProf = cachedUsersMap[targetUser.id] || targetUser;
-                const partnerIsOnline = isUserRecentlyActive(targetUser.id, partnerProf.last_seen);
-                const partnerInSameChat = activeChatBoxUsersMap[targetUser.id] === currentUser.id;
-                const nowIso = new Date().toISOString();
-
-                const insertPayload = {
-                    content: content,
-                    sender_id: currentUser.id,
-                    receiver_id: targetUser.id
-                };
-                if (partnerIsOnline) insertPayload.delivered_at = nowIso;
-                if (partnerInSameChat) insertPayload.seen_at = nowIso;
-
-                let res = await supabaseClient
-                    .from('messages')
-                    .insert([insertPayload])
-                    .select()
-                    .single();
-
-                if (res.error && (res.error.message.includes('delivered_at') || res.error.message.includes('seen_at'))) {
-                    res = await supabaseClient
-                        .from('messages')
-                        .insert([{
-                            content: content,
-                            sender_id: currentUser.id,
-                            receiver_id: targetUser.id
-                        }])
-                        .select()
-                        .single();
-                }
-
-                const { data, error } = res;
-                if (error) {
-                    updateMessageBubbleStatus(tempId, null, `Failed (${error.message})`, 'failed');
-                    if (sendBtn) sendBtn.disabled = false;
-                    return;
-                }
-
-                if (data && data.id) {
-                    handledMessageIds.add(data.id);
-                }
-
-                let finalLabel = 'sent';
-                let finalType = 'sent';
-                if (data.seen_at || partnerInSameChat) {
-                    finalLabel = 'seen';
-                    finalType = 'seen';
-                } else if (data.delivered_at || partnerIsOnline) {
-                    finalLabel = 'delivered';
-                    finalType = 'delivered';
-                }
-
-                updateMessageBubbleStatus(tempId, data, finalLabel, finalType);
-
-                if (chatSyncBroadcastChannel) {
-                    chatSyncBroadcastChannel.send({
-                        type: 'broadcast',
-                        event: 'new_dm',
-                        payload: { ...data, delivered_at: data.delivered_at || (partnerIsOnline ? nowIso : null) }
-                    }).catch(() => {});
-                }
-            } catch (err) {
-                updateMessageBubbleStatus(tempId, null, `Failed (${err.message || 'Error'})`, 'failed');
-            } finally {
-                if (sendBtn) sendBtn.disabled = false;
-            }
+            await persistAndBroadcastChatContent(content);
         }
 
         function handleChatKeyPress(event) {
@@ -3590,7 +3844,7 @@
         }
 
         (function initNotiJumpAndLongPressCommentDelete() {
-            const LONG_PRESS_MS = 4000;
+            const LONG_PRESS_MS = 2000;
             let pendingTargetPostId = null;
 
             const styleEl = document.createElement('style');
