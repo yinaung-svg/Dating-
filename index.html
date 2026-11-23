@@ -457,10 +457,9 @@
         </div>
     </div>
 
-    <!-- Photo Lightbox (Save only shown for received photos) -->
     <div id="lightbox-modal" onclick="closeLightbox()">
         <div class="lightbox-top-bar" onclick="event.stopPropagation()">
-            <button id="lightbox-save-btn" type="button" class="lightbox-save-btn" style="display:none;" onclick="saveCurrentLightboxPhoto()">⬇ Save</button>
+            <button id="lightbox-save-btn" type="button" class="lightbox-save-btn" style="display:none;" onclick="saveCurrentLightboxPhoto()">⬇ Save Photo</button>
             <span id="lightbox-close" onclick="closeLightbox()">&times;</span>
         </div>
         <div class="lightbox-center-stage" onclick="event.stopPropagation()">
@@ -468,7 +467,6 @@
         </div>
     </div>
 
-    <!-- Delete Myself / Delete Everyone Modal -->
     <div id="delete-choice-modal" onclick="closeDeleteChoiceModal()">
         <div class="delete-choice-card" onclick="event.stopPropagation()">
             <div style="font-weight:bold; font-size:16px; margin-bottom:12px;">Delete Message</div>
@@ -478,7 +476,6 @@
         </div>
     </div>
 
-    <!-- File Preview & Save Modal -->
     <div id="file-preview-modal" onclick="closeFilePreviewModal()">
         <div class="file-preview-card" onclick="event.stopPropagation()">
             <div class="file-preview-top">
@@ -487,11 +484,10 @@
             </div>
             <div id="file-preview-name" style="font-size:14px; font-weight:bold; word-break:break-word; margin-bottom:4px;">File</div>
             <div id="file-preview-size" style="font-size:12px; color:#65676b; margin-bottom:14px;">0 KB</div>
-            <button id="file-preview-save-btn" type="button" onclick="saveCurrentPreviewFile()">⬇ Save to Phone</button>
+            <button id="file-preview-save-btn" type="button" onclick="saveCurrentPreviewFile()">⬇ Save File</button>
         </div>
     </div>
 
-    <!-- In-Page Location Box Modal -->
     <div id="location-frame-modal" onclick="closeLocationFrameModal()">
         <div class="location-frame-box" onclick="event.stopPropagation()">
             <div class="location-frame-header">
@@ -1139,6 +1135,22 @@
             document.getElementById('delete-choice-modal').style.display = 'none';
         }
 
+        function applyDeletedEveryoneToDom(msgId) {
+            if (!msgId) return;
+            localDeletedForEveryoneSet.add(String(msgId));
+            saveLocalDeletedSets();
+            const wrapper = document.querySelector(`.msg-wrapper[data-id="${msgId}"]`);
+            if (wrapper) {
+                const bubble = wrapper.querySelector('.msg-bubble');
+                if (bubble) {
+                    bubble.classList.remove('msg-photo-img');
+                    bubble.innerHTML = `<span class="msg-deleted-italic">Deleted message</span>`;
+                }
+                const actionBtn = wrapper.querySelector('.msg-longpress-action-btn');
+                if (actionBtn) actionBtn.remove();
+            }
+        }
+
         async function executeDeleteMyself(msgId) {
             if (!msgId || !currentUser) return;
             localDeletedForMeSet.add(String(msgId));
@@ -1166,33 +1178,26 @@
 
         async function executeDeleteEveryone(msgId) {
             if (!msgId || !currentUser) return;
-            localDeletedForEveryoneSet.add(String(msgId));
-            saveLocalDeletedSets();
-
-            const wrapper = document.querySelector(`.msg-wrapper[data-id="${msgId}"]`);
-            if (wrapper) {
-                const bubble = wrapper.querySelector('.msg-bubble');
-                if (bubble) {
-                    bubble.classList.remove('msg-photo-img');
-                    bubble.innerHTML = `<span class="msg-deleted-italic">Deleted message</span>`;
-                }
-                const actionBtn = wrapper.querySelector('.msg-longpress-action-btn');
-                if (actionBtn) actionBtn.remove();
-            }
+            applyDeletedEveryoneToDom(msgId);
 
             try {
-                await supabaseClient
+                const { error } = await supabaseClient
                     .from('messages')
                     .update({ deleted_for_everyone: true })
                     .eq('id', msgId);
+                if (error) {
+                    console.warn('DB deleted_for_everyone update:', error.message);
+                }
             } catch (e) {}
 
             if (chatSyncBroadcastChannel) {
-                chatSyncBroadcastChannel.send({
-                    type: 'broadcast',
-                    event: 'msg_deleted_everyone',
-                    payload: { message_id: String(msgId), actor_id: currentUser.id }
-                }).catch(() => {});
+                try {
+                    await chatSyncBroadcastChannel.send({
+                        type: 'broadcast',
+                        event: 'msg_deleted_everyone',
+                        payload: { message_id: String(msgId), actor_id: currentUser.id }
+                    });
+                } catch (e) {}
             }
         }
 
@@ -1315,7 +1320,30 @@
             return `${(b / (1024 * 1024)).toFixed(1)} MB`;
         }
 
-        async function triggerSaveUrlToPhone(url, filename = 'download') {
+        /* Save photo directly as an image (not forcing file download) */
+        function savePhotoAsImage(url) {
+            if (!url) return;
+            if (url.startsWith('data:image/')) {
+                const parts = url.split(',');
+                const mimeMatch = parts[0].match(/data:(image\/[a-zA-Z0-9.+-]+);base64/);
+                const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+                const byteStr = atob(parts[1] || '');
+                const ab = new ArrayBuffer(byteStr.length);
+                const ia = new Uint8Array(ab);
+                for (let i = 0; i < byteStr.length; i++) {
+                    ia[i] = byteStr.charCodeAt(i);
+                }
+                const blob = new Blob([ab], { type: mime });
+                const blobUrl = URL.createObjectURL(blob);
+                window.open(blobUrl, '_blank', 'noopener,noreferrer');
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
+                return;
+            }
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+
+        /* Save non-photo file attachment */
+        async function saveFileAttachment(url, filename = 'download') {
             if (!url) return;
             try {
                 if (url.startsWith('data:')) {
@@ -1378,11 +1406,11 @@
                 btn.textContent = 'Saving...';
             }
             try {
-                await triggerSaveUrlToPhone(currentFilePreviewMeta.url, currentFilePreviewMeta.name);
+                await saveFileAttachment(currentFilePreviewMeta.url, currentFilePreviewMeta.name);
             } finally {
                 if (btn) {
                     btn.disabled = false;
-                    btn.textContent = '⬇ Save to Phone';
+                    btn.textContent = '⬇ Save File';
                 }
             }
         }
@@ -2463,18 +2491,7 @@
                 .on('broadcast', { event: 'msg_deleted_everyone' }, payload => {
                     const p = payload && payload.payload;
                     if (!p || !p.message_id) return;
-                    localDeletedForEveryoneSet.add(String(p.message_id));
-                    saveLocalDeletedSets();
-                    const wrapper = document.querySelector(`.msg-wrapper[data-id="${p.message_id}"]`);
-                    if (wrapper) {
-                        const bubble = wrapper.querySelector('.msg-bubble');
-                        if (bubble) {
-                            bubble.classList.remove('msg-photo-img');
-                            bubble.innerHTML = `<span class="msg-deleted-italic">Deleted message</span>`;
-                        }
-                        const actionBtn = wrapper.querySelector('.msg-longpress-action-btn');
-                        if (actionBtn) actionBtn.remove();
-                    }
+                    applyDeletedEveryoneToDom(p.message_id);
                 })
                 .on('broadcast', { event: 'typing_state' }, payload => {
                     const p = payload && payload.payload;
@@ -2539,8 +2556,7 @@
                         }
                     } else if (payload.eventType === 'UPDATE') {
                         if (row.deleted_for_everyone) {
-                            localDeletedForEveryoneSet.add(String(row.id));
-                            saveLocalDeletedSets();
+                            applyDeletedEveryoneToDom(row.id);
                         }
                         if (row.sender_id === currentUser.id && activeChatUser && row.receiver_id === activeChatUser.id) {
                             const statusLabel = computeMessageStatusLabel(row);
@@ -3585,7 +3601,7 @@
                 if (activeChatUser && currentUser && document.getElementById('chat-box-view')?.style.display !== 'none') {
                     loadMessages(true);
                 }
-            }, 2000);
+            }, 1500);
         }
 
         function stopChatPolling() {
@@ -4258,21 +4274,9 @@
             document.getElementById('lightbox-modal').style.display = 'none';
         }
 
-        async function saveCurrentLightboxPhoto() {
+        function saveCurrentLightboxPhoto() {
             if (!currentLightboxMeta.url || !currentLightboxMeta.canSave) return;
-            const btn = document.getElementById('lightbox-save-btn');
-            if (btn) {
-                btn.disabled = true;
-                btn.textContent = 'Saving...';
-            }
-            try {
-                await triggerSaveUrlToPhone(currentLightboxMeta.url, currentLightboxMeta.name);
-            } finally {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = '⬇ Save';
-                }
-            }
+            savePhotoAsImage(currentLightboxMeta.url);
         }
 
         async function loadProfile() {
