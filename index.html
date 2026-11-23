@@ -68,21 +68,29 @@
         #chat-tab.active { display: flex; }
         
         #chat-list-view { flex: 1; overflow-y: auto; padding: 15px; box-sizing: border-box; min-height: 0; }
-        #chat-box-view { display: none; flex-direction: column; height: 100%; flex: 1; min-height: 0; overflow: hidden; }
+        #chat-box-view { display: none; flex-direction: column; height: 100%; flex: 1; min-height: 0; overflow: hidden; position: relative; }
 
         .chat-messenger-header { display: flex; align-items: center; padding: 10px 15px; background: white; border-bottom: 1px solid #ddd; gap: 10px; flex-shrink: 0; }
-        .chat-header-avatar { width: 35px; height: 35px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 14px; flex-shrink: 0; }
+        .chat-avatar-wrap { position: relative; flex-shrink: 0; }
+        .chat-header-avatar { width: 35px; height: 35px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 14px; }
+        .online-dot-badge { position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: #31a24c; border: 2px solid #fff; border-radius: 50%; }
         
-        .chat-box { flex: 1; padding: 15px; overflow-y: auto; background: #fff; display: flex; flex-direction: column; min-height: 0; }
-        .msg-wrapper { display: flex; flex-direction: column; margin-bottom: 10px; max-width: 76%; }
+        .chat-box { flex: 1; padding: 15px 15px 6px 15px; overflow-y: auto; background: #fff; display: flex; flex-direction: column; min-height: 0; }
+        .msg-wrapper { display: flex; flex-direction: column; margin-bottom: 8px; max-width: 76%; }
         .msg-wrapper-left { align-self: flex-start; align-items: flex-start; }
         .msg-wrapper-right { align-self: flex-end; align-items: flex-end; }
         .msg-bubble { padding: 10px 14px; border-radius: 15px; font-size: 14px; word-break: break-word; }
         .msg-left { background: #e4e6eb; color: #050505; border-bottom-left-radius: 2px; }
         .msg-right { background: #1877f2; color: white; border-bottom-right-radius: 2px; }
-        .msg-status { font-size: 10px; margin-top: 2px; padding: 0 4px; color: #65676b; }
-        .msg-status.sent { color: #1877f2; font-weight: bold; }
-        .msg-status.failed { color: #fa383e; font-weight: bold; }
+        .msg-status { font-size: 11px; margin-top: 2px; padding: 0 4px; color: #65676b; text-transform: lowercase; }
+        .msg-status.sent { color: #65676b; }
+        .msg-status.delivered { color: #1877f2; }
+        .msg-status.seen { color: #31a24c; font-weight: bold; }
+        .msg-status.failed { color: #fa383e; font-weight: bold; text-transform: none; }
+
+        .typing-indicator-bar { background: #fff; padding: 2px 15px 6px 15px; min-height: 18px; display: none; align-items: center; justify-content: flex-start; flex-shrink: 0; }
+        .typing-indicator-bar.visible { display: flex; }
+        .typing-text { font-style: italic; font-size: 12px; color: #65676b; }
         
         .chat-input-area { display: flex; padding: 10px; background: white; border-top: 1px solid #ddd; flex-shrink: 0; }
         .chat-input-area input { margin: 0; flex: 1; }
@@ -236,15 +244,21 @@
             <div id="chat-box-view" style="display: none; flex-direction: column; height: 100%;">
                 <div class="chat-messenger-header">
                     <button onclick="backToChatList()" style="width: auto; padding: 5px 10px; font-size: 12px; background: #e4e6eb; color: #050505; margin: 0;">← Back</button>
-                    <div id="chat-header-avatar-container" class="chat-header-avatar">U</div>
+                    <div class="chat-avatar-wrap">
+                        <div id="chat-header-avatar-container" class="chat-header-avatar">U</div>
+                        <span id="chat-header-online-dot" class="online-dot-badge" style="display:none;"></span>
+                    </div>
                     <div>
                         <div id="chat-header-name" style="font-weight: bold; font-size: 15px;">User</div>
-                        <div id="chat-delivery-banner" style="font-size: 11px; color: #42b72a;">Active</div>
+                        <div id="chat-user-status-text" style="font-size: 11px; color: #65676b;">Offline</div>
                     </div>
                 </div>
                 <div class="chat-box" id="chat-box"></div>
+                <div id="typing-indicator-bar" class="typing-indicator-bar">
+                    <span class="typing-text">typing</span>
+                </div>
                 <div class="chat-input-area">
-                    <input type="text" id="chat-input" placeholder="Aa" onkeypress="handleChatKeyPress(event)">
+                    <input type="text" id="chat-input" placeholder="Aa" oninput="handleChatTyping()" onkeypress="handleChatKeyPress(event)">
                     <button id="chat-send-btn" onclick="sendMessage()">Send</button>
                 </div>
             </div>
@@ -415,6 +429,14 @@
         let activeChatUser = null;
         let chatSyncBroadcastChannel = null;
         let chatPollInterval = null;
+        let globalPresenceChannel = null;
+        let onlineUserIds = new Set();
+        let activeChatBoxUsersMap = {}; // userId -> targetChatPartnerId
+        let cachedUsersMap = {};
+        let heartbeatInterval = null;
+        let typingTimeout = null;
+        let isCurrentlyTyping = false;
+        let remoteTypingClearTimer = null;
 
         // Multi-photo selection state (1 to 10 photos, image/* only)
         let selectedPostPhotos = [];
@@ -503,11 +525,208 @@
                 }
             });
 
+            document.addEventListener('visibilitychange', () => {
+                if (!currentUser) return;
+                if (document.visibilityState === 'hidden') {
+                    updateMyLastSeen();
+                    if (globalPresenceChannel) {
+                        globalPresenceChannel.untrack().catch(() => {});
+                    }
+                } else if (document.visibilityState === 'visible') {
+                    trackMyPresence();
+                    updateMyLastSeen();
+                }
+            });
+
+            window.addEventListener('beforeunload', () => {
+                if (currentUser) {
+                    updateMyLastSeen();
+                }
+            });
+
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
                 onLoginSuccess(session.user);
             }
         });
+
+        /* ==================== ONLINE / LAST SEEN FORMATTER ==================== */
+        function formatUserPresenceStatus(userId, lastSeenIso) {
+            if (userId && onlineUserIds.has(userId)) {
+                return { text: 'Active', isOnline: true };
+            }
+
+            if (!lastSeenIso) {
+                return { text: 'Offline', isOnline: false };
+            }
+
+            const lastDate = new Date(lastSeenIso);
+            const diffMs = Date.now() - lastDate.getTime();
+            if (isNaN(diffMs) || diffMs < 0) {
+                return { text: '1 minute ago', isOnline: false };
+            }
+
+            const diffMins = Math.max(1, Math.floor(diffMs / 60000));
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffHours / 24);
+
+            // Under 1 hour -> 1 minute ago, 2 minutes ago ...
+            if (diffHours < 1) {
+                return {
+                    text: diffMins === 1 ? '1 minute ago' : `${diffMins} minutes ago`,
+                    isOnline: false
+                };
+            }
+
+            // 1 hour to under 24 hours -> 1 hour ago, 2 hours ago ...
+            if (diffHours < 24) {
+                return {
+                    text: diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`,
+                    isOnline: false
+                };
+            }
+
+            // 24 hours (1 day) to under 3 days -> 1 day ago, 2 days ago
+            if (diffDays < 3) {
+                return {
+                    text: diffDays === 1 ? '1 day ago' : `${diffDays} days ago`,
+                    isOnline: false
+                };
+            }
+
+            // 3 days or more -> show last online date
+            const formattedDate = lastDate.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+            return { text: formattedDate, isOnline: false };
+        }
+
+        async function updateMyLastSeen() {
+            if (!currentUser) return;
+            const nowIso = new Date().toISOString();
+            try {
+                await supabaseClient
+                    .from('profiles')
+                    .update({ last_seen: nowIso })
+                    .eq('id', currentUser.id);
+            } catch (e) {}
+        }
+
+        async function trackMyPresence() {
+            if (!globalPresenceChannel || !currentUser) return;
+            const chatTabActive = document.getElementById('chat-tab')?.classList.contains('active');
+            const activeTargetId = (chatTabActive && activeChatUser) ? activeChatUser.id : null;
+            try {
+                await globalPresenceChannel.track({
+                    user_id: currentUser.id,
+                    online_at: new Date().toISOString(),
+                    in_chat_with: activeTargetId
+                });
+            } catch (e) {}
+        }
+
+        function refreshAllPresenceDisplays() {
+            // 1. Refresh active chat header status
+            if (activeChatUser) {
+                const profile = cachedUsersMap[activeChatUser.id] || activeChatUser;
+                const statusInfo = formatUserPresenceStatus(activeChatUser.id, profile.last_seen);
+                const statusEl = document.getElementById('chat-user-status-text');
+                const dotEl = document.getElementById('chat-header-online-dot');
+                if (statusEl) {
+                    statusEl.textContent = statusInfo.text;
+                    statusEl.style.color = statusInfo.isOnline ? '#31a24c' : '#65676b';
+                }
+                if (dotEl) {
+                    dotEl.style.display = statusInfo.isOnline ? 'block' : 'none';
+                }
+
+                // If partner came online while viewing chat, mark sent messages as delivered
+                if (statusInfo.isOnline) {
+                    promoteSentToDeliveredInUI();
+                }
+            }
+
+            // 2. Refresh chat list items if chat list is visible
+            const chatListView = document.getElementById('chat-list-view');
+            if (chatListView && chatListView.style.display !== 'none') {
+                document.querySelectorAll('.chat-user-list-item[data-user-id]').forEach(item => {
+                    const uid = item.getAttribute('data-user-id');
+                    const prof = cachedUsersMap[uid];
+                    if (!prof) return;
+                    const st = formatUserPresenceStatus(uid, prof.last_seen);
+                    const subEl = item.querySelector('.chat-list-status-sub');
+                    const dot = item.querySelector('.online-dot-badge');
+                    if (subEl) {
+                        subEl.textContent = st.text;
+                        subEl.style.color = st.isOnline ? '#31a24c' : '#65676b';
+                    }
+                    if (dot) {
+                        dot.style.display = st.isOnline ? 'block' : 'none';
+                    }
+                });
+            }
+        }
+
+        function initGlobalPresence() {
+            if (!currentUser) return;
+            if (globalPresenceChannel) {
+                supabaseClient.removeChannel(globalPresenceChannel);
+            }
+
+            globalPresenceChannel = supabaseClient.channel('global-online-presence', {
+                config: { presence: { key: currentUser.id } }
+            });
+
+            globalPresenceChannel
+                .on('presence', { event: 'sync' }, () => {
+                    const state = globalPresenceChannel.presenceState();
+                    const nextOnline = new Set();
+                    const nextChatMap = {};
+
+                    Object.keys(state).forEach(key => {
+                        const entries = state[key] || [];
+                        if (entries.length > 0) {
+                            nextOnline.add(key);
+                            const latest = entries[entries.length - 1];
+                            if (latest && latest.in_chat_with) {
+                                nextChatMap[key] = latest.in_chat_with;
+                            }
+                        }
+                    });
+
+                    const prevOnline = onlineUserIds;
+                    onlineUserIds = nextOnline;
+                    activeChatBoxUsersMap = nextChatMap;
+
+                    // When someone goes offline, refresh profiles to get their latest last_seen
+                    let someoneWentOffline = false;
+                    prevOnline.forEach(uid => {
+                        if (!nextOnline.has(uid)) someoneWentOffline = true;
+                    });
+                    if (someoneWentOffline) {
+                        loadChatList();
+                    }
+
+                    refreshAllPresenceDisplays();
+                    markIncomingMessagesDelivered();
+                })
+                .subscribe(async status => {
+                    if (status === 'SUBSCRIBED') {
+                        await trackMyPresence();
+                        await updateMyLastSeen();
+                    }
+                });
+
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            heartbeatInterval = setInterval(() => {
+                if (currentUser && document.visibilityState === 'visible') {
+                    updateMyLastSeen();
+                    refreshAllPresenceDisplays();
+                }
+            }, 30000);
+        }
 
         function setPublishStatus(bannerId, state, text) {
             const el = document.getElementById(bannerId);
@@ -1124,11 +1343,13 @@
             document.getElementById('app-container').style.display = 'flex';
             
             await ensureProfileExists(user, explicitUsername);
+            initGlobalPresence();
 
             loadFeed();
             loadChatList();
             loadProfile();
             ensureGlobalNotiChannel();
+            markIncomingMessagesDelivered();
 
             chatSyncBroadcastChannel = supabaseClient
                 .channel('global-chat-sync')
@@ -1136,8 +1357,35 @@
                     const p = payload && payload.payload;
                     if (!p || !currentUser) return;
                     if (p.receiver_id === currentUser.id) {
-                        if (activeChatUser && activeChatUser.id === p.sender_id) {
-                            appendMessageBubble(p, 'Sent ✓');
+                        markSingleMessageDelivered(p.id, p.sender_id);
+                        if (activeChatUser && activeChatUser.id === p.sender_id && document.getElementById('chat-tab')?.classList.contains('active')) {
+                            hideRemoteTyping();
+                            appendMessageBubble(p);
+                            markSingleMessageSeen(p.id, p.sender_id);
+                        }
+                    }
+                })
+                .on('broadcast', { event: 'msg_status' }, payload => {
+                    const p = payload && payload.payload;
+                    if (!p || !currentUser) return;
+                    if (p.sender_id === currentUser.id) {
+                        if (p.status === 'seen') {
+                            updateAllMessagesToSeenInUI(p.message_id);
+                        } else if (p.status === 'delivered') {
+                            updateSingleMessageToDeliveredInUI(p.message_id);
+                        }
+                    }
+                })
+                .on('broadcast', { event: 'typing_state' }, payload => {
+                    const p = payload && payload.payload;
+                    if (!p || !currentUser) return;
+                    if (p.receiver_id === currentUser.id && activeChatUser && activeChatUser.id === p.sender_id) {
+                        const chatBoxVisible = document.getElementById('chat-tab')?.classList.contains('active') &&
+                                               document.getElementById('chat-box-view')?.style.display !== 'none';
+                        if (chatBoxVisible && p.is_typing) {
+                            showRemoteTyping();
+                        } else {
+                            hideRemoteTyping();
                         }
                     }
                 })
@@ -1145,9 +1393,13 @@
 
             supabaseClient
                 .channel('public:profiles:chat-list')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, payload => {
+                    if (payload && payload.new && payload.new.id) {
+                        cachedUsersMap[payload.new.id] = payload.new;
+                    }
                     if (currentUser) {
                         loadChatList();
+                        refreshAllPresenceDisplays();
                     }
                 })
                 .subscribe();
@@ -1163,11 +1415,28 @@
 
             supabaseClient
                 .channel('public:messages')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-                    const newMsg = payload.new;
-                    if (!newMsg || !currentUser) return;
-                    if (activeChatUser && ((newMsg.sender_id === currentUser.id && newMsg.receiver_id === activeChatUser.id) || (newMsg.sender_id === activeChatUser.id && newMsg.receiver_id === currentUser.id))) {
-                        appendMessageBubble(newMsg, newMsg.sender_id === currentUser.id ? 'Sent ✓' : '');
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, payload => {
+                    const row = payload.new;
+                    if (!row || !currentUser) return;
+
+                    if (payload.eventType === 'INSERT') {
+                        if (row.receiver_id === currentUser.id) {
+                            markSingleMessageDelivered(row.id, row.sender_id);
+                        }
+                        if (activeChatUser && ((row.sender_id === currentUser.id && row.receiver_id === activeChatUser.id) || (row.sender_id === activeChatUser.id && row.receiver_id === currentUser.id))) {
+                            if (row.sender_id === activeChatUser.id) {
+                                hideRemoteTyping();
+                                if (document.getElementById('chat-tab')?.classList.contains('active')) {
+                                    markSingleMessageSeen(row.id, row.sender_id);
+                                }
+                            }
+                            appendMessageBubble(row);
+                        }
+                    } else if (payload.eventType === 'UPDATE') {
+                        if (row.sender_id === currentUser.id && activeChatUser && row.receiver_id === activeChatUser.id) {
+                            const statusLabel = computeMessageStatusLabel(row);
+                            updateMessageBubbleStatus(null, row, statusLabel.text, statusLabel.type);
+                        }
                     }
                 })
                 .subscribe();
@@ -1176,25 +1445,26 @@
         async function ensureProfileExists(user, explicitUsername = '') {
             const { data } = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
             const preferredName = explicitUsername || user.user_metadata?.username || (user.email ? user.email.split('@')[0] : 'User');
+            const nowIso = new Date().toISOString();
             if (!data) {
                 const { data: created } = await supabaseClient
                     .from('profiles')
-                    .upsert([{ id: user.id, username: preferredName }], { onConflict: 'id' })
+                    .upsert([{ id: user.id, username: preferredName, last_seen: nowIso }], { onConflict: 'id' })
                     .select()
                     .maybeSingle();
-                currentProfileData = created || { id: user.id, username: preferredName };
+                currentProfileData = created || { id: user.id, username: preferredName, last_seen: nowIso };
             } else {
+                const updateFields = { last_seen: nowIso };
                 if (explicitUsername && data.username !== explicitUsername) {
-                    const { data: updated } = await supabaseClient
-                        .from('profiles')
-                        .update({ username: explicitUsername })
-                        .eq('id', user.id)
-                        .select()
-                        .maybeSingle();
-                    currentProfileData = updated || data;
-                } else {
-                    currentProfileData = data;
+                    updateFields.username = explicitUsername;
                 }
+                const { data: updated } = await supabaseClient
+                    .from('profiles')
+                    .update(updateFields)
+                    .eq('id', user.id)
+                    .select()
+                    .maybeSingle();
+                currentProfileData = updated || data;
             }
         }
 
@@ -1225,6 +1495,7 @@
                     }
                 }
             }
+            trackMyPresence();
         }
 
         /* ==================== LIVE STREAM LOGIC ==================== */
@@ -2161,34 +2432,32 @@
             listDiv.innerHTML = '';
             if (users && users.length > 0) {
                 users.forEach(user => {
+                    cachedUsersMap[user.id] = user;
                     const safeName = (user.username || 'User').replace(/'/g, "\\'");
                     const safeAvatar = (user.avatar_url || '').replace(/'/g, "\\'");
                     const initialChar = (user.username || 'U').charAt(0).toUpperCase();
+                    const presenceInfo = formatUserPresenceStatus(user.id, user.last_seen);
                     let avatarHtml = user.avatar_url
                         ? `<img src="${user.avatar_url}" style="width:100%; height:100%; object-fit:cover;">`
                         : `<span>${initialChar}</span>`;
 
                     listDiv.innerHTML += `
-                        <div class="chat-user-list-item" onclick="openDirectChat('${user.id}', '${safeName}', '${safeAvatar}')">
-                            <div style="width: 45px; height: 45px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 18px; flex-shrink: 0;">
-                                ${avatarHtml}
+                        <div class="chat-user-list-item" data-user-id="${user.id}" onclick="openDirectChat('${user.id}', '${safeName}', '${safeAvatar}')">
+                            <div class="chat-avatar-wrap">
+                                <div style="width: 45px; height: 45px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 18px;">
+                                    ${avatarHtml}
+                                </div>
+                                <span class="online-dot-badge" style="display:${presenceInfo.isOnline ? 'block' : 'none'};"></span>
                             </div>
                             <div style="min-width:0; flex:1;">
                                 <div style="font-weight: bold; font-size: 15px; color: #050505; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${user.username || 'User'}</div>
-                                <div style="font-size: 12px; color: #65676b;">Tap to chat</div>
+                                <div class="chat-list-status-sub" style="font-size: 12px; color: ${presenceInfo.isOnline ? '#31a24c' : '#65676b'};">${presenceInfo.text}</div>
                             </div>
                         </div>`;
                 });
             } else {
                 listDiv.innerHTML = '<p style="color: #65676b; font-size: 13px;">No other users found yet.</p>';
             }
-        }
-
-        function setDeliveryBanner(text, color = '#42b72a') {
-            const el = document.getElementById('chat-delivery-banner');
-            if (!el) return;
-            el.textContent = text;
-            el.style.color = color;
         }
 
         function startChatPolling() {
@@ -2207,15 +2476,79 @@
             }
         }
 
+        function showRemoteTyping() {
+            const bar = document.getElementById('typing-indicator-bar');
+            if (bar) bar.classList.add('visible');
+            if (remoteTypingClearTimer) clearTimeout(remoteTypingClearTimer);
+            remoteTypingClearTimer = setTimeout(() => {
+                hideRemoteTyping();
+            }, 3500);
+        }
+
+        function hideRemoteTyping() {
+            const bar = document.getElementById('typing-indicator-bar');
+            if (bar) bar.classList.remove('visible');
+            if (remoteTypingClearTimer) {
+                clearTimeout(remoteTypingClearTimer);
+                remoteTypingClearTimer = null;
+            }
+        }
+
+        function sendTypingSignal(isTyping) {
+            if (!chatSyncBroadcastChannel || !currentUser || !activeChatUser) return;
+            chatSyncBroadcastChannel.send({
+                type: 'broadcast',
+                event: 'typing_state',
+                payload: {
+                    sender_id: currentUser.id,
+                    receiver_id: activeChatUser.id,
+                    is_typing: isTyping
+                }
+            }).catch(() => {});
+        }
+
+        function handleChatTyping() {
+            if (!currentUser || !activeChatUser) return;
+            const input = document.getElementById('chat-input');
+            const hasText = input && input.value.trim().length > 0;
+
+            if (!hasText) {
+                if (isCurrentlyTyping) {
+                    isCurrentlyTyping = false;
+                    sendTypingSignal(false);
+                }
+                if (typingTimeout) clearTimeout(typingTimeout);
+                return;
+            }
+
+            if (!isCurrentlyTyping) {
+                isCurrentlyTyping = true;
+                sendTypingSignal(true);
+            }
+
+            if (typingTimeout) clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                isCurrentlyTyping = false;
+                sendTypingSignal(false);
+            }, 2000);
+        }
+
         function openDirectChat(userId, username, avatarUrl) {
-            activeChatUser = { id: userId, username, avatar_url: avatarUrl };
+            const cached = cachedUsersMap[userId] || {};
+            activeChatUser = {
+                id: userId,
+                username,
+                avatar_url: avatarUrl,
+                last_seen: cached.last_seen || null
+            };
+            hideRemoteTyping();
             switchTab('chat');
 
             document.getElementById('chat-list-view').style.display = 'none';
             document.getElementById('chat-box-view').style.display = 'flex';
 
             document.getElementById('chat-header-name').textContent = username;
-            setDeliveryBanner('Active', '#42b72a');
+            refreshAllPresenceDisplays();
 
             let avatarContainer = document.getElementById('chat-header-avatar-container');
             if (avatarUrl) {
@@ -2224,16 +2557,187 @@
                 avatarContainer.innerHTML = (username || 'U').charAt(0).toUpperCase();
             }
 
+            trackMyPresence();
             loadMessages();
             startChatPolling();
         }
 
         function backToChatList() {
+            if (isCurrentlyTyping) {
+                isCurrentlyTyping = false;
+                sendTypingSignal(false);
+            }
+            hideRemoteTyping();
             stopChatPolling();
             activeChatUser = null;
+            trackMyPresence();
             document.getElementById('chat-box-view').style.display = 'none';
             document.getElementById('chat-list-view').style.display = 'block';
             loadChatList();
+        }
+
+        /* ==================== MESSAGE DELIVERY & SEEN SYNC ==================== */
+        function computeMessageStatusLabel(msg) {
+            if (!msg) return { text: 'sent', type: 'sent' };
+            if (msg.seen_at) {
+                return { text: 'seen', type: 'seen' };
+            }
+            if (msg.delivered_at || (activeChatUser && onlineUserIds.has(activeChatUser.id))) {
+                return { text: 'delivered', type: 'delivered' };
+            }
+            return { text: 'sent', type: 'sent' };
+        }
+
+        async function markIncomingMessagesDelivered() {
+            if (!currentUser) return;
+            const nowIso = new Date().toISOString();
+            try {
+                const { data: updatedRows } = await supabaseClient
+                    .from('messages')
+                    .update({ delivered_at: nowIso })
+                    .eq('receiver_id', currentUser.id)
+                    .is('delivered_at', null)
+                    .select('id, sender_id');
+
+                if (updatedRows && updatedRows.length > 0 && chatSyncBroadcastChannel) {
+                    updatedRows.forEach(r => {
+                        chatSyncBroadcastChannel.send({
+                            type: 'broadcast',
+                            event: 'msg_status',
+                            payload: {
+                                message_id: r.id,
+                                sender_id: r.sender_id,
+                                receiver_id: currentUser.id,
+                                status: 'delivered'
+                            }
+                        }).catch(() => {});
+                    });
+                }
+            } catch (e) {}
+        }
+
+        async function markSingleMessageDelivered(messageId, senderId) {
+            if (!currentUser || !messageId) return;
+            const nowIso = new Date().toISOString();
+            try {
+                await supabaseClient
+                    .from('messages')
+                    .update({ delivered_at: nowIso })
+                    .eq('id', messageId)
+                    .eq('receiver_id', currentUser.id)
+                    .is('delivered_at', null);
+
+                if (chatSyncBroadcastChannel) {
+                    chatSyncBroadcastChannel.send({
+                        type: 'broadcast',
+                        event: 'msg_status',
+                        payload: {
+                            message_id: messageId,
+                            sender_id: senderId,
+                            receiver_id: currentUser.id,
+                            status: 'delivered'
+                        }
+                    }).catch(() => {});
+                }
+            } catch (e) {}
+        }
+
+        async function markConversationSeen(partnerId) {
+            if (!currentUser || !partnerId) return;
+            const nowIso = new Date().toISOString();
+            try {
+                const { data: updatedRows } = await supabaseClient
+                    .from('messages')
+                    .update({ seen_at: nowIso, delivered_at: nowIso })
+                    .eq('sender_id', partnerId)
+                    .eq('receiver_id', currentUser.id)
+                    .is('seen_at', null)
+                    .select('id');
+
+                if (updatedRows && updatedRows.length > 0 && chatSyncBroadcastChannel) {
+                    updatedRows.forEach(r => {
+                        chatSyncBroadcastChannel.send({
+                            type: 'broadcast',
+                            event: 'msg_status',
+                            payload: {
+                                message_id: r.id,
+                                sender_id: partnerId,
+                                receiver_id: currentUser.id,
+                                status: 'seen'
+                            }
+                        }).catch(() => {});
+                    });
+                }
+            } catch (e) {}
+        }
+
+        async function markSingleMessageSeen(messageId, senderId) {
+            if (!currentUser || !messageId) return;
+            const nowIso = new Date().toISOString();
+            try {
+                await supabaseClient
+                    .from('messages')
+                    .update({ seen_at: nowIso, delivered_at: nowIso })
+                    .eq('id', messageId)
+                    .eq('receiver_id', currentUser.id);
+
+                if (chatSyncBroadcastChannel) {
+                    chatSyncBroadcastChannel.send({
+                        type: 'broadcast',
+                        event: 'msg_status',
+                        payload: {
+                            message_id: messageId,
+                            sender_id: senderId,
+                            receiver_id: currentUser.id,
+                            status: 'seen'
+                        }
+                    }).catch(() => {});
+                }
+            } catch (e) {}
+        }
+
+        function promoteSentToDeliveredInUI() {
+            const chatBox = document.getElementById('chat-box');
+            if (!chatBox) return;
+            chatBox.querySelectorAll('.msg-status.sent').forEach(el => {
+                if (el.textContent === 'sent') {
+                    el.textContent = 'delivered';
+                    el.className = 'msg-status delivered';
+                }
+            });
+        }
+
+        function updateSingleMessageToDeliveredInUI(messageId) {
+            const chatBox = document.getElementById('chat-box');
+            if (!chatBox || !messageId) return;
+            const wrapper = chatBox.querySelector(`.msg-wrapper[data-id="${messageId}"]`);
+            if (!wrapper) return;
+            const st = wrapper.querySelector('.msg-status');
+            if (st && st.textContent !== 'seen') {
+                st.textContent = 'delivered';
+                st.className = 'msg-status delivered';
+            }
+        }
+
+        function updateAllMessagesToSeenInUI(messageId = null) {
+            const chatBox = document.getElementById('chat-box');
+            if (!chatBox) return;
+            if (messageId) {
+                const wrapper = chatBox.querySelector(`.msg-wrapper[data-id="${messageId}"]`);
+                if (wrapper) {
+                    const st = wrapper.querySelector('.msg-status');
+                    if (st) {
+                        st.textContent = 'seen';
+                        st.className = 'msg-status seen';
+                    }
+                }
+            }
+            chatBox.querySelectorAll('.msg-status').forEach(el => {
+                if (el.textContent === 'sent' || el.textContent === 'delivered') {
+                    el.textContent = 'seen';
+                    el.className = 'msg-status seen';
+                }
+            });
         }
 
         async function loadMessages(silent = false) {
@@ -2262,13 +2766,17 @@
                 }
 
                 if (data && data.length > 0) {
+                    const wasNearBottom = (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight) < 80;
                     data.forEach(msg => {
-                        appendMessageBubble(msg, msg.sender_id === currentUser.id ? 'Sent ✓' : '');
+                        appendMessageBubble(msg);
                     });
+                    if (!silent || wasNearBottom) {
+                        chatBox.scrollTop = chatBox.scrollHeight;
+                    }
+                    await markConversationSeen(activeChatUser.id);
                 } else if (!silent) {
                     chatBox.innerHTML = '<p style="color:#65676b; text-align:center; font-size:13px; margin-top:20px;">No messages yet. Say hello!</p>';
                 }
-                chatBox.scrollTop = chatBox.scrollHeight;
             } catch (e) {
                 console.error(e);
             }
@@ -2277,7 +2785,7 @@
         function updateMessageBubbleStatus(tempId, realMsg, statusText, statusType = '') {
             const chatBox = document.getElementById('chat-box');
             if (!chatBox) return;
-            const wrapper = chatBox.querySelector(`.msg-wrapper[data-temp-id="${tempId}"]`) ||
+            const wrapper = (tempId ? chatBox.querySelector(`.msg-wrapper[data-temp-id="${tempId}"]`) : null) ||
                             (realMsg && realMsg.id ? chatBox.querySelector(`.msg-wrapper[data-id="${realMsg.id}"]`) : null);
             if (!wrapper) return;
 
@@ -2292,7 +2800,7 @@
             }
         }
 
-        function appendMessageBubble(msg, statusLabel = '', tempId = '') {
+        function appendMessageBubble(msg, overrideStatusLabel = '', tempId = '') {
             const chatBox = document.getElementById('chat-box');
             if (!chatBox || !currentUser) return;
             if (chatBox.innerHTML.includes('No messages yet')) {
@@ -2301,15 +2809,18 @@
             const isMe = msg.sender_id === currentUser.id;
             const wrapperClass = isMe ? 'msg-wrapper-right' : 'msg-wrapper-left';
             const bubbleClass = isMe ? 'msg-right' : 'msg-left';
+            const computed = overrideStatusLabel
+                ? { text: overrideStatusLabel, type: overrideStatusLabel.includes('Failed') ? 'failed' : 'sent' }
+                : computeMessageStatusLabel(msg);
             
             if (msg.id) {
                 const existingById = chatBox.querySelector(`.msg-wrapper[data-id="${msg.id}"]`);
                 if (existingById) {
-                    if (statusLabel) {
+                    if (isMe) {
                         const st = existingById.querySelector('.msg-status');
                         if (st) {
-                            st.textContent = statusLabel;
-                            st.className = 'msg-status sent';
+                            st.textContent = computed.text;
+                            st.className = `msg-status ${computed.type}`;
                         }
                     }
                     return;
@@ -2331,10 +2842,10 @@
             bubble.textContent = msg.content;
             wrapper.appendChild(bubble);
 
-            if (isMe && statusLabel) {
+            if (isMe) {
                 const statusEl = document.createElement('div');
-                statusEl.className = 'msg-status' + (statusLabel.includes('Sent') ? ' sent' : (statusLabel.includes('Failed') ? ' failed' : ''));
-                statusEl.textContent = statusLabel;
+                statusEl.className = `msg-status ${computed.type}`;
+                statusEl.textContent = computed.text;
                 wrapper.appendChild(statusEl);
             }
             
@@ -2348,58 +2859,70 @@
             const content = input.value.trim();
             if (!content || !currentUser || !activeChatUser) return;
 
+            if (isCurrentlyTyping) {
+                isCurrentlyTyping = false;
+                sendTypingSignal(false);
+            }
+            if (typingTimeout) clearTimeout(typingTimeout);
+
             const targetUser = { ...activeChatUser };
             const tempId = 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
 
             input.value = '';
             if (sendBtn) sendBtn.disabled = true;
-            setDeliveryBanner(`Sending to ${targetUser.username}...`, '#1877f2');
 
             appendMessageBubble({
                 content: content,
                 sender_id: currentUser.id,
                 receiver_id: targetUser.id
-            }, 'Sending...', tempId);
+            }, 'sending...', tempId);
 
             try {
+                const partnerIsOnline = onlineUserIds.has(targetUser.id);
+                const partnerInSameChat = activeChatBoxUsersMap[targetUser.id] === currentUser.id;
+                const nowIso = new Date().toISOString();
+
+                const insertPayload = {
+                    content: content,
+                    sender_id: currentUser.id,
+                    receiver_id: targetUser.id
+                };
+                if (partnerIsOnline) insertPayload.delivered_at = nowIso;
+                if (partnerInSameChat) insertPayload.seen_at = nowIso;
+
                 const { data, error } = await supabaseClient
                     .from('messages')
-                    .insert([{
-                        content: content,
-                        sender_id: currentUser.id,
-                        receiver_id: targetUser.id
-                    }])
+                    .insert([insertPayload])
                     .select()
                     .single();
 
                 if (error) {
-                    updateMessageBubbleStatus(tempId, null, `Failed ✕ (${error.message})`, 'failed');
-                    setDeliveryBanner(`Failed: ${error.message}`, '#fa383e');
+                    updateMessageBubbleStatus(tempId, null, `Failed (${error.message})`, 'failed');
                     if (sendBtn) sendBtn.disabled = false;
                     return;
                 }
 
-                // Verify message exists in DB
-                const { data: verifiedRow } = await supabaseClient
-                    .from('messages')
-                    .select('*')
-                    .eq('id', data.id)
-                    .maybeSingle();
+                let finalLabel = 'sent';
+                let finalType = 'sent';
+                if (data.seen_at || partnerInSameChat) {
+                    finalLabel = 'seen';
+                    finalType = 'seen';
+                } else if (data.delivered_at || partnerIsOnline) {
+                    finalLabel = 'delivered';
+                    finalType = 'delivered';
+                }
 
-                const confirmedMsg = verifiedRow || data;
-                updateMessageBubbleStatus(tempId, confirmedMsg, 'Sent ✓ (Delivered to DB)', 'sent');
-                setDeliveryBanner(`Sent ✓ to ${targetUser.username}`, '#137333');
+                updateMessageBubbleStatus(tempId, data, finalLabel, finalType);
 
                 if (chatSyncBroadcastChannel) {
                     chatSyncBroadcastChannel.send({
                         type: 'broadcast',
                         event: 'new_dm',
-                        payload: confirmedMsg
+                        payload: data
                     }).catch(() => {});
                 }
             } catch (err) {
-                updateMessageBubbleStatus(tempId, null, `Failed ✕ (${err.message || 'Error'})`, 'failed');
-                setDeliveryBanner(`Error: ${err.message || 'Send failed'}`, '#fa383e');
+                updateMessageBubbleStatus(tempId, null, `Failed (${err.message || 'Error'})`, 'failed');
             } finally {
                 if (sendBtn) sendBtn.disabled = false;
             }
@@ -2646,6 +3169,10 @@
         }
 
         async function logout() {
+            await updateMyLastSeen();
+            if (globalPresenceChannel) {
+                await globalPresenceChannel.untrack().catch(() => {});
+            }
             await supabaseClient.auth.signOut();
             location.reload();
         }
