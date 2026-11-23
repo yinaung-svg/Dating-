@@ -140,6 +140,9 @@
         #delete-choice-modal { display: none; position: fixed; z-index: 1700; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); justify-content: center; align-items: center; padding: 16px; box-sizing: border-box; }
         .delete-choice-card { background: #fff; color: #050505; width: 100%; max-width: 340px; border-radius: 12px; padding: 18px; box-sizing: border-box; box-shadow: 0 8px 24px rgba(0,0,0,0.25); text-align: center; }
 
+        #live-ended-box-modal { display: none; position: fixed; z-index: 1750; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.68); justify-content: center; align-items: center; padding: 16px; box-sizing: border-box; }
+        .live-ended-box-card { background: #ffffff; color: #050505; width: 100%; max-width: 320px; border-radius: 12px; padding: 20px; box-sizing: border-box; box-shadow: 0 10px 28px rgba(0,0,0,0.3); text-align: center; }
+
         #file-preview-modal { display: none; position: fixed; z-index: 1650; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.72); justify-content: center; align-items: center; padding: 16px; box-sizing: border-box; }
         .file-preview-card { background: #fff; color: #050505; width: 100%; max-width: 380px; border-radius: 12px; padding: 18px; box-sizing: border-box; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
         .file-preview-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
@@ -457,6 +460,13 @@
         </div>
     </div>
 
+    <div id="live-ended-box-modal" onclick="closeLiveEndedBox()">
+        <div class="live-ended-box-card" onclick="event.stopPropagation()">
+            <div style="font-size:16px; font-weight:bold; color:#050505; margin-bottom:14px;">Live has ended.</div>
+            <button type="button" onclick="closeLiveEndedBox()" style="background:#1877f2; margin-top:0;">OK</button>
+        </div>
+    </div>
+
     <div id="lightbox-modal" onclick="closeLightbox()">
         <div class="lightbox-top-bar" onclick="event.stopPropagation()">
             <button id="lightbox-save-btn" type="button" class="lightbox-save-btn" style="display:none;" onclick="saveCurrentLightboxPhoto()">⬇ Save Photo</button>
@@ -606,6 +616,45 @@
         let isRenderingFrame = false;
         let viewerFrameImg = new Image();
 
+        function openLiveEndedBox() {
+            const modal = document.getElementById('live-ended-box-modal');
+            if (modal) modal.style.display = 'flex';
+        }
+
+        function closeLiveEndedBox() {
+            const modal = document.getElementById('live-ended-box-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function checkLiveStillActiveInDB(liveId) {
+            if (!liveId) return false;
+            try {
+                const { data, error } = await supabaseClient
+                    .from('posts')
+                    .select('id, content')
+                    .ilike('content', `[LIVE_STREAM:${liveId}:%`)
+                    .limit(1);
+
+                if (error) return false;
+                return Array.isArray(data) && data.length > 0;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        async function handleLiveNotiOrFeedClick(liveId, hostName, coverUrl, caption, startedAtMs = null) {
+            if (!liveId) {
+                openLiveEndedBox();
+                return;
+            }
+            const stillLive = await checkLiveStillActiveInDB(liveId);
+            if (!stillLive) {
+                openLiveEndedBox();
+                return;
+            }
+            openLiveViewer(liveId, hostName, coverUrl, caption, startedAtMs);
+        }
+
         function loadLocalDeletedSets() {
             try {
                 const meArr = JSON.parse(localStorage.getItem('sc_msg_del_me') || '[]');
@@ -645,6 +694,7 @@
                         if (parsed && currentUser && parsed.actorId !== currentUser.id) {
                             addNotificationItem({
                                 ...parsed,
+                                id: parsed.liveId ? `live_noti_${parsed.liveId}` : parsed.id,
                                 type: 'live',
                                 message: 'live is now'
                             });
@@ -702,6 +752,7 @@
                 if (parsed && parsed.actorId && parsed.actorId !== currentUser.id) {
                     addNotificationItem({
                         ...parsed,
+                        id: parsed.liveId ? `live_noti_${parsed.liveId}` : parsed.id,
                         type: 'live',
                         message: 'live is now'
                     });
@@ -1778,12 +1829,26 @@
             if (!noti) return;
             if (noti.type === 'message') return;
 
-            const dedupKey = noti.id || `${noti.type}_${noti.actorId}_${noti.liveId || ''}_${noti.message}_${noti.detailText}`;
-            if (dedupKey && handledNotiKeys.has(dedupKey)) return;
-            if (dedupKey) handledNotiKeys.add(dedupKey);
+            const canonicalId = noti.type === 'live' && noti.liveId
+                ? `live_noti_${noti.liveId}`
+                : (noti.id || `${noti.type}_${noti.actorId}_${noti.liveId || ''}_${noti.message}_${noti.detailText}`);
+
+            if (canonicalId && handledNotiKeys.has(canonicalId)) {
+                return;
+            }
+
+            if (noti.type === 'live' && noti.liveId) {
+                const alreadyInList = notificationsList.some(n => n.type === 'live' && n.liveId === noti.liveId);
+                if (alreadyInList) {
+                    handledNotiKeys.add(canonicalId);
+                    return;
+                }
+            }
+
+            if (canonicalId) handledNotiKeys.add(canonicalId);
 
             notificationsList.unshift({
-                id: dedupKey || ('noti_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
+                id: canonicalId || ('noti_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
                 type: noti.type || 'live',
                 postId: noti.postId || '',
                 actorId: noti.actorId || '',
@@ -2050,11 +2115,11 @@
                     ${pillHtml}
                 `;
 
-                div.onclick = () => {
+                div.onclick = async () => {
                     item.isRead = true;
                     div.classList.remove('unread');
-                    if (item.type === 'live' && item.liveId) {
-                        openLiveViewer(item.liveId, item.actorName || 'Host', item.coverUrl || '', item.caption || '', item.startedAt);
+                    if (item.type === 'live') {
+                        await handleLiveNotiOrFeedClick(item.liveId, item.actorName || 'Host', item.coverUrl || '', item.caption || '', item.startedAt);
                     } else if (item.postId) {
                         if (typeof window.__jumpToPostById === 'function') {
                             window.__jumpToPostById(item.postId);
@@ -2085,6 +2150,7 @@
                         if (p && currentUser && p.actorId !== currentUser.id) {
                             addNotificationItem({
                                 ...p,
+                                id: p.liveId ? `live_noti_${p.liveId}` : p.id,
                                 type: 'live',
                                 message: 'live is now'
                             });
@@ -2116,7 +2182,7 @@
             const actorName = await getUsernameById(postRow.user_id);
 
             addNotificationItem({
-                id: 'live_post_noti_' + liveInfo.liveId,
+                id: 'live_noti_' + liveInfo.liveId,
                 type: 'live',
                 actorId: postRow.user_id,
                 actorName,
@@ -3293,8 +3359,8 @@
                     }
                 })
                 .on('broadcast', { event: 'live_ended' }, () => {
-                    alert('Live has ended.');
                     closeLiveViewer();
+                    openLiveEndedBox();
                     loadFeed();
                     loadProfile();
                 })
@@ -3458,7 +3524,7 @@
                             <div>${endBtnHtml}</div>
                         </div>
                         <div class="post-body">${liveInfo.caption || ''}</div>
-                        <div class="live-cover-wrapper" onclick="openLiveViewer('${liveInfo.liveId}', '${safeHost}', '${safeCover}', '${safeCap}', ${liveInfo.startedAt})">
+                        <div class="live-cover-wrapper" onclick="handleLiveNotiOrFeedClick('${liveInfo.liveId}', '${safeHost}', '${safeCover}', '${safeCap}', ${liveInfo.startedAt})">
                             <img src="${post.media_url || ''}" alt="Live Cover">
                             <div class="live-cover-overlay-badge">LIVE</div>
                             <div class="live-cover-play-hint">▶ Tap to watch</div>
