@@ -253,7 +253,7 @@
         <div id="profile-tab" class="tab-content" style="padding-top: 10px;">
             <div class="card" style="text-align: center; margin-bottom: 10px;">
                 <div style="position: relative; width: 80px; height: 80px; margin: 0 auto 10px auto;">
-                    <div id="profile-avatar-container" style="width: 80px; height: 80px; background: #1877f2; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; overflow: hidden;">
+                    <div id="profile-avatar-container" data-initial="U" style="width: 80px; height: 80px; background: #1877f2; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; overflow: hidden;">
                         <span id="profile-initial">U</span>
                     </div>
                     <input type="file" id="avatar-file" accept="image/*" style="display:none;" onchange="uploadAvatar(this)">
@@ -2421,8 +2421,9 @@
             }
 
             if (avatarContainer) {
+                avatarContainer.setAttribute('data-initial', initialChar);
                 if (profile && profile.avatar_url) {
-                    avatarContainer.innerHTML = `<img src="${profile.avatar_url}" style="width:100%; height:100%; object-fit:cover;">`;
+                    avatarContainer.innerHTML = `<img src="${profile.avatar_url}" style="width:100%; height:100%; object-fit:cover;"><span id="profile-initial" style="display:none;">${initialChar}</span>`;
                 } else {
                     avatarContainer.innerHTML = `<span id="profile-initial">${initialChar}</span>`;
                 }
