@@ -74,9 +74,10 @@
         #chat-box-view { display: none; flex-direction: column; height: 100%; flex: 1; min-height: 0; overflow: hidden; position: relative; }
 
         .chat-messenger-header { display: flex; align-items: center; padding: 10px 15px; background: white; border-bottom: 1px solid #ddd; gap: 10px; flex-shrink: 0; }
-        .chat-avatar-wrap { position: relative; flex-shrink: 0; }
+        .chat-avatar-wrap { position: relative; flex-shrink: 0; width: 45px; height: 45px; }
+        .chat-messenger-header .chat-avatar-wrap { width: 35px; height: 35px; }
         .chat-header-avatar { width: 35px; height: 35px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 14px; }
-        .online-dot-badge { position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: #31a24c; border: 2px solid #fff; border-radius: 50%; }
+        .online-dot-badge { position: absolute; bottom: 0; right: 0; width: 11px; height: 11px; background: #31a24c; border: 2px solid #fff; border-radius: 50%; z-index: 2; }
         
         .chat-box { flex: 1; padding: 15px 15px 6px 15px; overflow-y: auto; background: #fff; display: flex; flex-direction: column; min-height: 0; }
         .msg-wrapper { display: flex; flex-direction: column; margin-bottom: 8px; max-width: 76%; }
@@ -105,7 +106,7 @@
 
         .chat-user-list-item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; gap: 12px; background: white; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
         .chat-user-list-item:hover { background: #f0f2f5; }
-        .chat-user-unread-pill { background: #e41e3f; color: #fff; font-size: 11px; font-weight: bold; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; flex-shrink: 0; }
+        .chat-user-unread-pill { position: absolute; top: -4px; right: -4px; background: #e41e3f; color: #fff; font-size: 10px; font-weight: bold; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; border: 2px solid #fff; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; flex-shrink: 0; z-index: 3; pointer-events: none; }
 
         .comment-section { margin-top: 8px; background: #f0f2f5; padding: 8px; border-radius: 6px; font-size: 13px; }
 
@@ -432,7 +433,9 @@
         let currentProfileData = null;
         let activeChatUser = null;
         let chatSyncBroadcastChannel = null;
+        let chatSyncSubscribed = false;
         let chatPollInterval = null;
+        let badgeSyncInterval = null;
         let globalPresenceChannel = null;
         let onlineUserIds = new Set();
         let activeChatBoxUsersMap = {}; // userId -> targetChatPartnerId
@@ -458,6 +461,8 @@
         let globalNotiChannel = null;
         let globalNotiSubscribed = false;
         let handledMessageIds = new Set();
+        let handledNotiKeys = new Set();
+        let postStateSnapshotMap = {}; // postId -> { likes, commentsLen, shares }
 
         // Live state (No stream video/audio saved to DB)
         let selectedLiveMode = 'camera';
@@ -528,7 +533,14 @@
                     try {
                         const parsed = JSON.parse(e.newValue);
                         if (parsed && currentUser && parsed.actorId !== currentUser.id) {
-                            addNotificationItem(parsed);
+                            addNotificationItem({ ...parsed, type: 'live' });
+                        }
+                    } catch (err) {}
+                } else if (e.key === 'socialchat_post_noti_sync' && e.newValue) {
+                    try {
+                        const parsed = JSON.parse(e.newValue);
+                        if (parsed && currentUser) {
+                            handleIncomingPostInteractionNoti(parsed);
                         }
                     } catch (err) {}
                 }
@@ -545,6 +557,7 @@
                     trackMyPresence();
                     updateMyLastSeen();
                     refreshUnreadMessageCounts();
+                    checkMyPostsEngagementChanges();
                 }
             });
 
@@ -568,16 +581,17 @@
 
         function updateChatBadgeDisplay() {
             const badge = document.getElementById('chat-unread-badge');
-            if (!badge) return;
-            if (totalUnreadMessages > 0) {
-                badge.textContent = formatBadgeNumber(totalUnreadMessages);
-                badge.style.display = 'inline-block';
-            } else {
-                badge.textContent = '0';
-                badge.style.display = 'none';
+            if (badge) {
+                if (totalUnreadMessages > 0) {
+                    badge.textContent = formatBadgeNumber(totalUnreadMessages);
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.textContent = '0';
+                    badge.style.display = 'none';
+                }
             }
 
-            // Also update individual unread pills in chat list
+            // Also update individual unread pills on each user's avatar in chat list
             document.querySelectorAll('.chat-user-list-item[data-user-id]').forEach(item => {
                 const uid = item.getAttribute('data-user-id');
                 const pill = item.querySelector('.chat-user-unread-pill');
@@ -609,11 +623,13 @@
         async function refreshUnreadMessageCounts() {
             if (!currentUser) return;
             try {
+                // First fetch messages addressed to currentUser
                 const { data, error } = await supabaseClient
                     .from('messages')
-                    .select('id, sender_id')
+                    .select('*')
                     .eq('receiver_id', currentUser.id)
-                    .is('seen_at', null);
+                    .order('created_at', { ascending: false })
+                    .limit(300);
 
                 if (error || !data) return;
 
@@ -626,8 +642,12 @@
                     if (chatTabActive && chatBoxVisible && activeChatUser && row.sender_id === activeChatUser.id) {
                         return;
                     }
-                    map[row.sender_id] = (map[row.sender_id] || 0) + 1;
-                    total++;
+                    // Count as unread if seen_at is not set (or false)
+                    const isSeen = Boolean(row.seen_at);
+                    if (!isSeen) {
+                        map[row.sender_id] = (map[row.sender_id] || 0) + 1;
+                        total++;
+                    }
                 });
 
                 unreadBySenderMap = map;
@@ -962,11 +982,12 @@
         /* ==================== NOTIFICATIONS (LIVE + DM + POST LIKE/COMMENT/SHARE) ==================== */
         function addNotificationItem(noti) {
             if (!noti) return;
-            const exists = noti.id && notificationsList.some(n => n.id === noti.id);
-            if (exists) return;
+            const dedupKey = noti.id || `${noti.type}_${noti.actorId}_${noti.message}_${noti.detailText}`;
+            if (dedupKey && handledNotiKeys.has(dedupKey)) return;
+            if (dedupKey) handledNotiKeys.add(dedupKey);
 
             notificationsList.unshift({
-                id: noti.id || ('noti_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
+                id: dedupKey || ('noti_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
                 type: noti.type || 'live',
                 actorId: noti.actorId || '',
                 actorName: noti.actorName || 'Someone',
@@ -1023,22 +1044,26 @@
 
         async function handleIncomingMessageNotification(msgRow) {
             if (!msgRow || !currentUser || msgRow.receiver_id !== currentUser.id) return;
-            if (msgRow.id && handledMessageIds.has(msgRow.id)) return;
-            if (msgRow.id) handledMessageIds.add(msgRow.id);
 
             const chatTabActive = document.getElementById('chat-tab')?.classList.contains('active');
             const chatBoxVisible = document.getElementById('chat-box-view')?.style.display !== 'none';
             const currentlyReadingThisChat = chatTabActive && chatBoxVisible && activeChatUser && activeChatUser.id === msgRow.sender_id;
 
             if (!currentlyReadingThisChat) {
-                unreadBySenderMap[msgRow.sender_id] = (unreadBySenderMap[msgRow.sender_id] || 0) + 1;
-                totalUnreadMessages++;
-                updateChatBadgeDisplay();
+                await refreshUnreadMessageCounts();
+                if (!unreadBySenderMap[msgRow.sender_id] || unreadBySenderMap[msgRow.sender_id] === 0) {
+                    unreadBySenderMap[msgRow.sender_id] = 1;
+                    totalUnreadMessages = Object.values(unreadBySenderMap).reduce((a, b) => a + b, 0);
+                    updateChatBadgeDisplay();
+                }
             }
+
+            const msgKey = msgRow.id ? ('msg_noti_' + msgRow.id) : null;
+            if (msgKey && handledNotiKeys.has(msgKey)) return;
 
             const senderName = await getUsernameById(msgRow.sender_id);
             addNotificationItem({
-                id: 'msg_noti_' + (msgRow.id || (Date.now() + '_' + Math.random().toString(36).slice(2, 6))),
+                id: msgKey || ('msg_noti_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
                 type: 'message',
                 actorId: msgRow.sender_id,
                 actorName: senderName,
@@ -1053,11 +1078,21 @@
             try {
                 const { data: postRow } = await supabaseClient
                     .from('posts')
-                    .select('id, user_id, content')
+                    .select('id, user_id, content, likes_count, comments, shares_count')
                     .eq('id', postId)
                     .maybeSingle();
 
-                if (!postRow || !postRow.user_id || postRow.user_id === currentUser.id) return;
+                if (!postRow || !postRow.user_id) return;
+
+                if (postRow.user_id === currentUser.id) {
+                    const cArr = Array.isArray(postRow.comments) ? postRow.comments : [];
+                    postStateSnapshotMap[postId] = {
+                        likes: postRow.likes_count || 0,
+                        commentsLen: cArr.length,
+                        shares: postRow.shares_count || 0
+                    };
+                    return;
+                }
 
                 const actorName = (currentProfileData && currentProfileData.username) ||
                                   document.getElementById('profile-name')?.textContent ||
@@ -1065,23 +1100,30 @@
 
                 const parsed = parseMultiPhotoContent(postRow.content || '');
                 const postSnippet = (parsed.text || '').trim().slice(0, 45);
+                const finalDetail = detailText || (postSnippet ? `"${postSnippet}"` : '');
+
+                const payloadObj = {
+                    id: `post_act_${actionType}_${postId}_${currentUser.id}_${Date.now()}`,
+                    type: 'post_' + actionType,
+                    actionType,
+                    postId,
+                    postOwnerId: postRow.user_id,
+                    actorId: currentUser.id,
+                    actorName,
+                    detailText: finalDetail,
+                    createdAt: new Date().toISOString()
+                };
+
+                try {
+                    localStorage.setItem('socialchat_post_noti_sync', JSON.stringify(payloadObj));
+                } catch (e) {}
 
                 const ch = await ensureGlobalNotiChannel();
                 if (ch) {
                     await ch.send({
                         type: 'broadcast',
                         event: 'post_interaction',
-                        payload: {
-                            id: `post_act_${actionType}_${postId}_${currentUser.id}_${Date.now()}`,
-                            type: 'post_' + actionType,
-                            actionType,
-                            postId,
-                            postOwnerId: postRow.user_id,
-                            actorId: currentUser.id,
-                            actorName,
-                            detailText: detailText || (postSnippet ? `"${postSnippet}"` : ''),
-                            createdAt: new Date().toISOString()
-                        }
+                        payload: payloadObj
                     });
                 }
             } catch (e) {}
@@ -1110,6 +1152,80 @@
                 detailText: payload.detailText || '',
                 createdAt: payload.createdAt || new Date().toISOString()
             });
+        }
+
+        async function checkMyPostsEngagementChanges(postRowOverride = null) {
+            if (!currentUser) return;
+            try {
+                let myPosts = [];
+                if (postRowOverride && postRowOverride.user_id === currentUser.id) {
+                    myPosts = [postRowOverride];
+                } else {
+                    const { data } = await supabaseClient
+                        .from('posts')
+                        .select('id, user_id, content, likes_count, comments, shares_count')
+                        .eq('user_id', currentUser.id);
+                    myPosts = data || [];
+                }
+
+                myPosts.forEach(p => {
+                    const likes = p.likes_count || 0;
+                    const commentsArr = Array.isArray(p.comments) ? p.comments : [];
+                    const commentsLen = commentsArr.length;
+                    const shares = p.shares_count || 0;
+
+                    const prev = postStateSnapshotMap[p.id];
+                    if (!prev) {
+                        postStateSnapshotMap[p.id] = { likes, commentsLen, shares };
+                        return;
+                    }
+
+                    if (commentsLen > prev.commentsLen) {
+                        for (let i = prev.commentsLen; i < commentsLen; i++) {
+                            const cObj = commentsArr[i] || {};
+                            const commenter = cObj.username || 'Someone';
+                            const cText = cObj.text || '';
+                            addNotificationItem({
+                                id: `db_cmt_${p.id}_${i}_${cText.slice(0, 12)}`,
+                                type: 'post_comment',
+                                actorId: '',
+                                actorName: commenter,
+                                message: 'commented on your post',
+                                detailText: cText ? `"${cText}"` : '',
+                                createdAt: new Date().toISOString()
+                            });
+                        }
+                    }
+
+                    if (likes > prev.likes) {
+                        const diff = likes - prev.likes;
+                        addNotificationItem({
+                            id: `db_like_${p.id}_${likes}`,
+                            type: 'post_like',
+                            actorId: '',
+                            actorName: diff > 1 ? `${diff} people` : 'Someone',
+                            message: 'liked your post',
+                            detailText: '',
+                            createdAt: new Date().toISOString()
+                        });
+                    }
+
+                    if (shares > prev.shares) {
+                        const diff = shares - prev.shares;
+                        addNotificationItem({
+                            id: `db_share_${p.id}_${shares}`,
+                            type: 'post_share',
+                            actorId: '',
+                            actorName: diff > 1 ? `${diff} people` : 'Someone',
+                            message: 'shared your post',
+                            detailText: '',
+                            createdAt: new Date().toISOString()
+                        });
+                    }
+
+                    postStateSnapshotMap[p.id] = { likes, commentsLen, shares };
+                });
+            } catch (e) {}
         }
 
         function renderNotificationsList() {
@@ -1565,7 +1681,15 @@
             loadProfile();
             ensureGlobalNotiChannel();
             markIncomingMessagesDelivered();
-            refreshUnreadMessageCounts();
+            await refreshUnreadMessageCounts();
+            await checkMyPostsEngagementChanges();
+
+            if (badgeSyncInterval) clearInterval(badgeSyncInterval);
+            badgeSyncInterval = setInterval(async () => {
+                if (!currentUser || document.visibilityState !== 'visible') return;
+                await refreshUnreadMessageCounts();
+                await checkMyPostsEngagementChanges();
+            }, 2500);
 
             chatSyncBroadcastChannel = supabaseClient
                 .channel('global-chat-sync')
@@ -1606,7 +1730,9 @@
                         }
                     }
                 })
-                .subscribe();
+                .subscribe(status => {
+                    chatSyncSubscribed = (status === 'SUBSCRIBED');
+                });
 
             supabaseClient
                 .channel('public:profiles:chat-list')
@@ -1626,6 +1752,11 @@
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, payload => {
                     if (payload && payload.new) {
                         handleLivePostInsertedNoti(payload.new);
+                    }
+                })
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'posts' }, payload => {
+                    if (payload && payload.new && payload.new.user_id === currentUser.id) {
+                        checkMyPostsEngagementChanges(payload.new);
                     }
                 })
                 .subscribe();
@@ -1655,7 +1786,7 @@
                             const statusLabel = computeMessageStatusLabel(row);
                             updateMessageBubbleStatus(null, row, statusLabel.text, statusLabel.type);
                         }
-                        if (row.receiver_id === currentUser.id && row.seen_at) {
+                        if (row.receiver_id === currentUser.id) {
                             refreshUnreadMessageCounts();
                         }
                     }
@@ -2670,13 +2801,13 @@
                                 <div style="width: 45px; height: 45px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 18px;">
                                     ${avatarHtml}
                                 </div>
+                                <span class="chat-user-unread-pill" style="display:${unreadCnt > 0 ? 'inline-flex' : 'none'};">${formatBadgeNumber(unreadCnt)}</span>
                                 <span class="online-dot-badge" style="display:${presenceInfo.isOnline ? 'block' : 'none'};"></span>
                             </div>
                             <div style="min-width:0; flex:1;">
                                 <div style="font-weight: bold; font-size: 15px; color: #050505; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${user.username || 'User'}</div>
                                 <div class="chat-list-status-sub" style="font-size: 12px; color: ${presenceInfo.isOnline ? '#31a24c' : '#65676b'};">${presenceInfo.text}</div>
                             </div>
-                            <span class="chat-user-unread-pill" style="display:${unreadCnt > 0 ? 'inline-flex' : 'none'};">${formatBadgeNumber(unreadCnt)}</span>
                         </div>`;
                 });
             } else {
@@ -3286,6 +3417,14 @@
             if (data && data.length > 0) {
                 data.forEach(post => {
                     if (post.privacy === 'only_me' && post.user_id !== currentUser.id) return;
+                    if (post.user_id === currentUser.id) {
+                        const cArr = Array.isArray(post.comments) ? post.comments : [];
+                        postStateSnapshotMap[post.id] = {
+                            likes: post.likes_count || 0,
+                            commentsLen: cArr.length,
+                            shares: post.shares_count || 0
+                        };
+                    }
                     if (post.profiles && post.user_id) {
                         cachedUsersMap[post.user_id] = {
                             ...(cachedUsersMap[post.user_id] || {}),
@@ -3416,6 +3555,12 @@
                 myPostsDiv.innerHTML = '';
                 if (myPosts && myPosts.length > 0) {
                     myPosts.forEach(post => {
+                        const cArr = Array.isArray(post.comments) ? post.comments : [];
+                        postStateSnapshotMap[post.id] = {
+                            likes: post.likes_count || 0,
+                            commentsLen: cArr.length,
+                            shares: post.shares_count || 0
+                        };
                         myPostsDiv.innerHTML += buildPostCardHtml(post, false);
                     });
                 } else {
