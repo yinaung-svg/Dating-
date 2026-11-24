@@ -95,10 +95,6 @@
 
         .profile-main-layout { display: flex; gap: 12px; align-items: flex-start; }
         .profile-posts-col { flex: 1; min-width: 0; }
-        .profile-side-menu-col { width: 130px; flex-shrink: 0; background: var(--bg-card); border-radius: 8px; padding: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); box-sizing: border-box; }
-        .profile-side-tab-btn { width: 100%; padding: 9px 8px; margin: 0 0 8px 0; font-size: 13px; font-weight: bold; border-radius: 6px; background: var(--bg-soft); color: var(--text-main); border: 1px solid var(--border-color); text-align: left; }
-        .profile-side-tab-btn:last-child { margin-bottom: 0; }
-        .profile-side-tab-btn.active { background: var(--accent); color: #ffffff; border-color: var(--accent); }
 
         .menu-row-btn, .menu-link-item {
             width: 100%;
@@ -312,8 +308,6 @@
             .collage-3 .collage-cell-top { height: 175px; }
             .collage-3 .collage-cell-bottom { height: 140px; }
             .collage-4plus .collage-cell { height: 150px; }
-            .profile-side-menu-col { width: 98px; padding: 8px; }
-            .profile-side-tab-btn { font-size: 12px; padding: 8px 6px; }
         }
 
         @media (min-width: 600px) and (max-width: 1024px) {
@@ -485,108 +479,6 @@
                         <h4 style="margin-top: 0;">My Posts</h4>
                         <div id="my-posts"></div>
                     </div>
-
-                    <div id="profile-section-menu" class="card" style="display:none;">
-                        <h4 style="margin-top: 0;">Menu</h4>
-
-                        <button type="button" class="menu-row-btn" onclick="toggleLightDarkTheme()">
-                            <span>🌓 Light / Dark Mode</span>
-                            <span id="theme-mode-badge" style="color:#1877f2; font-weight:bold;">Dark Mode</span>
-                        </button>
-
-                        <button type="button" class="menu-row-btn" onclick="toggleMenuSubSection('connect-us-list')">
-                            <span>📞 Connect Us</span>
-                            <span id="connect-us-arrow">▾</span>
-                        </button>
-                        <div id="connect-us-list" class="menu-sub-box" style="display:none;">
-                            <a class="menu-link-item" href="mailto:2000.yinaung@gmail.com">
-                                <span>✉️ Mail</span>
-                                <span style="font-size:12px; color:#1877f2;">2000.yinaung@gmail.com</span>
-                            </a>
-                            <a class="menu-link-item" href="tel:09250614530">
-                                <span>📱 Phone</span>
-                                <span style="font-size:12px; color:#1877f2;">09250614530</span>
-                            </a>
-                            <a class="menu-link-item" href="https://t.me/DAZZLE5" target="_blank" rel="noopener noreferrer">
-                                <span>✈️ Telegram</span>
-                                <span style="font-size:12px; color:#1877f2;">@DAZZLE5</span>
-                            </a>
-                        </div>
-
-                        <button type="button" class="menu-row-btn" onclick="toggleMenuSubSection('security-options-list')">
-                            <span>🔒 Security</span>
-                            <span id="security-arrow">▾</span>
-                        </button>
-                        <div id="security-options-list" class="menu-sub-box" style="display:none;">
-                            <button type="button" class="menu-row-btn" onclick="openChangePasswordBox()">
-                                <span>🔑 Change Password</span>
-                                <span>›</span>
-                            </button>
-                            <button type="button" class="menu-row-btn" onclick="openForgetPasswordBox()">
-                                <span>📧 Forget Password</span>
-                                <span>›</span>
-                            </button>
-                        </div>
-
-                        <div id="change-password-box" style="display:none; margin-top:14px; padding:12px; border-radius:8px; background:var(--bg-soft); border:1px solid var(--border-color);">
-                            <div style="font-weight:bold; font-size:15px; margin-bottom:8px;">Change Password</div>
-
-                            <div class="pw-input-wrap">
-                                <input type="password" id="cp-current-pw" placeholder="Current Password">
-                                <button type="button" class="pw-see-hide-btn" onclick="togglePwEye('cp-current-pw', this)">See</button>
-                            </div>
-
-                            <div class="pw-input-wrap">
-                                <input type="password" id="cp-new-pw" placeholder="New Password">
-                                <button type="button" class="pw-see-hide-btn" onclick="togglePwEye('cp-new-pw', this)">See</button>
-                            </div>
-
-                            <div class="pw-input-wrap">
-                                <input type="password" id="cp-confirm-pw" placeholder="Confirm Password">
-                                <button type="button" class="pw-see-hide-btn" onclick="togglePwEye('cp-confirm-pw', this)">See</button>
-                            </div>
-
-                            <button type="button" id="cp-submit-btn" class="blue-action-btn" onclick="handleChangePasswordSubmit()">Change</button>
-                            <div id="cp-feedback" style="font-size:13px; margin-top:8px;"></div>
-                        </div>
-
-                        <div id="forget-password-box" style="display:none; margin-top:14px; padding:12px; border-radius:8px; background:var(--bg-soft); border:1px solid var(--border-color);">
-                            <div style="font-weight:bold; font-size:15px; margin-bottom:8px;">Forget Password</div>
-
-                            <div id="fp-step-1">
-                                <label style="font-size:13px; color:var(--text-sub); display:block; margin-bottom:4px;">Select Mail:</label>
-                                <select id="fp-mail-select"></select>
-                                <button type="button" class="blue-action-btn" onclick="handleForgetMailNext()">Next</button>
-                            </div>
-
-                            <div id="fp-step-2" style="display:none;">
-                                <div id="fp-code-sent-msg" style="font-size:13px; color:#1877f2; margin-bottom:6px; font-weight:bold;"></div>
-                                <input type="text" id="fp-verify-code" placeholder="Enter verification code">
-                                <button type="button" class="blue-action-btn" onclick="handleForgetCodeNext()">Next</button>
-                            </div>
-
-                            <div id="fp-step-3" style="display:none;">
-                                <div class="pw-input-wrap">
-                                    <input type="password" id="fp-new-pw" placeholder="New Password">
-                                    <button type="button" class="pw-see-hide-btn" onclick="togglePwEye('fp-new-pw', this)">See</button>
-                                </div>
-
-                                <div class="pw-input-wrap">
-                                    <input type="password" id="fp-confirm-pw" placeholder="Confirm Password">
-                                    <button type="button" class="pw-see-hide-btn" onclick="togglePwEye('fp-confirm-pw', this)">See</button>
-                                </div>
-
-                                <button type="button" id="fp-finish-btn" class="blue-action-btn" onclick="handleForgetFinish()">Finish</button>
-                            </div>
-
-                            <div id="fp-feedback" style="font-size:13px; margin-top:8px;"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="profile-side-menu-col">
-                    <button type="button" id="profile-side-btn-posts" class="profile-side-tab-btn active" onclick="switchProfileSubTab('posts')">Posts</button>
-                    <button type="button" id="profile-side-btn-menu" class="profile-side-tab-btn" onclick="switchProfileSubTab('menu')">Menu</button>
                 </div>
             </div>
         </div>
@@ -881,9 +773,9 @@
             const btnPosts = document.getElementById('profile-side-btn-posts');
             const btnMenu = document.getElementById('profile-side-btn-menu');
 
-            if (subTab === 'menu') {
+            if (subTab === 'menu' && menuSection) {
                 if (postsSection) postsSection.style.display = 'none';
-                if (menuSection) menuSection.style.display = 'block';
+                menuSection.style.display = 'block';
                 if (btnPosts) btnPosts.classList.remove('active');
                 if (btnMenu) btnMenu.classList.add('active');
                 populateOpenedMailsDropdown('fp-mail-select');
