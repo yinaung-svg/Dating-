@@ -9,40 +9,63 @@
     <link rel="apple-touch-icon" href="E7AC1A1B-3A54-475C-8B98-7B0A3AB6CE89.png">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
+        :root {
+            --bg-app: #f0f2f5;
+            --bg-card: #ffffff;
+            --bg-soft: #f0f2f5;
+            --bg-muted: #e4e6eb;
+            --text-main: #050505;
+            --text-sub: #65676b;
+            --border-color: #ddd;
+            --accent: #1877f2;
+            --accent-hover: #166fe5;
+        }
+        [data-theme="dark"] {
+            --bg-app: #121316;
+            --bg-card: #1e2025;
+            --bg-soft: #262930;
+            --bg-muted: #2f333d;
+            --text-main: #f0f2f5;
+            --text-sub: #a8b0bc;
+            --border-color: #343842;
+            --accent: #2d88ff;
+            --accent-hover: #1877f2;
+        }
+
         html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
-        body { font-family: Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; min-height: 100dvh; }
-        .auth-container { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 360px; margin: 12px; box-sizing: border-box; text-align: center; }
-        input, textarea, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccd0d5; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
-        button { width: 100%; padding: 12px; background: #1877f2; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 5px; }
-        button:hover { background: #166fe5; }
+        body { font-family: Arial, sans-serif; background: var(--bg-app); color: var(--text-main); margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; min-height: 100dvh; transition: background 0.2s ease, color 0.2s ease; }
+        .auth-container { background: var(--bg-card); color: var(--text-main); padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 360px; margin: 12px; box-sizing: border-box; text-align: center; }
+        input, textarea, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 5px; }
+        button:hover { background: var(--accent-hover); }
         button:disabled { opacity: 0.7; cursor: not-allowed; }
-        .toggle-btn { background: none; color: #1877f2; border: none; cursor: pointer; margin-top: 12px; font-size: 14px; }
+        .toggle-btn { background: none; color: var(--accent); border: none; cursor: pointer; margin-top: 12px; font-size: 14px; }
         .toggle-btn:hover { text-decoration: underline; }
         .error { color: #fa383e; font-size: 13px; margin-top: 5px; text-align: left; }
         
-        #app-container { display: none; width: 100%; max-width: 600px; height: 100vh; height: 100dvh; background: #f0f2f5; flex-direction: column; overflow: hidden; box-sizing: border-box; }
-        header { background: white; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; flex-shrink: 0; }
-        header h2 { margin: 0; color: #1877f2; font-size: 20px; }
+        #app-container { display: none; width: 100%; max-width: 600px; height: 100vh; height: 100dvh; background: var(--bg-app); flex-direction: column; overflow: hidden; box-sizing: border-box; }
+        header { background: var(--bg-card); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+        header h2 { margin: 0; color: var(--accent); font-size: 20px; }
         
-        .nav-tabs { display: flex; background: white; border-bottom: 1px solid #ddd; justify-content: space-around; flex-shrink: 0; }
-        .tab-btn { flex: 1; padding: 12px 4px; background: none; border: none; font-size: 13px; font-weight: bold; color: #65676b; cursor: pointer; border-bottom: 3px solid transparent; text-align: center; position: relative; margin-top: 0; }
-        .tab-btn:hover { background: transparent; color: #1877f2; }
-        .tab-btn.active { color: #1877f2; border-bottom: 3px solid #1877f2; }
+        .nav-tabs { display: flex; background: var(--bg-card); border-bottom: 1px solid var(--border-color); justify-content: space-around; flex-shrink: 0; }
+        .tab-btn { flex: 1; padding: 12px 4px; background: none; border: none; font-size: 13px; font-weight: bold; color: var(--text-sub); cursor: pointer; border-bottom: 3px solid transparent; text-align: center; position: relative; margin-top: 0; }
+        .tab-btn:hover { background: transparent; color: var(--accent); }
+        .tab-btn.active { color: var(--accent); border-bottom: 3px solid var(--accent); }
         .tab-count-badge { position: absolute; top: 4px; right: 4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: #e41e3f; color: #fff; font-size: 10px; font-weight: bold; line-height: 16px; text-align: center; box-sizing: border-box; pointer-events: none; }
         
         .tab-content { flex: 1; overflow-y: auto; padding: 15px; display: none; min-height: 0; box-sizing: border-box; }
         .tab-content.active { display: block; }
         
-        .card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .card { background: var(--bg-card); color: var(--text-main); border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         .post-input { resize: none; height: 60px; }
-        .post-item { border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; }
-        .post-author { font-weight: bold; color: #1877f2; font-size: 14px; cursor: pointer; }
+        .post-item { border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px; }
+        .post-author { font-weight: bold; color: var(--accent); font-size: 14px; cursor: pointer; }
         .post-author:hover { text-decoration: underline; }
-        .post-time { font-size: 11px; color: #65676b; }
-        .post-body { margin-top: 8px; font-size: 14px; color: #050505; white-space: pre-wrap; }
+        .post-time { font-size: 11px; color: var(--text-sub); }
+        .post-body { margin-top: 8px; font-size: 14px; color: var(--text-main); white-space: pre-wrap; }
         .post-media { width: 100%; max-height: 320px; object-fit: cover; border-radius: 6px; margin-top: 8px; cursor: pointer; display: block; }
 
-        .collage-wrap { margin-top: 8px; display: grid; gap: 4px; border-radius: 8px; overflow: hidden; background: #fff; }
+        .collage-wrap { margin-top: 8px; display: grid; gap: 4px; border-radius: 8px; overflow: hidden; background: var(--bg-card); }
         .collage-2 { grid-template-columns: repeat(2, 1fr); }
         .collage-2 .collage-cell { height: 220px; }
         .collage-3 { grid-template-columns: repeat(2, 1fr); }
@@ -55,20 +78,81 @@
         .collage-more-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.52); color: #fff; font-size: 26px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
 
         .selected-photos-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-        .selected-photo-thumb { width: 68px; height: 68px; object-fit: cover; border-radius: 6px; border: 1px solid #ccd0d5; }
+        .selected-photo-thumb { width: 68px; height: 68px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); }
 
         .posting-status-banner { display: none; margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: bold; text-align: center; }
         .posting-status-banner.uploading { display: block; background: #e7f3ff; color: #1877f2; border: 1px solid #b6d9ff; }
         .posting-status-banner.finished { display: block; background: #e6f7ed; color: #137333; border: 1px solid #a8dab5; }
 
-        .noti-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border-radius: 8px; background: #f7f8fa; border: 1px solid #e4e6eb; margin-bottom: 8px; cursor: pointer; }
-        .noti-item:hover { background: #eef3f8; }
-        .noti-item.unread { background: #e7f3ff; border-color: #b6d9ff; }
-        .noti-tag-pill { background: #1877f2; color: #fff; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+        .noti-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border-radius: 8px; background: var(--bg-soft); border: 1px solid var(--border-color); margin-bottom: 8px; cursor: pointer; }
+        .noti-item:hover { background: var(--bg-muted); }
+        .noti-item.unread { background: rgba(24,119,242,0.12); border-color: var(--accent); }
+        .noti-tag-pill { background: var(--accent); color: #fff; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
         .noti-live-pill { background: #e41e3f; color: #fff; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
 
-        .action-bar { display: flex; justify-content: space-around; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 8px 0; margin-top: 10px; font-size: 13px; color: #65676b; cursor: pointer; }
-        .action-bar span:hover { color: #1877f2; }
+        .action-bar { display: flex; justify-content: space-around; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); padding: 8px 0; margin-top: 10px; font-size: 13px; color: var(--text-sub); cursor: pointer; }
+        .action-bar span:hover { color: var(--accent); }
+
+        /* Profile side-by-side layout for Posts + Menu Tab */
+        .profile-main-layout { display: flex; gap: 12px; align-items: flex-start; }
+        .profile-posts-col { flex: 1; min-width: 0; }
+        .profile-side-menu-col { width: 130px; flex-shrink: 0; background: var(--bg-card); border-radius: 8px; padding: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); box-sizing: border-box; }
+        .profile-side-tab-btn { width: 100%; padding: 9px 8px; margin: 0 0 8px 0; font-size: 13px; font-weight: bold; border-radius: 6px; background: var(--bg-soft); color: var(--text-main); border: 1px solid var(--border-color); text-align: left; }
+        .profile-side-tab-btn:last-child { margin-bottom: 0; }
+        .profile-side-tab-btn.active { background: var(--accent); color: #ffffff; border-color: var(--accent); }
+
+        .menu-row-btn, .menu-link-item {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 11px 12px;
+            margin: 8px 0 0 0;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-soft);
+            color: var(--text-main);
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        .menu-row-btn:hover, .menu-link-item:hover { background: var(--bg-muted); color: var(--text-main); }
+        .menu-sub-box { margin-top: 6px; padding-left: 10px; border-left: 2px solid var(--accent); }
+
+        .pw-input-wrap { position: relative; display: flex; align-items: center; margin: 8px 0; }
+        .pw-input-wrap input { margin: 0; padding-right: 68px; }
+        .pw-see-hide-btn {
+            position: absolute;
+            right: 8px;
+            width: auto;
+            margin: 0;
+            padding: 5px 10px;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 6px;
+            background: var(--bg-muted);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+        .pw-see-hide-btn:hover { background: var(--border-color); }
+
+        .blue-action-btn {
+            width: 100%;
+            padding: 11px 14px;
+            margin-top: 10px;
+            border: none;
+            border-radius: 6px;
+            background: #1877f2;
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .blue-action-btn:hover { background: #166fe5; }
+        .blue-action-btn:disabled { background: #4a90e2; color: #ffffff; opacity: 1; cursor: default; }
 
         #chat-tab { display: none; flex-direction: column; height: 100%; padding: 0; overflow: hidden; }
         #chat-tab.active { display: flex; }
@@ -76,63 +160,63 @@
         #chat-list-view { flex: 1; overflow-y: auto; padding: 15px; box-sizing: border-box; min-height: 0; }
         #chat-box-view { display: none; flex-direction: column; height: 100%; flex: 1; min-height: 0; overflow: hidden; position: relative; }
 
-        .chat-messenger-header { display: flex; align-items: center; padding: 10px 15px; background: white; border-bottom: 1px solid #ddd; gap: 10px; flex-shrink: 0; }
+        .chat-messenger-header { display: flex; align-items: center; padding: 10px 15px; background: var(--bg-card); border-bottom: 1px solid var(--border-color); gap: 10px; flex-shrink: 0; }
         .chat-avatar-wrap { position: relative; flex-shrink: 0; width: 45px; height: 45px; }
         .chat-messenger-header .chat-avatar-wrap { width: 35px; height: 35px; }
-        .chat-header-avatar { width: 35px; height: 35px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 14px; }
-        .online-dot-badge { position: absolute; bottom: 0; right: 0; width: 11px; height: 11px; background: #31a24c; border: 2px solid #fff; border-radius: 50%; z-index: 2; }
+        .chat-header-avatar { width: 35px; height: 35px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 14px; }
+        .online-dot-badge { position: absolute; bottom: 0; right: 0; width: 11px; height: 11px; background: #31a24c; border: 2px solid var(--bg-card); border-radius: 50%; z-index: 2; }
         
-        .chat-box { flex: 1; padding: 15px 15px 6px 15px; overflow-y: auto; background: #fff; display: flex; flex-direction: column; min-height: 0; }
+        .chat-box { flex: 1; padding: 15px 15px 6px 15px; overflow-y: auto; background: var(--bg-card); display: flex; flex-direction: column; min-height: 0; }
         .msg-wrapper { display: flex; flex-direction: column; margin-bottom: 10px; max-width: 80%; position: relative; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
         .msg-wrapper-left { align-self: flex-start; align-items: flex-start; }
         .msg-wrapper-right { align-self: flex-end; align-items: flex-end; }
         .msg-bubble-row { display: flex; align-items: center; gap: 6px; }
         .msg-wrapper-right .msg-bubble-row { flex-direction: row-reverse; }
         .msg-bubble { padding: 10px 14px; border-radius: 15px; font-size: 14px; word-break: break-word; }
-        .msg-left { background: #e4e6eb; color: #050505; border-bottom-left-radius: 2px; }
-        .msg-right { background: #1877f2; color: white; border-bottom-right-radius: 2px; }
+        .msg-left { background: var(--bg-muted); color: var(--text-main); border-bottom-left-radius: 2px; }
+        .msg-right { background: var(--accent); color: white; border-bottom-right-radius: 2px; }
         .msg-deleted-italic { font-style: italic; opacity: 0.85; font-size: 13px; }
         .msg-longpress-action-btn { width: auto; margin: 0; padding: 4px 10px; font-size: 11px; font-weight: bold; background: #e41e3f; color: #fff; border-radius: 12px; }
         .msg-longpress-action-btn:hover { background: #c81634; }
         .msg-photo-img { max-width: 220px; max-height: 240px; border-radius: 10px; display: block; cursor: pointer; object-fit: cover; }
         .msg-file-card { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; padding: 4px 2px; cursor: pointer; }
         .msg-right .msg-file-card { color: #ffffff; }
-        .msg-left .msg-file-card { color: #050505; }
+        .msg-left .msg-file-card { color: var(--text-main); }
         .msg-file-meta { font-size: 11px; opacity: 0.85; font-weight: normal; }
         .msg-loc-box { display: flex; flex-direction: column; gap: 4px; font-size: 13px; cursor: pointer; }
         .msg-loc-hint { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: bold; text-decoration: underline; }
         .msg-right .msg-loc-hint { color: #ffffff; }
-        .msg-left .msg-loc-hint { color: #1877f2; }
+        .msg-left .msg-loc-hint { color: var(--accent); }
 
         .msg-meta-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; padding: 0 4px; }
         .msg-timestamp-text { font-size: 10px; color: #8a8d91; }
-        .msg-status { font-size: 11px; color: #65676b; text-transform: lowercase; }
-        .msg-status.sent { color: #65676b; }
-        .msg-status.delivered { color: #1877f2; }
+        .msg-status { font-size: 11px; color: var(--text-sub); text-transform: lowercase; }
+        .msg-status.sent { color: var(--text-sub); }
+        .msg-status.delivered { color: var(--accent); }
         .msg-status.seen { color: #31a24c; font-weight: bold; }
         .msg-status.failed { color: #fa383e; font-weight: bold; text-transform: none; }
 
-        .typing-indicator-bar { background: #fff; padding: 2px 15px 6px 15px; min-height: 18px; display: none; align-items: center; justify-content: flex-start; flex-shrink: 0; }
+        .typing-indicator-bar { background: var(--bg-card); padding: 2px 15px 6px 15px; min-height: 18px; display: none; align-items: center; justify-content: flex-start; flex-shrink: 0; }
         .typing-indicator-bar.visible { display: flex; }
-        .typing-text { font-style: italic; font-size: 12px; color: #65676b; }
+        .typing-text { font-style: italic; font-size: 12px; color: var(--text-sub); }
 
-        .chat-attach-toolbar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #f8f9fa; border-top: 1px solid #e4e6eb; flex-shrink: 0; }
-        .chat-attach-btn { width: auto; margin: 0; padding: 6px 10px; font-size: 12px; font-weight: bold; background: #e4e6eb; color: #050505; border-radius: 16px; }
-        .chat-attach-btn:hover { background: #d8dadf; }
+        .chat-attach-toolbar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--bg-soft); border-top: 1px solid var(--border-color); flex-shrink: 0; }
+        .chat-attach-btn { width: auto; margin: 0; padding: 6px 10px; font-size: 12px; font-weight: bold; background: var(--bg-muted); color: var(--text-main); border-radius: 16px; }
+        .chat-attach-btn:hover { background: var(--border-color); }
 
-        .chat-input-area { display: flex; padding: 8px 10px 10px 10px; background: white; border-top: 1px solid #ddd; flex-shrink: 0; }
+        .chat-input-area { display: flex; padding: 8px 10px 10px 10px; background: var(--bg-card); border-top: 1px solid var(--border-color); flex-shrink: 0; }
         .chat-input-area input { margin: 0; flex: 1; }
         .chat-input-area button { width: 80px; margin: 0 0 0 8px; padding: 0; }
         
-        .search-results { background: white; border: 1px solid #ddd; border-radius: 6px; margin-top: 5px; max-height: 150px; overflow-y: auto; display: none; }
-        .search-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 14px; }
-        .search-item:hover { background: #f0f2f5; }
+        .search-results { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; margin-top: 5px; max-height: 150px; overflow-y: auto; display: none; }
+        .search-item { padding: 10px; border-bottom: 1px solid var(--border-color); cursor: pointer; font-size: 14px; }
+        .search-item:hover { background: var(--bg-soft); }
 
-        .chat-user-list-item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; gap: 12px; background: white; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
-        .chat-user-list-item:hover { background: #f0f2f5; }
-        .chat-user-unread-pill { position: absolute; top: -4px; right: -4px; background: #e41e3f; color: #fff; font-size: 10px; font-weight: bold; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; border: 2px solid #fff; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; flex-shrink: 0; z-index: 3; pointer-events: none; }
+        .chat-user-list-item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid var(--border-color); cursor: pointer; gap: 12px; background: var(--bg-card); border-radius: 8px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+        .chat-user-list-item:hover { background: var(--bg-soft); }
+        .chat-user-unread-pill { position: absolute; top: -4px; right: -4px; background: #e41e3f; color: #fff; font-size: 10px; font-weight: bold; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; border: 2px solid var(--bg-card); display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; flex-shrink: 0; z-index: 3; pointer-events: none; }
 
-        .comment-section { margin-top: 8px; background: #f0f2f5; padding: 8px; border-radius: 6px; font-size: 13px; }
+        .comment-section { margin-top: 8px; background: var(--bg-soft); padding: 8px; border-radius: 6px; font-size: 13px; }
 
         #lightbox-modal { display: none; position: fixed; z-index: 1600; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); flex-direction: column; justify-content: space-between; align-items: center; padding: 16px; box-sizing: border-box; }
         .lightbox-top-bar { width: 100%; max-width: 640px; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 2; }
@@ -142,21 +226,21 @@
         #lightbox-img { max-width: 95%; max-height: 82vh; border-radius: 8px; object-fit: contain; }
 
         #delete-choice-modal { display: none; position: fixed; z-index: 1700; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); justify-content: center; align-items: center; padding: 16px; box-sizing: border-box; }
-        .delete-choice-card { background: #fff; color: #050505; width: 100%; max-width: 340px; border-radius: 12px; padding: 18px; box-sizing: border-box; box-shadow: 0 8px 24px rgba(0,0,0,0.25); text-align: center; }
+        .delete-choice-card { background: var(--bg-card); color: var(--text-main); width: 100%; max-width: 340px; border-radius: 12px; padding: 18px; box-sizing: border-box; box-shadow: 0 8px 24px rgba(0,0,0,0.25); text-align: center; }
 
         #file-preview-modal { display: none; position: fixed; z-index: 1650; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.72); justify-content: center; align-items: center; padding: 16px; box-sizing: border-box; }
-        .file-preview-card { background: #fff; color: #050505; width: 100%; max-width: 380px; border-radius: 12px; padding: 18px; box-sizing: border-box; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+        .file-preview-card { background: var(--bg-card); color: var(--text-main); width: 100%; max-width: 380px; border-radius: 12px; padding: 18px; box-sizing: border-box; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
         .file-preview-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .modal-red-x-btn { width: 34px; height: 34px; margin: 0; padding: 0; border-radius: 50%; background: #e41e3f; color: #ffffff; font-size: 16px; font-weight: bold; display: inline-flex; align-items: center; justify-content: center; }
         .modal-red-x-btn:hover { background: #c81634; }
 
         #location-frame-modal { display: none; position: fixed; z-index: 1650; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.72); justify-content: center; align-items: center; padding: 14px; box-sizing: border-box; }
-        .location-frame-box { width: 100%; max-width: 480px; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.35); display: flex; flex-direction: column; }
-        .location-frame-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #f8f9fa; border-bottom: 1px solid #e4e6eb; gap: 8px; }
+        .location-frame-box { width: 100%; max-width: 480px; background: var(--bg-card); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.35); display: flex; flex-direction: column; }
+        .location-frame-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg-soft); border-bottom: 1px solid var(--border-color); gap: 8px; }
         .location-open-browser-btn { width: auto; margin: 0; padding: 7px 12px; font-size: 12px; font-weight: bold; background: #1877f2; color: #ffffff; border-radius: 8px; }
         .location-open-browser-btn:hover { background: #166fe5; }
         .location-map-frame { width: 100%; height: 320px; border: 0; display: block; background: #e9ecef; }
-        .location-coords-footer { padding: 10px 12px; font-size: 12px; color: #4b4f56; background: #fff; border-top: 1px solid #e4e6eb; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .location-coords-footer { padding: 10px 12px; font-size: 12px; color: var(--text-sub); background: var(--bg-card); border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 
         .live-btn { background: #e41e3f; }
         .live-btn:hover { background: #c81634; }
@@ -168,12 +252,12 @@
         .live-cover-play-hint { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; font-size: 12px; padding: 4px 10px; border-radius: 20px; }
 
         .live-modal-backdrop { display: none; position: fixed; z-index: 1200; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); justify-content: center; align-items: center; padding: 15px; box-sizing: border-box; }
-        .live-modal-card { background: white; width: 100%; max-width: 460px; border-radius: 10px; padding: 18px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
+        .live-modal-card { background: var(--bg-card); color: var(--text-main); width: 100%; max-width: 460px; border-radius: 10px; padding: 18px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
 
         #effect-picker-modal { z-index: 1500; }
         .effect-list-container { display: flex; flex-direction: column; gap: 6px; max-height: 55vh; overflow-y: auto; margin-top: 10px; }
-        .effect-list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 8px; border: 1px solid #e4e6eb; background: #f8f9fa; color: #050505; font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; width: 100%; margin: 0; }
-        .effect-list-item:hover { background: #e7f3ff; border-color: #1877f2; color: #1877f2; }
+        .effect-list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-soft); color: var(--text-main); font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; width: 100%; margin: 0; }
+        .effect-list-item:hover { background: rgba(24,119,242,0.14); border-color: #1877f2; color: #1877f2; }
         .effect-list-item.selected { background: #1877f2; border-color: #1877f2; color: #fff; }
         .effect-tag-label { font-size: 11px; opacity: 0.85; font-weight: normal; }
 
@@ -217,7 +301,6 @@
         #live-viewer-modal.landscape-mode .viewer-caption-bar,
         #live-viewer-modal.landscape-mode .viewer-comments-area { display: none !important; }
 
-        /* ==================== RESPONSIVE VIEWPORTS (PHONE / IPAD / TABLET / PC) ==================== */
         @media (max-width: 420px) {
             .auth-container { padding: 18px 15px; margin: 8px; max-width: calc(100% - 16px); }
             header { padding: 8px 12px; }
@@ -230,11 +313,13 @@
             .collage-3 .collage-cell-top { height: 175px; }
             .collage-3 .collage-cell-bottom { height: 140px; }
             .collage-4plus .collage-cell { height: 150px; }
+            .profile-side-menu-col { width: 98px; padding: 8px; }
+            .profile-side-tab-btn { font-size: 12px; padding: 8px 6px; }
         }
 
         @media (min-width: 600px) and (max-width: 1024px) {
             .auth-container { max-width: 440px; padding: 30px; }
-            #app-container { max-width: 740px; height: 94vh; height: 94dvh; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,0.12); border: 1px solid #e4e6eb; }
+            #app-container { max-width: 740px; height: 94vh; height: 94dvh; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,0.12); border: 1px solid var(--border-color); }
             header { padding: 12px 20px; }
             header h2 { font-size: 22px; }
             .tab-btn { padding: 14px 8px; font-size: 14px; }
@@ -251,7 +336,7 @@
 
         @media (min-width: 1025px) {
             .auth-container { max-width: 420px; padding: 32px; }
-            #app-container { max-width: 820px; height: 94vh; height: 94dvh; border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,0.14); border: 1px solid #dfe3e8; }
+            #app-container { max-width: 820px; height: 94vh; height: 94dvh; border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,0.14); border: 1px solid var(--border-color); }
             header { padding: 12px 22px; }
             header h2 { font-size: 22px; }
             .tab-btn { padding: 14px 10px; font-size: 14px; }
@@ -284,7 +369,7 @@
     <div id="app-container">
         <header>
             <h2>SocialChat</h2>
-            <button onclick="logout()" style="width: auto; padding: 6px 12px; font-size: 12px; background: #e4e6eb; color: #050505;">Logout</button>
+            <button onclick="logout()" style="width: auto; padding: 6px 12px; font-size: 12px; background: var(--bg-muted); color: var(--text-main);">Logout</button>
         </header>
 
         <div class="nav-tabs">
@@ -308,14 +393,14 @@
                 <h3>Create Post</h3>
                 <textarea id="post-content" class="post-input" placeholder="Write a caption (photo optional)..."></textarea>
                 
-                <label style="font-size: 13px; color: #65676b; display: block; margin-top: 10px;">Privacy:</label>
+                <label style="font-size: 13px; color: var(--text-sub); display: block; margin-top: 10px;">Privacy:</label>
                 <select id="post-privacy">
                     <option value="public">Public</option>
                     <option value="friends">Friends</option>
                     <option value="only_me">Only Me</option>
                 </select>
 
-                <label style="font-size: 13px; color: #65676b; display: block; margin-top: 10px;">Photos Only (1 to 10 photos, optional):</label>
+                <label style="font-size: 13px; color: var(--text-sub); display: block; margin-top: 10px;">Photos Only (1 to 10 photos, optional):</label>
                 <input type="file" id="media-file" accept="image/*" multiple style="padding: 6px;" onchange="handlePhotoSelection(this)">
                 <div id="selected-photos-preview" class="selected-photos-preview"></div>
 
@@ -328,22 +413,22 @@
 
         <div id="chat-tab" class="tab-content">
             <div id="chat-list-view" style="display: block;">
-                <h3 style="margin-top: 0; color: #050505;">Chats</h3>
+                <h3 style="margin-top: 0; color: var(--text-main);">Chats</h3>
                 <div id="conversations-list">
-                    <p style="color: #65676b; font-size: 13px;">Loading conversations...</p>
+                    <p style="color: var(--text-sub); font-size: 13px;">Loading conversations...</p>
                 </div>
             </div>
 
             <div id="chat-box-view" style="display: none; flex-direction: column; height: 100%;">
                 <div class="chat-messenger-header">
-                    <button onclick="backToChatList()" style="width: auto; padding: 5px 10px; font-size: 12px; background: #e4e6eb; color: #050505; margin: 0;">← Back</button>
+                    <button onclick="backToChatList()" style="width: auto; padding: 5px 10px; font-size: 12px; background: var(--bg-muted); color: var(--text-main); margin: 0;">← Back</button>
                     <div class="chat-avatar-wrap">
                         <div id="chat-header-avatar-container" class="chat-header-avatar">U</div>
                         <span id="chat-header-online-dot" class="online-dot-badge" style="display:none;"></span>
                     </div>
                     <div>
                         <div id="chat-header-name" style="font-weight: bold; font-size: 15px;">User</div>
-                        <div id="chat-user-status-text" style="font-size: 11px; color: #65676b;">Offline</div>
+                        <div id="chat-user-status-text" style="font-size: 11px; color: var(--text-sub);">Offline</div>
                     </div>
                 </div>
                 <div class="chat-box" id="chat-box"></div>
@@ -370,7 +455,7 @@
             <div class="card">
                 <h4 style="margin-top: 0;">Notifications</h4>
                 <div id="notifications-list">
-                    <p style="color: #65676b; font-size: 14px;">No new notifications right now.</p>
+                    <p style="color: var(--text-sub); font-size: 14px;">No new notifications right now.</p>
                 </div>
             </div>
         </div>
@@ -382,10 +467,10 @@
                         <span id="profile-initial">U</span>
                     </div>
                     <input type="file" id="avatar-file" accept="image/*" style="display:none;" onchange="uploadAvatar(this)">
-                    <button onclick="document.getElementById('avatar-file').click()" style="position: absolute; bottom: 0; right: 0; width: 28px; height: 28px; border-radius: 50%; background: #ddd; border: none; cursor: pointer; font-size: 12px; padding: 0;">📷</button>
+                    <button onclick="document.getElementById('avatar-file').click()" style="position: absolute; bottom: 0; right: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--bg-muted); color: var(--text-main); border: none; cursor: pointer; font-size: 12px; padding: 0;">📷</button>
                 </div>
                 <h3 id="profile-name" style="margin: 5px 0;">User</h3>
-                <p id="profile-bio-text" style="color: #65676b; font-size: 13px; margin: 0;"></p>
+                <p id="profile-bio-text" style="color: var(--text-sub); font-size: 13px; margin: 0;"></p>
                 
                 <div id="edit-profile-section" style="margin-top: 15px;">
                     <input type="text" id="edit-username" placeholder="Update username..." style="margin-bottom: 5px; font-size: 13px; padding: 8px;">
@@ -394,21 +479,136 @@
                 </div>
             </div>
 
-            <div class="card">
-                <h4 style="margin-top: 0;">My Posts</h4>
-                <div id="my-posts"></div>
+            <div class="profile-main-layout">
+                <div class="profile-posts-col">
+                    <div id="profile-section-posts" class="card">
+                        <h4 style="margin-top: 0;">My Posts</h4>
+                        <div id="my-posts"></div>
+                    </div>
+
+                    <div id="profile-section-menu" class="card" style="display:none;">
+                        <h4 style="margin-top: 0;">Menu</h4>
+
+                        <!-- Light / Dark Mode Switch -->
+                        <button type="button" class="menu-row-btn" onclick="toggleLightDarkTheme()">
+                            <span>🌓 Light / Dark Mode</span>
+                            <span id="theme-mode-badge" style="color:#1877f2; font-weight:bold;">Dark Mode</span>
+                        </button>
+
+                        <!-- Connect Us -->
+                        <button type="button" class="menu-row-btn" onclick="toggleMenuSubSection('connect-us-list')">
+                            <span>📞 Connect Us</span>
+                            <span id="connect-us-arrow">▾</span>
+                        </button>
+                        <div id="connect-us-list" class="menu-sub-box" style="display:none;">
+                            <a class="menu-link-item" href="mailto:2000.yinaung@gmail.com">
+                                <span>✉️ Mail</span>
+                                <span style="font-size:12px; color:#1877f2;">2000.yinaung@gmail.com</span>
+                            </a>
+                            <a class="menu-link-item" href="tel:09250614530">
+                                <span>📱 Phone</span>
+                                <span style="font-size:12px; color:#1877f2;">09250614530</span>
+                            </a>
+                            <a class="menu-link-item" href="https://t.me/DAZZLE5" target="_blank" rel="noopener noreferrer">
+                                <span>✈️ Telegram</span>
+                                <span style="font-size:12px; color:#1877f2;">@DAZZLE5</span>
+                            </a>
+                        </div>
+
+                        <!-- Security -->
+                        <button type="button" class="menu-row-btn" onclick="toggleMenuSubSection('security-options-list')">
+                            <span>🔒 Security</span>
+                            <span id="security-arrow">▾</span>
+                        </button>
+                        <div id="security-options-list" class="menu-sub-box" style="display:none;">
+                            <button type="button" class="menu-row-btn" onclick="openChangePasswordBox()">
+                                <span>🔑 Change Password</span>
+                                <span>›</span>
+                            </button>
+                            <button type="button" class="menu-row-btn" onclick="openForgetPasswordBox()">
+                                <span>📧 Forget Password</span>
+                                <span>›</span>
+                            </button>
+                        </div>
+
+                        <!-- Change Password Box -->
+                        <div id="change-password-box" style="display:none; margin-top:14px; padding:12px; border-radius:8px; background:var(--bg-soft); border:1px solid var(--border-color);">
+                            <div style="font-weight:bold; font-size:15px; margin-bottom:8px;">Change Password</div>
+
+                            <div class="pw-input-wrap">
+                                <input type="password" id="cp-current-pw" placeholder="Current Password">
+                                <button type="button" class="pw-see-hide-btn" onclick="togglePwEye('cp-current-pw', this)">See</button>
+                            </div>
+
+                            <div class="pw-input-wrap">
+                                <input type="password" id="cp-new-pw" placeholder="New Password">
+                                <button type="button" class="pw-see-hide-btn" onclick="togglePwEye('cp-new-pw', this)">See</button>
+                            </div>
+
+                            <div class="pw-input-wrap">
+                                <input type="password" id="cp-confirm-pw" placeholder="Confirm Password">
+                                <button type="button" class="pw-see-hide-btn" onclick="togglePwEye('cp-confirm-pw', this)">See</button>
+                            </div>
+
+                            <button type="button" id="cp-submit-btn" class="blue-action-btn" onclick="handleChangePasswordSubmit()">Change</button>
+                            <div id="cp-feedback" style="font-size:13px; margin-top:8px;"></div>
+                        </div>
+
+                        <!-- Forget Password Box -->
+                        <div id="forget-password-box" style="display:none; margin-top:14px; padding:12px; border-radius:8px; background:var(--bg-soft); border:1px solid var(--border-color);">
+                            <div style="font-weight:bold; font-size:15px; margin-bottom:8px;">Forget Password</div>
+
+                            <!-- Step 1: Select opened mail + Next -->
+                            <div id="fp-step-1">
+                                <label style="font-size:13px; color:var(--text-sub); display:block; margin-bottom:4px;">Select Mail:</label>
+                                <select id="fp-mail-select"></select>
+                                <button type="button" class="blue-action-btn" onclick="handleForgetMailNext()">Next</button>
+                            </div>
+
+                            <!-- Step 2: Enter verification code + Next -->
+                            <div id="fp-step-2" style="display:none;">
+                                <div id="fp-code-sent-msg" style="font-size:13px; color:#1877f2; margin-bottom:6px; font-weight:bold;"></div>
+                                <input type="text" id="fp-verify-code" placeholder="Enter verification code">
+                                <button type="button" class="blue-action-btn" onclick="handleForgetCodeNext()">Next</button>
+                            </div>
+
+                            <!-- Step 3: New Password + Confirm Password + See/Hide + Blue Finish button -->
+                            <div id="fp-step-3" style="display:none;">
+                                <div class="pw-input-wrap">
+                                    <input type="password" id="fp-new-pw" placeholder="New Password">
+                                    <button type="button" class="pw-see-hide-btn" onclick="togglePwEye('fp-new-pw', this)">See</button>
+                                </div>
+
+                                <div class="pw-input-wrap">
+                                    <input type="password" id="fp-confirm-pw" placeholder="Confirm Password">
+                                    <button type="button" class="pw-see-hide-btn" onclick="togglePwEye('fp-confirm-pw', this)">See</button>
+                                </div>
+
+                                <button type="button" id="fp-finish-btn" class="blue-action-btn" onclick="handleForgetFinish()">Finish</button>
+                            </div>
+
+                            <div id="fp-feedback" style="font-size:13px; margin-top:8px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Side Tab Column next to Profile Posts -->
+                <div class="profile-side-menu-col">
+                    <button type="button" id="profile-side-btn-posts" class="profile-side-tab-btn active" onclick="switchProfileSubTab('posts')">Posts</button>
+                    <button type="button" id="profile-side-btn-menu" class="profile-side-tab-btn" onclick="switchProfileSubTab('menu')">Menu</button>
+                </div>
             </div>
         </div>
 
         <div id="user-profile-tab" class="tab-content" style="padding-top: 10px;">
             <div class="card" style="text-align: center;">
-                <button onclick="switchTab('feed')" style="width: auto; padding: 5px 10px; font-size: 12px; margin-bottom: 10px; background: #65676b;">← Back to Feed</button>
+                <button onclick="switchTab('feed')" style="width: auto; padding: 5px 10px; font-size: 12px; margin-bottom: 10px; background: var(--text-sub);">← Back to Feed</button>
                 <div id="visitor-avatar-container" style="width: 80px; height: 80px; background: #42b72a; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 10px auto; font-weight: bold; overflow: hidden;">
                     <span id="visitor-initial">U</span>
                 </div>
                 <h3 id="visitor-name">User Profile</h3>
-                <p id="visitor-bio" style="color: #65676b; font-size: 13px;"></p>
-                <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+                <p id="visitor-bio" style="color: var(--text-sub); font-size: 13px;"></p>
+                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;">
                 <h4 style="text-align: left;">Their Posts</h4>
                 <div id="visitor-posts" style="text-align: left;"></div>
             </div>
@@ -417,33 +617,33 @@
 
     <div id="live-mode-modal" class="live-modal-backdrop">
         <div class="live-modal-card">
-            <h3 style="margin-top:0; color:#050505;">Choose Live Mode</h3>
+            <h3 style="margin-top:0;">Choose Live Mode</h3>
             <button class="live-btn" onclick="selectLiveMode('camera')">📷 Camera Live</button>
             <button style="background:#1877f2; margin-top:10px;" onclick="selectLiveMode('screen')">🖥️ Screen Share Live</button>
-            <button style="background:#e4e6eb; color:#050505; margin-top:12px;" onclick="closeLiveModeModal()">Cancel</button>
+            <button style="background:var(--bg-muted); color:var(--text-main); margin-top:12px;" onclick="closeLiveModeModal()">Cancel</button>
         </div>
     </div>
 
     <div id="live-setup-modal" class="live-modal-backdrop">
         <div class="live-modal-card">
-            <h3 id="live-setup-title" style="margin-top:0; color:#050505;">Setup Live</h3>
-            <label style="font-size:13px; color:#65676b; display:block;">Cover Photo:</label>
+            <h3 id="live-setup-title" style="margin-top:0;">Setup Live</h3>
+            <label style="font-size:13px; color:var(--text-sub); display:block;">Cover Photo:</label>
             <input type="file" id="live-cover-input" accept="image/*" style="padding:6px;" onchange="previewLiveCover(this)">
             <img id="live-cover-preview" src="" style="display:none; width:100%; max-height:160px; object-fit:cover; border-radius:6px; margin-top:6px;">
 
-            <label style="font-size:13px; color:#65676b; display:block; margin-top:10px;">Caption:</label>
+            <label style="font-size:13px; color:var(--text-sub); display:block; margin-top:10px;">Caption:</label>
             <textarea id="live-caption-input" class="post-input" placeholder="Write a live caption..."></textarea>
 
             <button class="live-btn" onclick="goToLiveStudio()" style="margin-top:10px;">Go to Live</button>
-            <button style="background:#e4e6eb; color:#050505; margin-top:8px;" onclick="closeLiveSetupModal()">Back</button>
+            <button style="background:var(--bg-muted); color:var(--text-main); margin-top:8px;" onclick="closeLiveSetupModal()">Back</button>
         </div>
     </div>
 
     <div id="effect-picker-modal" class="live-modal-backdrop" onclick="closeEffectPickerModal()">
         <div class="live-modal-card" onclick="event.stopPropagation()">
-            <h3 style="margin-top:0; color:#050505;">✨ Choose Effect</h3>
+            <h3 style="margin-top:0;">✨ Choose Effect</h3>
             <div id="effect-list-container" class="effect-list-container"></div>
-            <button style="background:#e4e6eb; color:#050505; margin-top:12px;" onclick="closeEffectPickerModal()">Close</button>
+            <button style="background:var(--bg-muted); color:var(--text-main); margin-top:12px;" onclick="closeEffectPickerModal()">Close</button>
         </div>
     </div>
 
@@ -525,7 +725,7 @@
             <div style="font-weight:bold; font-size:16px; margin-bottom:12px;">Delete Message</div>
             <button type="button" onclick="confirmDeleteChoice('myself')" style="background:#1877f2; margin-top:6px;">Delete Myself</button>
             <button type="button" onclick="confirmDeleteChoice('everyone')" style="background:#e41e3f; margin-top:8px;">Delete Everyone</button>
-            <button type="button" onclick="closeDeleteChoiceModal()" style="background:#e4e6eb; color:#050505; margin-top:10px;">Cancel</button>
+            <button type="button" onclick="closeDeleteChoiceModal()" style="background:var(--bg-muted); color:var(--text-main); margin-top:10px;">Cancel</button>
         </div>
     </div>
 
@@ -536,7 +736,7 @@
                 <button type="button" class="modal-red-x-btn" onclick="closeFilePreviewModal()">✕</button>
             </div>
             <div id="file-preview-name" style="font-size:14px; font-weight:bold; word-break:break-word; margin-bottom:4px;">File</div>
-            <div id="file-preview-size" style="font-size:12px; color:#65676b; margin-bottom:14px;">0 KB</div>
+            <div id="file-preview-size" style="font-size:12px; color:var(--text-sub); margin-bottom:14px;">0 KB</div>
             <button id="file-preview-save-btn" type="button" onclick="saveCurrentPreviewFile()">⬇ Save File</button>
         </div>
     </div>
@@ -544,7 +744,7 @@
     <div id="location-frame-modal" onclick="closeLocationFrameModal()">
         <div class="location-frame-box" onclick="event.stopPropagation()">
             <div class="location-frame-header">
-                <span style="font-weight:bold; font-size:14px; color:#050505;">📍 Shared Location</span>
+                <span style="font-weight:bold; font-size:14px;">📍 Shared Location</span>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <button type="button" class="location-open-browser-btn" onclick="openLocationInExternalBrowser()">Open Browser</button>
                     <button type="button" class="modal-red-x-btn" onclick="closeLocationFrameModal()">✕</button>
@@ -553,12 +753,249 @@
             <iframe id="location-map-iframe" class="location-map-frame" src="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
             <div class="location-coords-footer">
                 <span id="location-coords-text">Lat: -, Lng: -</span>
-                <span style="color:#65676b;">Google Maps</span>
+                <span style="color:var(--text-sub);">Google Maps</span>
             </div>
         </div>
     </div>
 
     <script>
+        // Theme initialization (Light / Dark Mode)
+        (function initSavedTheme() {
+            const savedTheme = localStorage.getItem('socialchat_theme_mode') || 'light';
+            applyThemeMode(savedTheme);
+        })();
+
+        function applyThemeMode(mode) {
+            const normalized = mode === 'dark' ? 'dark' : 'light';
+            if (normalized === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+            localStorage.setItem('socialchat_theme_mode', normalized);
+            const badge = document.getElementById('theme-mode-badge');
+            if (badge) {
+                badge.textContent = normalized === 'dark' ? 'Light Mode' : 'Dark Mode';
+            }
+        }
+
+        function toggleLightDarkTheme() {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            applyThemeMode(isDark ? 'light' : 'dark');
+        }
+
+        function switchProfileSubTab(subTab) {
+            const postsSection = document.getElementById('profile-section-posts');
+            const menuSection = document.getElementById('profile-section-menu');
+            const btnPosts = document.getElementById('profile-side-btn-posts');
+            const btnMenu = document.getElementById('profile-side-btn-menu');
+
+            if (subTab === 'menu') {
+                if (postsSection) postsSection.style.display = 'none';
+                if (menuSection) menuSection.style.display = 'block';
+                if (btnPosts) btnPosts.classList.remove('active');
+                if (btnMenu) btnMenu.classList.add('active');
+                populateOpenedMailsDropdown();
+            } else {
+                if (postsSection) postsSection.style.display = 'block';
+                if (menuSection) menuSection.style.display = 'none';
+                if (btnPosts) btnPosts.classList.add('active');
+                if (btnMenu) btnMenu.classList.remove('active');
+            }
+        }
+
+        function toggleMenuSubSection(boxId) {
+            const el = document.getElementById(boxId);
+            if (!el) return;
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function togglePwEye(inputId, btnEl) {
+            const inp = document.getElementById(inputId);
+            if (!inp) return;
+            if (inp.type === 'password') {
+                inp.type = 'text';
+                if (btnEl) btnEl.textContent = 'Hide';
+            } else {
+                inp.type = 'password';
+                if (btnEl) btnEl.textContent = 'See';
+            }
+        }
+
+        function openChangePasswordBox() {
+            const cpBox = document.getElementById('change-password-box');
+            const fpBox = document.getElementById('forget-password-box');
+            if (fpBox) fpBox.style.display = 'none';
+            if (cpBox) cpBox.style.display = 'block';
+            const fb = document.getElementById('cp-feedback');
+            if (fb) fb.textContent = '';
+        }
+
+        async function handleChangePasswordSubmit() {
+            const curPw = document.getElementById('cp-current-pw')?.value || '';
+            const newPw = document.getElementById('cp-new-pw')?.value || '';
+            const confPw = document.getElementById('cp-confirm-pw')?.value || '';
+            const fb = document.getElementById('cp-feedback');
+            const btn = document.getElementById('cp-submit-btn');
+
+            if (!curPw || !newPw || !confPw) {
+                if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'Current, New နဲ့ Confirm Password များအားလုံး ဖြည့်ပေးပါ။'; }
+                return;
+            }
+            if (newPw.length < 6) {
+                if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'New Password အနည်းဆုံး ၆ လုံး ရှိရပါမည်။'; }
+                return;
+            }
+            if (newPw !== confPw) {
+                if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'New Password နဲ့ Confirm Password မတူညီပါ။'; }
+                return;
+            }
+
+            if (btn) btn.disabled = true;
+            try {
+                if (currentUser && currentUser.email) {
+                    const { error: reauthErr } = await supabaseClient.auth.signInWithPassword({
+                        email: currentUser.email,
+                        password: curPw
+                    });
+                    if (reauthErr) {
+                        if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'Current Password မှားယွင်းနေပါသည်။'; }
+                        return;
+                    }
+                }
+                const { error: updErr } = await supabaseClient.auth.updateUser({ password: newPw });
+                if (updErr) {
+                    if (fb) { fb.style.color = '#fa383e'; fb.textContent = updErr.message; }
+                    return;
+                }
+                if (fb) { fb.style.color = '#137333'; fb.textContent = 'Password changed successfully!'; }
+                document.getElementById('cp-current-pw').value = '';
+                document.getElementById('cp-new-pw').value = '';
+                document.getElementById('cp-confirm-pw').value = '';
+            } catch (e) {
+                if (fb) { fb.style.color = '#fa383e'; fb.textContent = e.message || 'Error changing password'; }
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        let generatedForgetCode = '';
+
+        function populateOpenedMailsDropdown() {
+            const sel = document.getElementById('fp-mail-select');
+            if (!sel) return;
+            const mails = new Set();
+            if (currentUser && currentUser.email) mails.add(currentUser.email);
+            const typedEmail = document.getElementById('email')?.value?.trim();
+            if (typedEmail) mails.add(typedEmail);
+            mails.add('2000.yinaung@gmail.com');
+
+            sel.innerHTML = '';
+            mails.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m;
+                sel.appendChild(opt);
+            });
+        }
+
+        function openForgetPasswordBox() {
+            populateOpenedMailsDropdown();
+            const fpBox = document.getElementById('forget-password-box');
+            const cpBox = document.getElementById('change-password-box');
+            if (cpBox) cpBox.style.display = 'none';
+            if (fpBox) fpBox.style.display = 'block';
+
+            document.getElementById('fp-step-1').style.display = 'block';
+            document.getElementById('fp-step-2').style.display = 'none';
+            document.getElementById('fp-step-3').style.display = 'none';
+            document.getElementById('fp-verify-code').value = '';
+            document.getElementById('fp-new-pw').value = '';
+            document.getElementById('fp-confirm-pw').value = '';
+            document.getElementById('fp-feedback').textContent = '';
+
+            const finishBtn = document.getElementById('fp-finish-btn');
+            if (finishBtn) {
+                finishBtn.textContent = 'Finish';
+                finishBtn.disabled = false;
+            }
+        }
+
+        async function handleForgetMailNext() {
+            const selMail = document.getElementById('fp-mail-select')?.value;
+            const fb = document.getElementById('fp-feedback');
+            if (!selMail) return;
+
+            generatedForgetCode = String(Math.floor(100000 + Math.random() * 900000));
+            try {
+                await supabaseClient.auth.resetPasswordForEmail(selMail);
+            } catch (e) {}
+
+            document.getElementById('fp-step-1').style.display = 'none';
+            document.getElementById('fp-step-2').style.display = 'block';
+            document.getElementById('fp-code-sent-msg').textContent = `Verification code sent to ${selMail} (Code: ${generatedForgetCode})`;
+            if (fb) fb.textContent = '';
+        }
+
+        function handleForgetCodeNext() {
+            const enteredCode = (document.getElementById('fp-verify-code')?.value || '').trim();
+            const fb = document.getElementById('fp-feedback');
+            if (!enteredCode) {
+                if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'အတည်ပြု code ရိုက်ထည့်ပါ။'; }
+                return;
+            }
+            if (generatedForgetCode && enteredCode !== generatedForgetCode) {
+                if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'Verification code မကိုက်ညီပါ။'; }
+                return;
+            }
+            if (fb) fb.textContent = '';
+            document.getElementById('fp-step-2').style.display = 'none';
+            document.getElementById('fp-step-3').style.display = 'block';
+        }
+
+        async function handleForgetFinish() {
+            const newPw = document.getElementById('fp-new-pw')?.value || '';
+            const confPw = document.getElementById('fp-confirm-pw')?.value || '';
+            const fb = document.getElementById('fp-feedback');
+            const finishBtn = document.getElementById('fp-finish-btn');
+
+            if (!newPw || !confPw) {
+                if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'New Password နဲ့ Confirm Password ဖြည့်ပေးပါ။'; }
+                return;
+            }
+            if (newPw.length < 6) {
+                if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'Password အနည်းဆုံး ၆ လုံး ရှိရပါမည်။'; }
+                return;
+            }
+            if (newPw !== confPw) {
+                if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'Password နှစ်ခု မတူညီပါ။'; }
+                return;
+            }
+
+            if (finishBtn) {
+                finishBtn.textContent = 'Finishing';
+                finishBtn.disabled = true;
+            }
+            if (fb) fb.textContent = '';
+
+            try {
+                if (currentUser) {
+                    await supabaseClient.auth.updateUser({ password: newPw });
+                }
+            } catch (e) {}
+
+            setTimeout(() => {
+                if (finishBtn) {
+                    finishBtn.textContent = 'Finished';
+                    finishBtn.disabled = true;
+                }
+                if (fb) {
+                    fb.style.color = '#137333';
+                    fb.textContent = 'Password reset finished.';
+                }
+            }, 900);
+        }
+
         document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
         document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
         document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
@@ -963,7 +1400,7 @@
                 const dotEl = document.getElementById('chat-header-online-dot');
                 if (statusEl) {
                     statusEl.textContent = statusInfo.text;
-                    statusEl.style.color = statusInfo.isOnline ? '#31a24c' : '#65676b';
+                    statusEl.style.color = statusInfo.isOnline ? '#31a24c' : 'var(--text-sub)';
                 }
                 if (dotEl) {
                     dotEl.style.display = statusInfo.isOnline ? 'block' : 'none';
@@ -985,7 +1422,7 @@
                     const dot = item.querySelector('.online-dot-badge');
                     if (subEl) {
                         subEl.textContent = st.text;
-                        subEl.style.color = st.isOnline ? '#31a24c' : '#65676b';
+                        subEl.style.color = st.isOnline ? '#31a24c' : 'var(--text-sub)';
                     }
                     if (dot) {
                         dot.style.display = st.isOnline ? 'block' : 'none';
@@ -1442,7 +1879,6 @@
                 }
             } catch (e) {}
 
-            // Fallback direct <a download> without opening a new tab
             const a = document.createElement('a');
             a.href = url;
             a.download = cleanName;
@@ -2106,7 +2542,7 @@
 
             const filtered = (notificationsList || []).filter(item => item.type !== 'message');
             if (filtered.length === 0) {
-                container.innerHTML = '<p style="color: #65676b; font-size: 14px;">No new notifications right now.</p>';
+                container.innerHTML = '<p style="color: var(--text-sub); font-size: 14px;">No new notifications right now.</p>';
                 return;
             }
 
@@ -2125,8 +2561,8 @@
 
                 div.innerHTML = `
                     <div style="min-width:0;">
-                        <div style="font-size:13px; color:#050505;"><b>${item.actorName}</b> ${item.message}</div>
-                        ${item.detailText ? `<div style="font-size:12px; color:#4b4f56; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;">${item.detailText}</div>` : (item.caption ? `<div style="font-size:12px; color:#65676b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">"${item.caption}"</div>` : '')}
+                        <div style="font-size:13px;"><b>${item.actorName}</b> ${item.message}</div>
+                        ${item.detailText ? `<div style="font-size:12px; color:var(--text-sub); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;">${item.detailText}</div>` : (item.caption ? `<div style="font-size:12px; color:var(--text-sub); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">"${item.caption}"</div>` : '')}
                         <div style="font-size:11px; color:#8a8d91; margin-top:2px;">${new Date(item.createdAt).toLocaleTimeString()}</div>
                     </div>
                     ${pillHtml}
@@ -2728,6 +3164,8 @@
                     } else {
                         backToChatList();
                     }
+                } else if (tabName === 'profile') {
+                    switchProfileSubTab('posts');
                 }
             }
             updateMyLastSeen();
@@ -3507,6 +3945,7 @@
         }
 
         function buildPostCardHtml(post, showAuthorHeader) {
+            const safePostKey = encodeURIComponent(String(post.id));
             const uname = post.profiles ? post.profiles.username : 'User';
             const uBio = post.profiles ? (post.profiles.bio || '') : '';
             const uAvatar = post.profiles ? (post.profiles.avatar_url || '') : '';
@@ -3551,18 +3990,20 @@
             const displayText = parsedContent.text;
             let actionButtons = '';
             if (post.user_id === currentUser.id) {
-                actionButtons = `<button onclick="editPost('${post.id}', '${displayText.replace(/'/g, "\\'")}')" style="width:auto; padding:3px 8px; font-size:11px; background:#65676b;">Edit</button> <button onclick="deletePost('${post.id}')" style="width:auto; padding:3px 8px; font-size:11px; background:#fa383e;">Delete</button>`;
+                actionButtons = `<button onclick="editPost('${post.id}', '${displayText.replace(/'/g, "\\'")}')" style="width:auto; padding:3px 8px; font-size:11px; background:var(--text-sub);">Edit</button> <button onclick="deletePost('${post.id}')" style="width:auto; padding:3px 8px; font-size:11px; background:#fa383e;">Delete</button>`;
             }
 
             let commentsHtml = '';
-            let commentsArr = post.comments || [];
+            let commentsArr = Array.isArray(post.comments) ? post.comments : [];
             commentsArr.forEach(c => {
-                commentsHtml += `<div style="margin-top:4px; font-size:12px;"><b>${c.username}:</b> ${c.text}</div>`;
+                const cUser = (c && c.username) ? c.username : 'User';
+                const cText = (c && c.text) ? c.text : '';
+                commentsHtml += `<div style="margin-top:4px; font-size:12px;"><b>${cUser}:</b> ${cText}</div>`;
             });
 
             const headerLeft = showAuthorHeader
                 ? `<div><span class="post-author" onclick="viewUserProfile('${post.user_id}', '${uname}', '${uBio}', '${uAvatar}')">${uname}</span><div class="post-time">${time} (${post.privacy})</div></div>`
-                : `<div style="font-size:11px; color:#65676b;">Privacy: ${post.privacy}</div>`;
+                : `<div style="font-size:11px; color:var(--text-sub);">Privacy: ${post.privacy} · ${time}</div>`;
 
             const shareMediaParam = allPhotos[0] || post.media_url || '';
 
@@ -3576,14 +4017,14 @@
                     ${mediaHtml}
                     <div class="action-bar">
                         <span onclick="likePost('${post.id}', ${post.likes_count || 0})">❤️ Like (${post.likes_count || 0})</span>
-                        <span onclick="toggleCommentBox('${post.id}')">💬 Comment</span>
+                        <span onclick="toggleCommentBox('${safePostKey}')">💬 Comment (${commentsArr.length})</span>
                         <span onclick="sharePost('${post.id}', '${displayText.replace(/'/g, "\\'")}', '${shareMediaParam}')">🔗 Share (${post.shares_count || 0})</span>
                     </div>
-                    <div id="comment-section-${post.id}" class="comment-section" style="display:none;">
-                        <div id="comments-list-${post.id}">${commentsHtml}</div>
+                    <div id="comment-section-${safePostKey}" class="comment-section" style="display:none;">
+                        <div id="comments-list-${safePostKey}">${commentsHtml || '<div style="font-size:12px; color:var(--text-sub);">No comments yet.</div>'}</div>
                         <div style="display:flex; margin-top:6px; gap:5px;">
-                            <input type="text" id="comment-input-${post.id}" placeholder="Write a comment..." style="margin:0; padding:6px; font-size:12px;">
-                            <button onclick="addComment('${post.id}')" style="width:60px; margin:0; padding:6px; font-size:12px;">Post</button>
+                            <input type="text" id="comment-input-${safePostKey}" placeholder="Write a comment..." style="margin:0; padding:6px; font-size:12px;">
+                            <button onclick="addComment('${safePostKey}', '${post.id}')" style="width:60px; margin:0; padding:6px; font-size:12px;">Post</button>
                         </div>
                     </div>
                 </div>`;
@@ -3645,7 +4086,7 @@
                     visitorPostsDiv.innerHTML += buildPostCardHtml(post, false);
                 });
             } else {
-                visitorPostsDiv.innerHTML = '<p style="color:#65676b; font-size:13px;">No public posts.</p>';
+                visitorPostsDiv.innerHTML = '<p style="color:var(--text-sub); font-size:13px;">No public posts.</p>';
             }
         }
 
@@ -3686,13 +4127,13 @@
                                 <span class="online-dot-badge" style="display:${presenceInfo.isOnline ? 'block' : 'none'};"></span>
                             </div>
                             <div style="min-width:0; flex:1;">
-                                <div style="font-weight: bold; font-size: 15px; color: #050505; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${user.username || 'User'}</div>
-                                <div class="chat-list-status-sub" style="font-size: 12px; color: ${presenceInfo.isOnline ? '#31a24c' : '#65676b'};">${presenceInfo.text}</div>
+                                <div style="font-weight: bold; font-size: 15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${user.username || 'User'}</div>
+                                <div class="chat-list-status-sub" style="font-size: 12px; color: ${presenceInfo.isOnline ? '#31a24c' : 'var(--text-sub)'};">${presenceInfo.text}</div>
                             </div>
                         </div>`;
                 });
             } else {
-                listDiv.innerHTML = '<p style="color: #65676b; font-size: 13px;">No other users found yet.</p>';
+                listDiv.innerHTML = '<p style="color: var(--text-sub); font-size: 13px;">No other users found yet.</p>';
             }
         }
 
@@ -4028,7 +4469,7 @@
                     }
                     await markConversationSeen(activeChatUser.id);
                 } else if (!silent) {
-                    chatBox.innerHTML = '<p style="color:#65676b; text-align:center; font-size:13px; margin-top:20px;">No messages yet. Say hello!</p>';
+                    chatBox.innerHTML = '<p style="color:var(--text-sub); text-align:center; font-size:13px; margin-top:20px;">No messages yet. Say hello!</p>';
                 }
             } catch (e) {
                 console.error(e);
@@ -4292,7 +4733,7 @@
                     feed.innerHTML += buildPostCardHtml(post, true);
                 });
             } else {
-                feed.innerHTML = '<p style="color:#65676b; text-align:center;">No posts available.</p>';
+                feed.innerHTML = '<p style="color:var(--text-sub); text-align:center;">No posts available.</p>';
             }
         }
 
@@ -4320,26 +4761,28 @@
             loadProfile();
         }
 
-        function toggleCommentBox(postId) {
-            const box = document.getElementById(`comment-section-${postId}`);
-            box.style.display = box.style.display === 'none' ? 'block' : 'none';
+        function toggleCommentBox(safePostKey) {
+            const box = document.getElementById(`comment-section-${safePostKey}`);
+            if (!box) return;
+            box.style.display = (box.style.display === 'none' || !box.style.display) ? 'block' : 'none';
         }
 
-        async function addComment(postId) {
-            const input = document.getElementById(`comment-input-${postId}`);
-            const text = input.value.trim();
+        async function addComment(safePostKey, realPostId = null) {
+            const targetPostId = realPostId || decodeURIComponent(safePostKey);
+            const input = document.getElementById(`comment-input-${safePostKey}`);
+            const text = input ? input.value.trim() : '';
             if (!text) return;
 
-            const { data: profile } = await supabaseClient.from('profiles').select('username').eq('id', currentUser.id).single();
-            const uname = profile ? profile.username : 'User';
+            const { data: profile } = await supabaseClient.from('profiles').select('username').eq('id', currentUser.id).maybeSingle();
+            const uname = (profile && profile.username) || (currentProfileData && currentProfileData.username) || 'User';
 
-            const { data: postData } = await supabaseClient.from('posts').select('comments').eq('id', postId).single();
-            let comments = postData.comments || [];
+            const { data: postData } = await supabaseClient.from('posts').select('comments').eq('id', targetPostId).maybeSingle();
+            let comments = (postData && Array.isArray(postData.comments)) ? [...postData.comments] : [];
             comments.push({ username: uname, text: text });
 
-            await supabaseClient.from('posts').update({ comments: comments }).eq('id', postId);
-            await emitPostInteractionNotification(postId, 'comment', `"${text}"`);
-            input.value = '';
+            await supabaseClient.from('posts').update({ comments: comments }).eq('id', targetPostId);
+            await emitPostInteractionNotification(targetPostId, 'comment', `"${text}"`);
+            if (input) input.value = '';
             loadFeed();
             loadProfile();
         }
@@ -4442,7 +4885,7 @@
                         myPostsDiv.innerHTML += buildPostCardHtml(post, false);
                     });
                 } else {
-                    myPostsDiv.innerHTML = '<p style="color:#65676b; font-size:13px;">No posts yet.</p>';
+                    myPostsDiv.innerHTML = '<p style="color:var(--text-sub); font-size:13px;">No posts yet.</p>';
                 }
             }
         }
@@ -4464,7 +4907,7 @@
             styleEl.textContent = `
                 .target-post-highlight {
                     outline: 2px solid #1877f2 !important;
-                    background: #eef6ff !important;
+                    background: rgba(24,119,242,0.12) !important;
                     transition: background 0.6s ease, outline-color 0.6s ease;
                 }
                 .comment-row-item {
@@ -4472,8 +4915,8 @@
                     margin-top: 6px;
                     padding: 6px 8px;
                     border-radius: 6px;
-                    background: #ffffff;
-                    border: 1px solid #e4e6eb;
+                    background: var(--bg-card);
+                    border: 1px solid var(--border-color);
                     user-select: none;
                     -webkit-user-select: none;
                     -webkit-touch-callout: none;
@@ -4481,6 +4924,7 @@
                 }
                 .comment-row-item.pressing {
                     background: #fff3cd;
+                    color: #050505;
                     border-color: #f0ad4e;
                 }
                 .comment-longpress-delete-btn {
@@ -4647,8 +5091,8 @@
 
                 const listDivs = Array.from(document.querySelectorAll('[id^="comments-list-"]'));
                 for (const listDiv of listDivs) {
-                    const postId = listDiv.id.replace('comments-list-', '');
-                    const postCard = listDiv.closest('.post-item') || document.querySelector(`.post-item[data-post-id="${postId}"]`);
+                    const postCard = listDiv.closest('.post-item');
+                    const postId = (postCard && postCard.dataset.postId) || decodeURIComponent(listDiv.id.replace('comments-list-', ''));
                     const canDelete = await checkIsCurrentUserPostOwner(postId, postCard);
 
                     const children = Array.from(listDiv.children);
