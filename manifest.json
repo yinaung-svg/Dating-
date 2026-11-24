@@ -1,0 +1,30 @@
+{
+  "name": "SocialChat",
+  "short_name": "SocialChat",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f0f2f5",
+  "theme_color": "#1877f2",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "E7AC1A1B-3A54-475C-8B98-7B0A3AB6CE89.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "E7AC1A1B-3A54-475C-8B98-7B0A3AB6CE89.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "E7AC1A1B-3A54-475C-8B98-7B0A3AB6CE89.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
