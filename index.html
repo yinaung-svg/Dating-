@@ -218,7 +218,6 @@
         #live-viewer-modal.landscape-mode .viewer-comments-area { display: none !important; }
 
         /* ==================== RESPONSIVE VIEWPORTS (PHONE / IPAD / TABLET / PC) ==================== */
-        /* Small Phones (<= 420px) */
         @media (max-width: 420px) {
             .auth-container { padding: 18px 15px; margin: 8px; max-width: calc(100% - 16px); }
             header { padding: 8px 12px; }
@@ -233,7 +232,6 @@
             .collage-4plus .collage-cell { height: 150px; }
         }
 
-        /* iPad / Tablets (600px to 1024px) */
         @media (min-width: 600px) and (max-width: 1024px) {
             .auth-container { max-width: 440px; padding: 30px; }
             #app-container { max-width: 740px; height: 94vh; height: 94dvh; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,0.12); border: 1px solid #e4e6eb; }
@@ -251,7 +249,6 @@
             .live-modal-card { max-width: 540px; }
         }
 
-        /* PC / Desktop (> 1024px) */
         @media (min-width: 1025px) {
             .auth-container { max-width: 420px; padding: 32px; }
             #app-container { max-width: 820px; height: 94vh; height: 94dvh; border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,0.14); border: 1px solid #dfe3e8; }
@@ -1397,25 +1394,62 @@
             return `${(b / (1024 * 1024)).toFixed(1)} MB`;
         }
 
-        function savePhotoAsImage(url) {
+        function triggerDirectBlobDownload(blob, filename = 'photo.jpg') {
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = filename || 'photo.jpg';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                a.remove();
+                URL.revokeObjectURL(blobUrl);
+            }, 1500);
+        }
+
+        async function savePhotoAsImage(url, filename = 'photo.jpg') {
             if (!url) return;
-            if (url.startsWith('data:image/')) {
-                const parts = url.split(',');
-                const mimeMatch = parts[0].match(/data:(image\/[a-zA-Z0-9.+-]+);base64/);
-                const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-                const byteStr = atob(parts[1] || '');
-                const ab = new ArrayBuffer(byteStr.length);
-                const ia = new Uint8Array(ab);
-                for (let i = 0; i < byteStr.length; i++) {
-                    ia[i] = byteStr.charCodeAt(i);
+            const cleanName = (filename || `photo_${Date.now()}.jpg`).replace(/[^a-zA-Z0-9._-]/g, '_');
+
+            try {
+                if (url.startsWith('data:image/')) {
+                    const parts = url.split(',');
+                    const mimeMatch = parts[0].match(/data:(image\/[a-zA-Z0-9.+-]+);base64/);
+                    const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+                    const ext = (mime.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+                    const finalName = cleanName.includes('.') ? cleanName : `${cleanName}.${ext}`;
+                    const byteStr = atob(parts[1] || '');
+                    const ab = new ArrayBuffer(byteStr.length);
+                    const ia = new Uint8Array(ab);
+                    for (let i = 0; i < byteStr.length; i++) {
+                        ia[i] = byteStr.charCodeAt(i);
+                    }
+                    const blob = new Blob([ab], { type: mime });
+                    triggerDirectBlobDownload(blob, finalName);
+                    return;
                 }
-                const blob = new Blob([ab], { type: mime });
-                const blobUrl = URL.createObjectURL(blob);
-                window.open(blobUrl, '_blank', 'noopener,noreferrer');
-                setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
-                return;
-            }
-            window.open(url, '_blank', 'noopener,noreferrer');
+
+                const resp = await fetch(url, { mode: 'cors' });
+                if (resp.ok) {
+                    const blob = await resp.blob();
+                    const ext = (blob.type && blob.type.startsWith('image/'))
+                        ? blob.type.split('/')[1].replace('jpeg', 'jpg')
+                        : 'jpg';
+                    const finalName = cleanName.includes('.') ? cleanName : `${cleanName}.${ext}`;
+                    triggerDirectBlobDownload(blob, finalName);
+                    return;
+                }
+            } catch (e) {}
+
+            // Fallback direct <a download> without opening a new tab
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = cleanName;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => a.remove(), 1000);
         }
 
         async function saveFileAttachment(url, filename = 'download') {
@@ -1425,23 +1459,17 @@
                     const a = document.createElement('a');
                     a.href = url;
                     a.download = filename || 'download';
+                    a.style.display = 'none';
                     document.body.appendChild(a);
                     a.click();
-                    a.remove();
+                    setTimeout(() => a.remove(), 1000);
                     return;
                 }
 
                 const resp = await fetch(url);
                 if (resp.ok) {
                     const blob = await resp.blob();
-                    const blobUrl = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = blobUrl;
-                    a.download = filename || 'download';
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
+                    triggerDirectBlobDownload(blob, filename || 'download');
                     return;
                 }
             } catch (e) {}
@@ -1449,11 +1477,10 @@
             const a = document.createElement('a');
             a.href = url;
             a.download = filename || 'download';
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
+            a.style.display = 'none';
             document.body.appendChild(a);
             a.click();
-            a.remove();
+            setTimeout(() => a.remove(), 1000);
         }
 
         function openFilePreviewModal(url, name, size) {
@@ -1540,7 +1567,7 @@
                 img.alt = mediaObj.name || 'Photo';
                 img.onclick = (ev) => {
                     ev.stopPropagation();
-                    openLightbox(mediaObj.url, mediaObj.name || 'photo.jpg', !isMe);
+                    openLightbox(mediaObj.url, mediaObj.name || 'photo.jpg', true);
                 };
                 bubble.appendChild(img);
                 return;
@@ -3448,23 +3475,23 @@
             const escUrl = (u) => u.replace(/'/g, "\\'");
 
             if (list.length === 1) {
-                return `<img src="${list[0]}" class="post-media" onclick="openLightbox('${escUrl(list[0])}', 'photo.jpg', true)">`;
+                return `<img src="${list[0]}" class="post-media" onclick="openLightbox('${escUrl(list[0])}', 'post_photo.jpg', true)">`;
             }
 
             if (list.length === 2) {
                 return `
                     <div class="collage-wrap collage-2">
-                        <div class="collage-cell" onclick="openLightbox('${escUrl(list[0])}', 'photo.jpg', true)"><img src="${list[0]}"></div>
-                        <div class="collage-cell" onclick="openLightbox('${escUrl(list[1])}', 'photo.jpg', true)"><img src="${list[1]}"></div>
+                        <div class="collage-cell" onclick="openLightbox('${escUrl(list[0])}', 'post_photo_1.jpg', true)"><img src="${list[0]}"></div>
+                        <div class="collage-cell" onclick="openLightbox('${escUrl(list[1])}', 'post_photo_2.jpg', true)"><img src="${list[1]}"></div>
                     </div>`;
             }
 
             if (list.length === 3) {
                 return `
                     <div class="collage-wrap collage-3">
-                        <div class="collage-cell collage-cell-top" onclick="openLightbox('${escUrl(list[0])}', 'photo.jpg', true)"><img src="${list[0]}"></div>
-                        <div class="collage-cell collage-cell-bottom" onclick="openLightbox('${escUrl(list[1])}', 'photo.jpg', true)"><img src="${list[1]}"></div>
-                        <div class="collage-cell collage-cell-bottom" onclick="openLightbox('${escUrl(list[2])}', 'photo.jpg', true)"><img src="${list[2]}"></div>
+                        <div class="collage-cell collage-cell-top" onclick="openLightbox('${escUrl(list[0])}', 'post_photo_1.jpg', true)"><img src="${list[0]}"></div>
+                        <div class="collage-cell collage-cell-bottom" onclick="openLightbox('${escUrl(list[1])}', 'post_photo_2.jpg', true)"><img src="${list[1]}"></div>
+                        <div class="collage-cell collage-cell-bottom" onclick="openLightbox('${escUrl(list[2])}', 'post_photo_3.jpg', true)"><img src="${list[2]}"></div>
                     </div>`;
             }
 
@@ -3472,10 +3499,10 @@
             const fourthOverlay = extraCount > 0 ? `<div class="collage-more-overlay">+${extraCount}</div>` : '';
             return `
                 <div class="collage-wrap collage-4plus">
-                    <div class="collage-cell" onclick="openLightbox('${escUrl(list[0])}', 'photo.jpg', true)"><img src="${list[0]}"></div>
-                    <div class="collage-cell" onclick="openLightbox('${escUrl(list[1])}', 'photo.jpg', true)"><img src="${list[1]}"></div>
-                    <div class="collage-cell" onclick="openLightbox('${escUrl(list[2])}', 'photo.jpg', true)"><img src="${list[2]}"></div>
-                    <div class="collage-cell" onclick="openLightbox('${escUrl(list[3])}', 'photo.jpg', true)"><img src="${list[3]}">${fourthOverlay}</div>
+                    <div class="collage-cell" onclick="openLightbox('${escUrl(list[0])}', 'post_photo_1.jpg', true)"><img src="${list[0]}"></div>
+                    <div class="collage-cell" onclick="openLightbox('${escUrl(list[1])}', 'post_photo_2.jpg', true)"><img src="${list[1]}"></div>
+                    <div class="collage-cell" onclick="openLightbox('${escUrl(list[2])}', 'post_photo_3.jpg', true)"><img src="${list[2]}"></div>
+                    <div class="collage-cell" onclick="openLightbox('${escUrl(list[3])}', 'post_photo_4.jpg', true)"><img src="${list[3]}">${fourthOverlay}</div>
                 </div>`;
         }
 
@@ -4348,9 +4375,21 @@
             document.getElementById('lightbox-modal').style.display = 'none';
         }
 
-        function saveCurrentLightboxPhoto() {
+        async function saveCurrentLightboxPhoto() {
             if (!currentLightboxMeta.url || !currentLightboxMeta.canSave) return;
-            savePhotoAsImage(currentLightboxMeta.url);
+            const btn = document.getElementById('lightbox-save-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+            }
+            try {
+                await savePhotoAsImage(currentLightboxMeta.url, currentLightboxMeta.name);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '⬇ Save Photo';
+                }
+            }
         }
 
         async function loadProfile() {
