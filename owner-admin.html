@@ -130,9 +130,44 @@
         const OWNER_EMAIL = 'yinaung303@gmail.com';
         const OWNER_PASSWORD = 'yinaung133456';
 
-        let allProfiles = [], allPosts = [], expandedUserId = null;
+        let allProfiles = [], allPosts = [], expandedUserId = null, adminNotiChannel = null;
+
+        async function getAdminNotiChannel() {
+            if (adminNotiChannel) return adminNotiChannel;
+            return new Promise(resolve => {
+                const ch = supabaseClient.channel('global-live-notifications').subscribe(st => {
+                    if (st === 'SUBSCRIBED') { adminNotiChannel = ch; resolve(ch); }
+                });
+                setTimeout(() => resolve(adminNotiChannel || ch), 800);
+            });
+        }
+
+        async function sendUserNotification(targetUserId, payload) {
+            if (!targetUserId || !payload) return;
+            const row = {
+                id: payload.id || `noti_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                user_id: targetUserId,
+                type: payload.type || 'post',
+                actor_id: 'owner_admin',
+                actor_name: payload.actorName || 'Owner Admin',
+                message: payload.message || '',
+                detail_text: payload.detailText || '',
+                post_id: payload.postId || null,
+                live_id: null,
+                cover_url: '',
+                caption: '',
+                is_read: false,
+                created_at: new Date().toISOString()
+            };
+            try { await supabaseClient.from('notifications').upsert([row], { onConflict: 'id' }); } catch (e) {}
+            const ch = await getAdminNotiChannel();
+            if (ch && payload.broadcastEvent) {
+                try { await ch.send({ type: 'broadcast', event: payload.broadcastEvent, payload: { ...payload, id: row.id, targetUserId, createdAt: row.created_at } }); } catch (e) {}
+            }
+        }
 
         window.addEventListener('DOMContentLoaded', async () => {
+            getAdminNotiChannel();
             if (sessionStorage.getItem('sc_owner_authed') === '1') {
                 enterAdminShell(OWNER_EMAIL);
                 return;
@@ -233,6 +268,17 @@
         async function setBlueMark(userId, nextState) {
             const { error } = await supabaseClient.from('profiles').update({ is_verified: Boolean(nextState) }).eq('id', userId);
             if (error) { alert('Error: ' + error.message); return; }
+            if (Boolean(nextState) === true) {
+                await sendUserNotification(userId, {
+                    id: `blue_mark_${userId}_${Date.now()}`,
+                    type: 'blue_mark',
+                    actorName: 'Owner Admin',
+                    message: 'congratulation you have blue mark',
+                    detailText: 'Tap to open your profile',
+                    isVerified: true,
+                    broadcastEvent: 'blue_mark_noti'
+                });
+            }
             await refreshAllAdminData();
         }
 
@@ -322,8 +368,21 @@
         }
 
         async function toggleBanPost(postId, nextBan) {
+            const post = allPosts.find(x => String(x.id) === String(postId));
             const { error } = await supabaseClient.from('posts').update({ is_banned: Boolean(nextBan) }).eq('id', postId);
             if (error) { alert('Error: ' + error.message); return; }
+            if (Boolean(nextBan) === true && post?.user_id) {
+                await sendUserNotification(post.user_id, {
+                    id: `ban_post_${postId}_${Date.now()}`,
+                    type: 'ban_notice',
+                    banKind: 'post',
+                    actorName: 'Owner Admin',
+                    message: 'your post has been banned',
+                    detailText: post.content ? String(post.content).slice(0, 60) : 'Post',
+                    postId: String(postId),
+                    broadcastEvent: 'ban_noti'
+                });
+            }
             await refreshAllAdminData();
         }
 
@@ -359,10 +418,32 @@
 
         async function toggleBanComment(postId, commentIdx, nextBan) {
             const post = allPosts.find(x => String(x.id) === String(postId)); if (!post) return;
+            const comments = Array.isArray(post.comments) ? post.comments : [];
+            const targetComment = comments[commentIdx] || {};
             const bannedSet = new Set(Array.isArray(post.banned_comments) ? post.banned_comments.map(Number) : []);
             if (nextBan) bannedSet.add(Number(commentIdx)); else bannedSet.delete(Number(commentIdx));
             const { error } = await supabaseClient.from('posts').update({ banned_comments: Array.from(bannedSet) }).eq('id', postId);
             if (error) { alert('Error: ' + error.message); return; }
+
+            if (Boolean(nextBan) === true) {
+                let commentAuthorId = targetComment.user_id || null;
+                if (!commentAuthorId && targetComment.username) {
+                    const matched = allProfiles.find(pr => (pr.username || '').trim().toLowerCase() === String(targetComment.username).trim().toLowerCase());
+                    if (matched?.id) commentAuthorId = matched.id;
+                }
+                if (commentAuthorId) {
+                    await sendUserNotification(commentAuthorId, {
+                        id: `ban_cmt_${postId}_${commentIdx}_${Date.now()}`,
+                        type: 'ban_notice',
+                        banKind: 'comment',
+                        actorName: 'Owner Admin',
+                        message: 'your comment has been banned',
+                        detailText: targetComment.text ? `"${targetComment.text}"` : 'Comment',
+                        postId: String(postId),
+                        broadcastEvent: 'ban_noti'
+                    });
+                }
+            }
             await refreshAllAdminData();
         }
 
