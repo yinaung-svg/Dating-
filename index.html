@@ -2,384 +2,1688 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SocialChat Owner Admin Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1877f2">
+    <title>SocialChat</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="E7AC1A1B-3A54-475C-8B98-7B0A3AB6CE89.png">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
-            --bg: #0f1115;
-            --card: #181b22;
-            --soft: #222630;
-            --text: #f3f5f8;
-            --muted: #9aa3b2;
-            --border: #2c313d;
-            --blue: #1877f2;
-            --red: #e41e3f;
-            --green: #1ea653;
+            --bg-app: #f0f2f5;
+            --bg-card: #ffffff;
+            --bg-soft: #f0f2f5;
+            --bg-muted: #e4e6eb;
+            --text-main: #050505;
+            --text-sub: #65676b;
+            --border-color: #ddd;
+            --accent: #1877f2;
+            --accent-hover: #166fe5;
         }
-        * { box-sizing: border-box; }
-        body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-        #login-gate { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
-        .login-box { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
-        .login-box h2 { margin: 0 0 8px 0; color: var(--blue); }
-        input { width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--soft); color: var(--text); font-size: 14px; margin-top: 8px; }
-        button { padding: 9px 14px; border: none; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; background: var(--blue); color: #fff; }
-        button:hover { opacity: 0.92; }
-        .btn-red { background: var(--red); }
-        .btn-green { background: var(--green); }
-        .btn-gray { background: var(--soft); color: var(--text); border: 1px solid var(--border); }
+        [data-theme="dark"] {
+            --bg-app: #121316;
+            --bg-card: #1e2025;
+            --bg-soft: #262930;
+            --bg-muted: #2f333d;
+            --text-main: #f0f2f5;
+            --text-sub: #a8b0bc;
+            --border-color: #343842;
+            --accent: #2d88ff;
+            --accent-hover: #1877f2;
+        }
 
-        #admin-shell { display: none; max-width: 900px; margin: 0 auto; padding: 14px; }
-        .topbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
-        .nav-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-        .tag-btn { background: var(--card); color: var(--muted); border: 1px solid var(--border); padding: 9px 13px; border-radius: 8px; font-size: 13px; }
-        .tag-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
-        .panel-section { display: none; }
-        .panel-section.active { display: block; }
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
-        .user-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border-radius: 8px; background: var(--soft); border: 1px solid var(--border); margin-top: 8px; cursor: pointer; }
-        .user-row:hover { border-color: var(--blue); }
-        .user-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
-        .avatar-circle { width: 42px; height: 42px; border-radius: 50%; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; flex-shrink: 0; }
-        .avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
-        .blue-tick { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 10px; margin-left: 5px; }
-        .pill-ban { background: rgba(228,30,63,0.18); color: #ff6b81; border: 1px solid rgba(228,30,63,0.4); padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: bold; margin-left: 6px; }
-        .action-drawer { display: none; margin-top: 8px; padding: 10px; border-radius: 8px; background: #14171d; border: 1px dashed var(--blue); gap: 8px; align-items: center; flex-wrap: wrap; }
-        .action-drawer.open { display: flex; }
-        .post-manage-item { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
-        .comment-manage-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin-top: 6px; font-size: 13px; }
+        html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
+        body { font-family: Arial, sans-serif; background: var(--bg-app); color: var(--text-main); margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; min-height: 100dvh; transition: background 0.2s ease, color 0.2s ease; }
+        .auth-container { background: var(--bg-card); color: var(--text-main); padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 360px; margin: 12px; box-sizing: border-box; text-align: center; }
+        input, textarea, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 5px; }
+        button:hover { background: var(--accent-hover); }
+        button:disabled { opacity: 0.7; cursor: not-allowed; }
+        .toggle-btn { background: none; color: var(--accent); border: none; cursor: pointer; margin-top: 12px; font-size: 14px; }
+        .toggle-btn:hover { text-decoration: underline; }
+        .error { color: #fa383e; font-size: 13px; margin-top: 5px; text-align: left; }
+
+        .blue-mark-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #1877f2;
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: bold;
+            margin-left: 4px;
+            vertical-align: middle;
+            flex-shrink: 0;
+        }
+        .banned-content-notice {
+            padding: 10px 12px;
+            margin-top: 8px;
+            border-radius: 6px;
+            background: rgba(228, 30, 63, 0.12);
+            border: 1px solid rgba(228, 30, 63, 0.45);
+            color: #fa383e;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        #account-ban-screen {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 5000;
+            background: rgba(0, 0, 0, 0.92);
+            color: #ffffff;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+            text-align: center;
+        }
+        .account-ban-card {
+            background: #1e2025;
+            border: 1px solid #fa383e;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 360px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        #app-container { display: none; width: 100%; max-width: 600px; height: 100vh; height: 100dvh; background: var(--bg-app); flex-direction: column; overflow: hidden; box-sizing: border-box; }
+        header { background: var(--bg-card); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+        header h2 { margin: 0; color: var(--accent); font-size: 20px; }
+
+        .nav-tabs { display: flex; background: var(--bg-card); border-bottom: 1px solid var(--border-color); justify-content: space-around; flex-shrink: 0; overflow-x: auto; }
+        .tab-btn { flex: 1; min-width: 52px; white-space: nowrap; padding: 12px 4px; background: none; border: none; font-size: 13px; font-weight: bold; color: var(--text-sub); cursor: pointer; border-bottom: 3px solid transparent; text-align: center; position: relative; margin-top: 0; }
+        .tab-btn:hover { background: transparent; color: var(--accent); }
+        .tab-btn.active { color: var(--accent); border-bottom: 3px solid var(--accent); }
+        .tab-count-badge { position: absolute; top: 4px; right: 4px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: #e41e3f; color: #fff; font-size: 10px; font-weight: bold; line-height: 16px; text-align: center; box-sizing: border-box; pointer-events: none; }
+
+        .tab-content { flex: 1; overflow-y: auto; padding: 15px; display: none; min-height: 0; box-sizing: border-box; }
+        .tab-content.active { display: block; }
+
+        .card { background: var(--bg-card); color: var(--text-main); border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .post-input { resize: none; height: 60px; }
+        .post-item { border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px; }
+        .post-author { font-weight: bold; color: var(--accent); font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; }
+        .post-author:hover { text-decoration: underline; }
+        .post-time { font-size: 11px; color: var(--text-sub); }
+        .post-body { margin-top: 8px; font-size: 14px; color: var(--text-main); white-space: pre-wrap; }
+        .post-media { width: 100%; max-height: 320px; object-fit: cover; border-radius: 6px; margin-top: 8px; cursor: pointer; display: block; }
+
+        .collage-wrap { margin-top: 8px; display: grid; gap: 4px; border-radius: 8px; overflow: hidden; background: var(--bg-card); }
+        .collage-2 { grid-template-columns: repeat(2, 1fr); }
+        .collage-2 .collage-cell { height: 220px; }
+        .collage-3 { grid-template-columns: repeat(2, 1fr); }
+        .collage-3 .collage-cell-top { grid-column: 1 / -1; height: 220px; }
+        .collage-3 .collage-cell-bottom { height: 175px; }
+        .collage-4plus { grid-template-columns: repeat(2, 1fr); }
+        .collage-4plus .collage-cell { height: 185px; }
+        .collage-cell { position: relative; overflow: hidden; cursor: pointer; background: #111; }
+        .collage-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .collage-more-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.52); color: #fff; font-size: 26px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+
+        .selected-photos-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .selected-photo-thumb { width: 68px; height: 68px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); }
+
+        .posting-status-banner { display: none; margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: bold; text-align: center; }
+        .posting-status-banner.uploading { display: block; background: #e7f3ff; color: #1877f2; border: 1px solid #b6d9ff; }
+        .posting-status-banner.finished { display: block; background: #e6f7ed; color: #137333; border: 1px solid #a8dab5; }
+
+        .noti-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border-radius: 8px; background: var(--bg-soft); border: 1px solid var(--border-color); margin-bottom: 8px; cursor: pointer; }
+        .noti-item:hover { background: var(--bg-muted); }
+        .noti-item.unread { background: rgba(24,119,242,0.12); border-color: var(--accent); }
+        .noti-tag-pill { background: var(--accent); color: #fff; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+
+        .action-bar { display: flex; justify-content: space-around; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); padding: 8px 0; margin-top: 10px; font-size: 13px; color: var(--text-sub); cursor: pointer; }
+        .action-bar span:hover { color: var(--accent); }
+
+        .profile-main-layout { display: flex; gap: 12px; align-items: flex-start; }
+        .profile-posts-col { flex: 1; min-width: 0; }
+
+        .menu-row-btn, .menu-link-item {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 11px 12px;
+            margin: 8px 0 0 0;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-soft);
+            color: var(--text-main);
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        .menu-row-btn:hover, .menu-link-item:hover { background: var(--bg-muted); color: var(--text-main); }
+        .menu-sub-box { margin-top: 6px; padding-left: 10px; border-left: 2px solid var(--accent); }
+
+        .pw-input-wrap { position: relative; display: flex; align-items: center; margin: 8px 0; }
+        .pw-input-wrap input { margin: 0; padding-right: 68px; }
+        .pw-see-hide-btn {
+            position: absolute;
+            right: 8px;
+            width: auto;
+            margin: 0;
+            padding: 5px 10px;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 6px;
+            background: var(--bg-muted);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+        .pw-see-hide-btn:hover { background: var(--border-color); }
+
+        .blue-action-btn {
+            width: 100%;
+            padding: 11px 14px;
+            margin-top: 10px;
+            border: none;
+            border-radius: 6px;
+            background: #1877f2;
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .blue-action-btn:hover { background: #166fe5; }
+        .blue-action-btn:disabled { background: #4a90e2; color: #ffffff; opacity: 1; cursor: default; }
+
+        #chat-tab { display: none; flex-direction: column; height: 100%; padding: 0; overflow: hidden; }
+        #chat-tab.active { display: flex; }
+
+        #chat-list-view { flex: 1; overflow-y: auto; padding: 15px; box-sizing: border-box; min-height: 0; }
+        #chat-box-view { display: none; flex-direction: column; height: 100%; flex: 1; min-height: 0; overflow: hidden; position: relative; }
+
+        .chat-messenger-header { display: flex; align-items: center; padding: 10px 15px; background: var(--bg-card); border-bottom: 1px solid var(--border-color); gap: 10px; flex-shrink: 0; }
+        .chat-avatar-wrap { position: relative; flex-shrink: 0; width: 45px; height: 45px; }
+        .chat-messenger-header .chat-avatar-wrap { width: 35px; height: 35px; }
+        .chat-header-avatar { width: 35px; height: 35px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 14px; }
+        .online-dot-badge { position: absolute; bottom: 0; right: 0; width: 11px; height: 11px; background: #31a24c; border: 2px solid var(--bg-card); border-radius: 50%; z-index: 2; }
+
+        .chat-box { flex: 1; padding: 15px 15px 6px 15px; overflow-y: auto; background: var(--bg-card); display: flex; flex-direction: column; min-height: 0; }
+        .msg-wrapper { display: flex; flex-direction: column; margin-bottom: 10px; max-width: 80%; position: relative; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+        .msg-wrapper-left { align-self: flex-start; align-items: flex-start; }
+        .msg-wrapper-right { align-self: flex-end; align-items: flex-end; }
+        .msg-bubble-row { display: flex; align-items: center; gap: 6px; }
+        .msg-wrapper-right .msg-bubble-row { flex-direction: row-reverse; }
+        .msg-bubble { padding: 10px 14px; border-radius: 15px; font-size: 14px; word-break: break-word; }
+        .msg-left { background: var(--bg-muted); color: var(--text-main); border-bottom-left-radius: 2px; }
+        .msg-right { background: var(--accent); color: white; border-bottom-right-radius: 2px; }
+        .msg-deleted-italic { font-style: italic; opacity: 0.85; font-size: 13px; }
+        .msg-longpress-action-btn { width: auto; margin: 0; padding: 4px 10px; font-size: 11px; font-weight: bold; background: #e41e3f; color: #fff; border-radius: 12px; }
+        .msg-longpress-action-btn:hover { background: #c81634; }
+        .msg-photo-img { max-width: 220px; max-height: 240px; border-radius: 10px; display: block; cursor: pointer; object-fit: cover; }
+        .msg-file-card { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; padding: 4px 2px; cursor: pointer; }
+        .msg-right .msg-file-card { color: #ffffff; }
+        .msg-left .msg-file-card { color: var(--text-main); }
+        .msg-file-meta { font-size: 11px; opacity: 0.85; font-weight: normal; }
+        .msg-loc-box { display: flex; flex-direction: column; gap: 4px; font-size: 13px; cursor: pointer; }
+        .msg-loc-hint { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: bold; text-decoration: underline; }
+        .msg-right .msg-loc-hint { color: #ffffff; }
+        .msg-left .msg-loc-hint { color: var(--accent); }
+
+        .msg-meta-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; padding: 0 4px; }
+        .msg-timestamp-text { font-size: 10px; color: #8a8d91; }
+        .msg-status { font-size: 11px; color: var(--text-sub); text-transform: lowercase; }
+        .msg-status.sent { color: var(--text-sub); }
+        .msg-status.delivered { color: var(--accent); }
+        .msg-status.seen { color: #31a24c; font-weight: bold; }
+        .msg-status.failed { color: #fa383e; font-weight: bold; text-transform: none; }
+
+        .typing-indicator-bar { background: var(--bg-card); padding: 2px 15px 6px 15px; min-height: 18px; display: none; align-items: center; justify-content: flex-start; flex-shrink: 0; }
+        .typing-indicator-bar.visible { display: flex; }
+        .typing-text { font-style: italic; font-size: 12px; color: var(--text-sub); }
+
+        .chat-attach-toolbar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--bg-soft); border-top: 1px solid var(--border-color); flex-shrink: 0; }
+        .chat-attach-btn { width: auto; margin: 0; padding: 6px 10px; font-size: 12px; font-weight: bold; background: var(--bg-muted); color: var(--text-main); border-radius: 16px; }
+        .chat-attach-btn:hover { background: var(--border-color); }
+
+        .chat-input-area { display: flex; padding: 8px 10px 10px 10px; background: var(--bg-card); border-top: 1px solid var(--border-color); flex-shrink: 0; }
+        .chat-input-area input { margin: 0; flex: 1; }
+        .chat-input-area button { width: 80px; margin: 0 0 0 8px; padding: 0; }
+
+        .search-results { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; margin-top: 5px; max-height: 150px; overflow-y: auto; display: none; }
+        .search-item { padding: 10px; border-bottom: 1px solid var(--border-color); cursor: pointer; font-size: 14px; }
+        .search-item:hover { background: var(--bg-soft); }
+
+        .chat-user-list-item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid var(--border-color); cursor: pointer; gap: 12px; background: var(--bg-card); border-radius: 8px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+        .chat-user-list-item:hover { background: var(--bg-soft); }
+        .chat-user-unread-pill { position: absolute; top: -4px; right: -4px; background: #e41e3f; color: #fff; font-size: 10px; font-weight: bold; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; border: 2px solid var(--bg-card); display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; flex-shrink: 0; z-index: 3; pointer-events: none; }
+
+        .comment-section { margin-top: 8px; background: var(--bg-soft); padding: 8px; border-radius: 6px; font-size: 13px; }
+
+        #lightbox-modal { display: none; position: fixed; z-index: 1600; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); flex-direction: column; justify-content: space-between; align-items: center; padding: 16px; box-sizing: border-box; }
+        .lightbox-top-bar { width: 100%; max-width: 640px; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 2; }
+        .lightbox-save-btn { width: auto; margin: 0; padding: 8px 14px; font-size: 13px; font-weight: bold; background: #1877f2; color: #fff; border-radius: 8px; }
+        #lightbox-close { color: white; font-size: 30px; line-height: 1; font-weight: bold; cursor: pointer; background: rgba(255,255,255,0.14); width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-left: auto; }
+        .lightbox-center-stage { flex: 1; width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        #lightbox-img { max-width: 95%; max-height: 82vh; border-radius: 8px; object-fit: contain; }
+
+        #delete-choice-modal { display: none; position: fixed; z-index: 1700; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); justify-content: center; align-items: center; padding: 16px; box-sizing: border-box; }
+        .delete-choice-card { background: var(--bg-card); color: var(--text-main); width: 100%; max-width: 340px; border-radius: 12px; padding: 18px; box-sizing: border-box; box-shadow: 0 8px 24px rgba(0,0,0,0.25); text-align: center; }
+
+        #file-preview-modal { display: none; position: fixed; z-index: 1650; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.72); justify-content: center; align-items: center; padding: 16px; box-sizing: border-box; }
+        .file-preview-card { background: var(--bg-card); color: var(--text-main); width: 100%; max-width: 380px; border-radius: 12px; padding: 18px; box-sizing: border-box; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+        .file-preview-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .modal-red-x-btn { width: 34px; height: 34px; margin: 0; padding: 0; border-radius: 50%; background: #e41e3f; color: #ffffff; font-size: 16px; font-weight: bold; display: inline-flex; align-items: center; justify-content: center; }
+        .modal-red-x-btn:hover { background: #c81634; }
+
+        #location-frame-modal { display: none; position: fixed; z-index: 1650; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.72); justify-content: center; align-items: center; padding: 14px; box-sizing: border-box; }
+        .location-frame-box { width: 100%; max-width: 480px; background: var(--bg-card); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.35); display: flex; flex-direction: column; }
+        .location-frame-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg-soft); border-bottom: 1px solid var(--border-color); gap: 8px; }
+        .location-open-browser-btn { width: auto; margin: 0; padding: 7px 12px; font-size: 12px; font-weight: bold; background: #1877f2; color: #ffffff; border-radius: 8px; }
+        .location-open-browser-btn:hover { background: #166fe5; }
+        .location-map-frame { width: 100%; height: 320px; border: 0; display: block; background: #e9ecef; }
+        .location-coords-footer { padding: 10px 12px; font-size: 12px; color: var(--text-sub); background: var(--bg-card); border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+        .live-btn { background: #e41e3f; }
+        .live-btn:hover { background: #c81634; }
+        .live-badge { display: inline-block; background: #e41e3f; color: white; font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.5px; margin-left: 6px; }
+        .live-meta-pill { display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.14); color: #fff; font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 12px; }
+        .live-cover-wrapper { position: relative; margin-top: 8px; border-radius: 8px; overflow: hidden; cursor: pointer; background: #000; }
+        .live-cover-wrapper img { width: 100%; max-height: 280px; object-fit: cover; display: block; opacity: 0.92; }
+        .live-cover-overlay-badge { position: absolute; top: 10px; left: 10px; background: #e41e3f; color: white; font-weight: bold; font-size: 12px; padding: 3px 8px; border-radius: 4px; }
+        .live-cover-play-hint { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; font-size: 12px; padding: 4px 10px; border-radius: 20px; }
+
+        .live-modal-backdrop { display: none; position: fixed; z-index: 1200; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); justify-content: center; align-items: center; padding: 15px; box-sizing: border-box; }
+        .live-modal-card { background: var(--bg-card); color: var(--text-main); width: 100%; max-width: 460px; border-radius: 10px; padding: 18px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
+
+        #effect-picker-modal { z-index: 1500; }
+        .effect-list-container { display: flex; flex-direction: column; gap: 6px; max-height: 55vh; overflow-y: auto; margin-top: 10px; }
+        .effect-list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-soft); color: var(--text-main); font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; width: 100%; margin: 0; }
+        .effect-list-item:hover { background: rgba(24,119,242,0.14); border-color: #1877f2; color: #1877f2; }
+        .effect-list-item.selected { background: #1877f2; border-color: #1877f2; color: #fff; }
+        .effect-tag-label { font-size: 11px; opacity: 0.85; font-weight: normal; }
+
+        #live-studio-modal { display: none; position: fixed; z-index: 1300; top: 0; left: 0; width: 100%; height: 100%; background: #111; color: white; flex-direction: column; justify-content: space-between; }
+        .studio-top { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.75); }
+        .studio-stage { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8px 12px; position: relative; overflow: hidden; min-height: 0; }
+        .studio-frame-box { position: relative; display: flex; justify-content: center; align-items: center; max-width: 100%; max-height: 100%; }
+        .studio-mic-top-left-btn { position: absolute; top: 10px; left: 10px; z-index: 10; width: auto; margin: 0; padding: 6px 10px; font-size: 12px; border-radius: 16px; background: rgba(0,0,0,0.65); color: #fff; border: 1px solid rgba(255,255,255,0.28); }
+        .studio-mic-top-left-btn:hover { background: rgba(0,0,0,0.85); }
+        .studio-mic-top-left-btn.muted-mic { background: rgba(176,42,55,0.88); border-color: rgba(255,255,255,0.4); }
+        #studio-video { max-width: 100%; max-height: 100%; background: #000; border-radius: 8px; object-fit: contain; transition: filter 0.2s ease, transform 0.2s ease; }
+        #studio-video.mirrored { transform: scaleX(-1); }
+        .studio-controls-row { display: flex; gap: 8px; padding: 6px 15px; max-width: 560px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+        .studio-ctrl-btn { flex: 1; width: auto; margin: 0; padding: 8px 6px; font-size: 12px; background: #2c2e30; color: #fff; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .studio-ctrl-btn:hover { background: #3d4043; }
+        .studio-ctrl-btn.active-off { background: #b02a37; }
+        .studio-footer-stack { margin-top: auto; width: 100%; background: rgba(0,0,0,0.88); }
+        .studio-comments-box { width: 100%; max-width: 560px; margin: 0 auto; padding: 8px 15px 4px 15px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; gap: 5px; max-height: 210px; overflow: hidden; }
+        .studio-bottom { padding: 8px 15px 14px 15px; max-width: 560px; margin: 0 auto; box-sizing: border-box; }
+
+        #live-viewer-modal { display: none; position: fixed; z-index: 1400; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: white; flex-direction: column; }
+        .viewer-top-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #141414; z-index: 10; }
+        .viewer-video-container { width: 100%; max-height: 54vh; aspect-ratio: 16 / 9; background: #000; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; margin: 0 auto; }
+        #viewer-video-canvas { width: 100%; height: 100%; object-fit: contain; background: #000; }
+        .viewer-caption-bar { background: #101112; border-top: 1px solid #26282a; border-bottom: 1px solid #26282a; padding: 7px 12px; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #f0f2f5; }
+        .viewer-caption-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #e4e6eb; }
+        .viewer-comments-area { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; background: #18191a; padding: 10px 12px; overflow: hidden; }
+        .viewer-comments-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; max-height: 210px; overflow: hidden; }
+        .viewer-comment-line { background: rgba(255,255,255,0.08); padding: 6px 10px; border-radius: 8px; font-size: 13px; line-height: 1.35; }
+        .viewer-comment-input-row { display: flex; gap: 8px; }
+        .viewer-comment-input-row input { margin: 0; flex: 1; background: #242526; color: white; border: 1px solid #3a3b3c; }
+        .viewer-comment-input-row button { width: 75px; margin: 0; padding: 8px; font-size: 14px; }
     </style>
 </head>
 <body>
 
-    <div id="login-gate">
-        <div class="login-box">
-            <h2>Owner Admin Panel</h2>
-            <div style="font-size:13px; color:var(--muted); margin-bottom:10px;">SocialChat Owner Login</div>
-            <input type="email" id="admin-email" placeholder="Owner Email">
-            <input type="password" id="admin-password" placeholder="Password">
-            <button style="width:100%; margin-top:12px; padding:11px;" onclick="ownerLogin()">Login to Owner Panel</button>
-            <div id="login-err" style="color:#ff6b81; font-size:13px; margin-top:8px;"></div>
+    <div id="account-ban-screen">
+        <div class="account-ban-card">
+            <h3 style="color:#fa383e; margin-top:0;">This account is ban</h3>
+            <p style="font-size:13px; color:#d0d4dc; line-height:1.5;">Your account has been restricted by the administrator.</p>
+            <button onclick="logout()" style="background:#e41e3f; margin-top:12px;">Logout</button>
         </div>
     </div>
 
-    <div id="admin-shell">
-        <div class="topbar">
-            <div>
-                <div style="font-weight:bold; font-size:16px; color:var(--blue);">Owner Admin Panel</div>
-                <div id="owner-email-label" style="font-size:12px; color:var(--muted);"></div>
-            </div>
-            <div style="display:flex; gap:8px;">
-                <button class="btn-gray" onclick="refreshAllAdminData()">↻ Refresh</button>
-                <button class="btn-red" onclick="ownerLogout()">Logout</button>
-            </div>
+    <div class="auth-container" id="auth-container">
+        <h2 id="form-title" style="color: #1877f2; margin-bottom: 20px;">SocialChat</h2>
+        <div id="auth-form">
+            <input type="text" id="username" placeholder="Username" style="display:none;">
+            <input type="email" id="email" placeholder="Email" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button id="action-btn" onclick="handleAuth()">Login</button>
+            <button class="toggle-btn" id="toggle-mode-btn" onclick="toggleMode()">Don't have an account? Sign Up</button>
+            <div id="message" class="error"></div>
+        </div>
+    </div>
+
+    <div id="app-container">
+        <header>
+            <h2>SocialChat</h2>
+            <button onclick="logout()" style="width: auto; padding: 6px 12px; font-size: 12px; background: var(--bg-muted); color: var(--text-main);">Logout</button>
+        </header>
+
+        <div class="nav-tabs">
+            <button id="tab-btn-feed" class="tab-btn active" onclick="handleFeedTabClick()">Feed</button>
+            <button id="tab-btn-post" class="tab-btn" onclick="switchTab('post')">Post</button>
+            <button id="tab-btn-chat" class="tab-btn" onclick="switchTab('chat')">Chat<span id="chat-unread-badge" class="tab-count-badge" style="display:none;">0</span></button>
+            <button id="tab-btn-notification" class="tab-btn" onclick="switchTab('notification')">Noti<span id="noti-unread-badge" class="tab-count-badge" style="display:none;">0</span></button>
+            <button id="tab-btn-profile" class="tab-btn" onclick="switchTab('profile')">Profile</button>
+            <button id="tab-btn-menu" class="tab-btn" onclick="switchTab('menu')">Menu</button>
         </div>
 
-        <div class="nav-tags">
-            <button class="tag-btn active" data-sec="sec-manage-blue" onclick="openAdminSection('sec-manage-blue')">Manage Blue Mark</button>
-            <button class="tag-btn" data-sec="sec-blue-list" onclick="openAdminSection('sec-blue-list')">Blue Mark List</button>
-            <button class="tag-btn" data-sec="sec-account-manage" onclick="openAdminSection('sec-account-manage')">Account Manage</button>
-            <button class="tag-btn" data-sec="sec-post-manage" onclick="openAdminSection('sec-post-manage')">Post Manage</button>
-            <button class="tag-btn" data-sec="sec-comment-manage" onclick="openAdminSection('sec-comment-manage')">Comment Manage</button>
+        <div id="feed-tab" class="tab-content active">
+            <div class="card" style="padding: 10px;">
+                <input type="text" id="search-user-input" placeholder="Search users by name..." oninput="searchUsers(this.value)" style="margin: 0;">
+                <div id="search-results" class="search-results"></div>
+            </div>
+            <div id="posts-feed"></div>
         </div>
 
-        <div id="sec-manage-blue" class="panel-section active">
+        <div id="post-tab" class="tab-content">
             <div class="card">
-                <h3 style="margin:0 0 8px 0;">Manage Blue Mark</h3>
-                <input type="text" id="search-blue-manage" placeholder="Search user by name..." oninput="renderManageBlueList()">
-                <div id="manage-blue-list-container"></div>
+                <h3>Create Post</h3>
+                <textarea id="post-content" class="post-input" placeholder="Write a caption (photo optional)..."></textarea>
+                <label style="font-size: 13px; color: var(--text-sub); display: block; margin-top: 10px;">Privacy:</label>
+                <select id="post-privacy">
+                    <option value="public">Public</option>
+                    <option value="friends">Friends</option>
+                    <option value="only_me">Only Me</option>
+                </select>
+                <label style="font-size: 13px; color: var(--text-sub); display: block; margin-top: 10px;">Photos Only (1 to 10 photos, optional):</label>
+                <input type="file" id="media-file" accept="image/*" multiple style="padding: 6px;" onchange="handlePhotoSelection(this)">
+                <div id="selected-photos-preview" class="selected-photos-preview"></div>
+                <button id="create-post-btn" onclick="createPost()" style="margin-top: 10px;">Share Post</button>
+                <div id="post-publish-status" class="posting-status-banner"></div>
+                <button class="live-btn" onclick="openLiveModeModal()" style="margin-top: 10px;">🔴 Live</button>
             </div>
         </div>
 
-        <div id="sec-blue-list" class="panel-section">
-            <div class="card">
-                <h3 style="margin:0 0 8px 0;">Blue Mark List</h3>
-                <input type="text" id="search-blue-list" placeholder="Search verified user by name..." oninput="renderVerifiedBlueList()">
-                <div id="verified-blue-list-container"></div>
+        <div id="chat-tab" class="tab-content">
+            <div id="chat-list-view" style="display: block;">
+                <h3 style="margin-top: 0; color: var(--text-main);">Chats</h3>
+                <div id="conversations-list">
+                    <p style="color: var(--text-sub); font-size: 13px;">Loading conversations...</p>
+                </div>
+            </div>
+
+            <div id="chat-box-view" style="display: none; flex-direction: column; height: 100%;">
+                <div class="chat-messenger-header">
+                    <button onclick="backToChatList()" style="width: auto; padding: 5px 10px; font-size: 12px; background: var(--bg-muted); color: var(--text-main); margin: 0;">← Back</button>
+                    <div class="chat-avatar-wrap">
+                        <div id="chat-header-avatar-container" class="chat-header-avatar">U</div>
+                        <span id="chat-header-online-dot" class="online-dot-badge" style="display:none;"></span>
+                    </div>
+                    <div>
+                        <div id="chat-header-name" style="font-weight: bold; font-size: 15px; display:flex; align-items:center;">User</div>
+                        <div id="chat-user-status-text" style="font-size: 11px; color: var(--text-sub);">Offline</div>
+                    </div>
+                </div>
+                <div class="chat-box" id="chat-box"></div>
+                <div id="typing-indicator-bar" class="typing-indicator-bar">
+                    <span class="typing-text">typing</span>
+                </div>
+                <div class="chat-attach-toolbar">
+                    <input type="file" id="chat-photo-input" accept="image/*" style="display:none;" onchange="handleChatPhotoSelected(this)">
+                    <input type="file" id="chat-file-input" accept="*/*" style="display:none;" onchange="handleChatFileSelected(this)">
+                    <button type="button" id="chat-photo-btn" class="chat-attach-btn" onclick="document.getElementById('chat-photo-input').click()">📷 Photo</button>
+                    <button type="button" id="chat-file-btn" class="chat-attach-btn" onclick="document.getElementById('chat-file-input').click()">📎 File</button>
+                    <button type="button" id="chat-loc-btn" class="chat-attach-btn" onclick="shareCurrentLocationInChat()">📍 Location</button>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="Aa" oninput="handleChatTyping()" onkeypress="handleChatKeyPress(event)">
+                    <button id="chat-send-btn" onclick="sendMessage()">Send</button>
+                </div>
             </div>
         </div>
 
-        <div id="sec-account-manage" class="panel-section">
+        <div id="notification-tab" class="tab-content">
             <div class="card">
-                <h3 style="margin:0 0 8px 0;">Account Manage</h3>
-                <input type="text" id="search-account-manage" placeholder="Search account by name..." oninput="renderAccountManageList()">
-                <div id="account-manage-list-container"></div>
+                <h4 style="margin-top: 0;">Notifications</h4>
+                <div id="notifications-list">
+                    <p style="color: var(--text-sub); font-size: 14px;">No new notifications right now.</p>
+                </div>
             </div>
         </div>
 
-        <div id="sec-post-manage" class="panel-section">
-            <div class="card">
-                <h3 style="margin:0 0 10px 0;">Post Manage</h3>
-                <div id="post-manage-container"></div>
+        <div id="profile-tab" class="tab-content" style="padding-top: 10px;">
+            <div class="card" style="text-align: center; margin-bottom: 10px;">
+                <div style="position: relative; width: 80px; height: 80px; margin: 0 auto 10px auto;">
+                    <div id="profile-avatar-container" data-initial="U" style="width: 80px; height: 80px; background: #1877f2; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; overflow: hidden;">
+                        <span id="profile-initial">U</span>
+                    </div>
+                    <input type="file" id="avatar-file" accept="image/*" style="display:none;" onchange="uploadAvatar(this)">
+                    <button onclick="document.getElementById('avatar-file').click()" style="position: absolute; bottom: 0; right: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--bg-muted); color: var(--text-main); border: none; cursor: pointer; font-size: 12px; padding: 0;">📷</button>
+                </div>
+                <h3 id="profile-name" style="margin: 5px 0; display:inline-flex; align-items:center; justify-content:center;">User</h3>
+                <p id="profile-bio-text" style="color: var(--text-sub); font-size: 13px; margin: 0;"></p>
+                <div id="edit-profile-section" style="margin-top: 15px;">
+                    <input type="text" id="edit-username" placeholder="Update username..." style="margin-bottom: 5px; font-size: 13px; padding: 8px;">
+                    <input type="text" id="edit-bio" placeholder="Update your bio..." style="margin-bottom: 5px; font-size: 13px; padding: 8px;">
+                    <button onclick="saveProfile()" style="padding: 8px; font-size: 14px;">Save Profile</button>
+                </div>
+            </div>
+            <div class="profile-main-layout">
+                <div class="profile-posts-col">
+                    <div id="profile-section-posts" class="card">
+                        <h4 style="margin-top: 0;">My Posts</h4>
+                        <div id="my-posts"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div id="sec-comment-manage" class="panel-section">
+        <div id="menu-tab" class="tab-content" style="padding-top: 10px;">
             <div class="card">
-                <h3 style="margin:0 0 10px 0;">Comment Manage</h3>
-                <div id="comment-manage-container"></div>
+                <h4 style="margin-top: 0;">Menu</h4>
+                <button type="button" class="menu-row-btn" onclick="toggleLightDarkTheme()">
+                    <span>🌓 Light / Dark Mode</span>
+                    <span id="top-theme-mode-badge" style="color:#1877f2; font-weight:bold;">Dark Mode</span>
+                </button>
+                <button type="button" class="menu-row-btn" onclick="toggleMenuSubSection('top-connect-us-list')">
+                    <span>📞 Connect Us</span>
+                    <span>▾</span>
+                </button>
+                <div id="top-connect-us-list" class="menu-sub-box" style="display:none;">
+                    <a class="menu-link-item" href="mailto:2000.yinaung@gmail.com"><span>✉️ Mail</span><span style="font-size:12px; color:#1877f2;">2000.yinaung@gmail.com</span></a>
+                    <a class="menu-link-item" href="tel:09250614530"><span>📱 Phone</span><span style="font-size:12px; color:#1877f2;">09250614530</span></a>
+                    <a class="menu-link-item" href="https://t.me/DAZZLE5" target="_blank" rel="noopener noreferrer"><span>✈️ Telegram</span><span style="font-size:12px; color:#1877f2;">@DAZZLE5</span></a>
+                </div>
+                <button type="button" class="menu-row-btn" onclick="toggleMenuSubSection('top-security-options-list')">
+                    <span>🔒 Security</span>
+                    <span>▾</span>
+                </button>
+                <div id="top-security-options-list" class="menu-sub-box" style="display:none;">
+                    <button type="button" class="menu-row-btn" onclick="openTopChangePasswordBox()"><span>🔑 Change Password</span><span>›</span></button>
+                    <button type="button" class="menu-row-btn" onclick="openTopForgetPasswordBox()"><span>📧 Forget Password</span><span>›</span></button>
+                </div>
+                <div id="top-change-password-box" style="display:none; margin-top:14px; padding:12px; border-radius:8px; background:var(--bg-soft); border:1px solid var(--border-color);">
+                    <div style="font-weight:bold; font-size:15px; margin-bottom:8px;">Change Password</div>
+                    <div class="pw-input-wrap"><input type="password" id="top-cp-current-pw" placeholder="Current Password"><button type="button" class="pw-see-hide-btn" onclick="togglePwEye('top-cp-current-pw', this)">See</button></div>
+                    <div class="pw-input-wrap"><input type="password" id="top-cp-new-pw" placeholder="New Password"><button type="button" class="pw-see-hide-btn" onclick="togglePwEye('top-cp-new-pw', this)">See</button></div>
+                    <div class="pw-input-wrap"><input type="password" id="top-cp-confirm-pw" placeholder="Confirm Password"><button type="button" class="pw-see-hide-btn" onclick="togglePwEye('top-cp-confirm-pw', this)">See</button></div>
+                    <button type="button" id="top-cp-submit-btn" class="blue-action-btn" onclick="handleTopChangePasswordSubmit()">Change</button>
+                    <div id="top-cp-feedback" style="font-size:13px; margin-top:8px;"></div>
+                </div>
+                <div id="top-forget-password-box" style="display:none; margin-top:14px; padding:12px; border-radius:8px; background:var(--bg-soft); border:1px solid var(--border-color);">
+                    <div style="font-weight:bold; font-size:15px; margin-bottom:8px;">Forget Password</div>
+                    <div id="top-fp-step-1"><label style="font-size:13px; color:var(--text-sub); display:block; margin-bottom:4px;">Select Mail:</label><select id="top-fp-mail-select"></select><button type="button" class="blue-action-btn" onclick="handleTopForgetMailNext()">Next</button></div>
+                    <div id="top-fp-step-2" style="display:none;"><div id="top-fp-code-sent-msg" style="font-size:13px; color:#1877f2; margin-bottom:6px; font-weight:bold;"></div><input type="text" id="top-fp-verify-code" placeholder="Enter verification code"><button type="button" class="blue-action-btn" onclick="handleTopForgetCodeNext()">Next</button></div>
+                    <div id="top-fp-step-3" style="display:none;"><div class="pw-input-wrap"><input type="password" id="top-fp-new-pw" placeholder="New Password"><button type="button" class="pw-see-hide-btn" onclick="togglePwEye('top-fp-new-pw', this)">See</button></div><div class="pw-input-wrap"><input type="password" id="top-fp-confirm-pw" placeholder="Confirm Password"><button type="button" class="pw-see-hide-btn" onclick="togglePwEye('top-fp-confirm-pw', this)">See</button></div><button type="button" id="top-fp-finish-btn" class="blue-action-btn" onclick="handleTopForgetFinish()">Finish</button></div>
+                    <div id="top-fp-feedback" style="font-size:13px; margin-top:8px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="user-profile-tab" class="tab-content" style="padding-top: 10px;">
+            <div class="card" style="text-align: center;">
+                <button onclick="switchTab('feed')" style="width: auto; padding: 5px 10px; font-size: 12px; margin-bottom: 10px; background: var(--text-sub);">← Back to Feed</button>
+                <div id="visitor-avatar-container" style="width: 80px; height: 80px; background: #42b72a; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 10px auto; font-weight: bold; overflow: hidden;"><span id="visitor-initial">U</span></div>
+                <h3 id="visitor-name" style="display:inline-flex; align-items:center; justify-content:center;">User Profile</h3>
+                <p id="visitor-bio" style="color: var(--text-sub); font-size: 13px;"></p>
+                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;">
+                <h4 style="text-align: left;">Their Posts</h4>
+                <div id="visitor-posts" style="text-align: left;"></div>
             </div>
         </div>
     </div>
+
+    <!-- Modals -->
+    <div id="live-mode-modal" class="live-modal-backdrop"><div class="live-modal-card"><h3 style="margin-top:0;">Choose Live Mode</h3><button class="live-btn" onclick="selectLiveMode('camera')">📷 Camera Live</button><button style="background:#1877f2; margin-top:10px;" onclick="selectLiveMode('screen')">🖥️ Screen Share Live</button><button style="background:var(--bg-muted); color:var(--text-main); margin-top:12px;" onclick="closeLiveModeModal()">Cancel</button></div></div>
+    <div id="live-setup-modal" class="live-modal-backdrop"><div class="live-modal-card"><h3 id="live-setup-title" style="margin-top:0;">Setup Live</h3><label style="font-size:13px; color:var(--text-sub); display:block;">Cover Photo:</label><input type="file" id="live-cover-input" accept="image/*" style="padding:6px;" onchange="previewLiveCover(this)"><img id="live-cover-preview" src="" style="display:none; width:100%; max-height:160px; object-fit:cover; border-radius:6px; margin-top:6px;"><label style="font-size:13px; color:var(--text-sub); display:block; margin-top:10px;">Caption:</label><textarea id="live-caption-input" class="post-input" placeholder="Write a live caption..."></textarea><button class="live-btn" onclick="goToLiveStudio()" style="margin-top:10px;">Go to Live</button><button style="background:var(--bg-muted); color:var(--text-main); margin-top:8px;" onclick="closeLiveSetupModal()">Back</button></div></div>
+    <div id="effect-picker-modal" class="live-modal-backdrop" onclick="closeEffectPickerModal()"><div class="live-modal-card" onclick="event.stopPropagation()"><h3 style="margin-top:0;">✨ Choose Effect</h3><div id="effect-list-container" class="effect-list-container"></div><button style="background:var(--bg-muted); color:var(--text-main); margin-top:12px;" onclick="closeEffectPickerModal()">Close</button></div></div>
+    <div id="live-studio-modal"><div class="studio-top"><div style="display:flex; align-items:center; gap:8px;"><span id="studio-live-badge" class="live-badge" style="margin-left:0;">LIVE</span><span id="studio-timer-display" class="live-meta-pill">00:00</span><span id="studio-viewer-count" class="live-meta-pill">👁 0</span></div><button onclick="closeStudioWithoutStarting()" id="studio-close-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#444; margin:0;">Close</button></div><div class="studio-stage"><div class="studio-frame-box"><button id="toggle-mic-btn" type="button" class="studio-mic-top-left-btn" onclick="toggleMicPower()">🎤 Mic: ON</button><video id="studio-video" class="mirrored" autoplay playsinline muted></video></div><div id="studio-caption-display" style="margin-top:6px; font-size:13px; color:#ddd; text-align:center;"></div></div><div id="studio-camera-controls" class="studio-controls-row"><button id="toggle-cam-btn" class="studio-ctrl-btn" onclick="toggleCameraPower()">📷 Cam: ON</button><button id="flip-cam-btn" class="studio-ctrl-btn" onclick="flipCameraFacing()">🔄 Front</button><button id="brighten-effect-btn" class="studio-ctrl-btn" onclick="openEffectPickerModal()">✨ Normal</button></div><div class="studio-footer-stack"><div id="studio-comments-list" class="studio-comments-box"></div><div class="studio-bottom"><button id="live-action-btn" class="live-btn" onclick="toggleStartOrEndLive()">Start Live</button></div></div></div>
+    <div id="live-viewer-modal" onclick="unlockViewerAudioContext()"><div class="viewer-top-bar"><div style="display:flex; align-items:center; gap:8px; min-width:0;"><span class="live-badge" style="margin-left:0; flex-shrink:0;">LIVE</span><span id="viewer-timer-display" class="live-meta-pill" style="flex-shrink:0;">00:00</span><span id="viewer-count-display" class="live-meta-pill" style="flex-shrink:0;">👁 0</span><span id="viewer-host-name" style="font-weight:bold; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Host</span></div><div style="display:flex; gap:8px; flex-shrink:0;"><button id="orientation-toggle-btn" onclick="event.stopPropagation(); toggleViewerOrientation();" style="width:auto; padding:5px 10px; font-size:12px; background:#1877f2; margin:0;">🔄 Landscape</button><button onclick="event.stopPropagation(); closeLiveViewer();" style="width:auto; padding:5px 10px; font-size:12px; background:#555; margin:0;">✕ Exit</button></div></div><div id="viewer-video-container" class="viewer-video-container"><canvas id="viewer-video-canvas" width="373" height="210"></canvas></div><div id="viewer-caption-bar" class="viewer-caption-bar"><span id="viewer-bottom-time" class="live-meta-pill" style="background:rgba(228,30,63,0.22); color:#ff7b93; flex-shrink:0;">⏱ 00:00</span><span id="viewer-caption-text" class="viewer-caption-text"></span></div><div id="viewer-comments-area" class="viewer-comments-area"><div id="viewer-comments-list" class="viewer-comments-list"></div><div class="viewer-comment-input-row"><input type="text" id="viewer-comment-input" placeholder="Comment on live..." onkeypress="handleLiveCommentKey(event)"><button onclick="sendLiveComment()">Send</button></div></div></div>
+    <div id="lightbox-modal" onclick="closeLightbox()"><div class="lightbox-top-bar" onclick="event.stopPropagation()"><button id="lightbox-save-btn" type="button" class="lightbox-save-btn" style="display:none;" onclick="saveCurrentLightboxPhoto()">⬇ Save Photo</button><span id="lightbox-close" onclick="closeLightbox()">&times;</span></div><div class="lightbox-center-stage" onclick="event.stopPropagation()"><img id="lightbox-img" src="" onclick="closeLightbox()"></div></div>
+    <div id="delete-choice-modal" onclick="closeDeleteChoiceModal()"><div class="delete-choice-card" onclick="event.stopPropagation()"><div style="font-weight:bold; font-size:16px; margin-bottom:12px;">Delete Message</div><button type="button" onclick="confirmDeleteChoice('myself')" style="background:#1877f2; margin-top:6px;">Delete Myself</button><button type="button" onclick="confirmDeleteChoice('everyone')" style="background:#e41e3f; margin-top:8px;">Delete Everyone</button><button type="button" onclick="closeDeleteChoiceModal()" style="background:var(--bg-muted); color:var(--text-main); margin-top:10px;">Cancel</button></div></div>
+    <div id="file-preview-modal" onclick="closeFilePreviewModal()"><div class="file-preview-card" onclick="event.stopPropagation()"><div class="file-preview-top"><span style="font-weight:bold; font-size:15px;">📎 File Attachment</span><button type="button" class="modal-red-x-btn" onclick="closeFilePreviewModal()">✕</button></div><div id="file-preview-name" style="font-size:14px; font-weight:bold; word-break:break-word; margin-bottom:4px;">File</div><div id="file-preview-size" style="font-size:12px; color:var(--text-sub); margin-bottom:14px;">0 KB</div><button id="file-preview-save-btn" type="button" onclick="saveCurrentPreviewFile()">⬇ Save File</button></div></div>
+    <div id="location-frame-modal" onclick="closeLocationFrameModal()"><div class="location-frame-box" onclick="event.stopPropagation()"><div class="location-frame-header"><span style="font-weight:bold; font-size:14px;">📍 Shared Location</span><div style="display:flex; align-items:center; gap:8px;"><button type="button" class="location-open-browser-btn" onclick="openLocationInExternalBrowser()">Open Browser</button><button type="button" class="modal-red-x-btn" onclick="closeLocationFrameModal()">✕</button></div></div><iframe id="location-map-iframe" class="location-map-frame" src="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe><div class="location-coords-footer"><span id="location-coords-text">Lat: -, Lng: -</span><span style="color:var(--text-sub);">Google Maps</span></div></div></div>
 
     <script>
+        const OWNER_EMAIL = 'yinaung303@gmail.com';
+        const OWNER_PASSWORD = 'yinaung133456';
+
+        function isOwnerCredentials(email, password) {
+            return (email || '').trim().toLowerCase() === OWNER_EMAIL.toLowerCase() && (password || '') === OWNER_PASSWORD;
+        }
+
+        function redirectToOwnerAdminPage() {
+            sessionStorage.setItem('sc_owner_authed', '1');
+            window.location.href = 'owner-admin.html';
+        }
+
+        (function initSavedTheme() {
+            const savedTheme = localStorage.getItem('socialchat_theme_mode') || 'light';
+            applyThemeMode(savedTheme);
+        })();
+
+        function applyThemeMode(mode) {
+            const normalized = mode === 'dark' ? 'dark' : 'light';
+            if (normalized === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+            else document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('socialchat_theme_mode', normalized);
+            const topBadge = document.getElementById('top-theme-mode-badge');
+            if (topBadge) topBadge.textContent = normalized === 'dark' ? 'Light Mode' : 'Dark Mode';
+        }
+
+        function toggleLightDarkTheme() {
+            applyThemeMode(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+        }
+
+        function toggleMenuSubSection(boxId) {
+            const el = document.getElementById(boxId);
+            if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function togglePwEye(inputId, btnEl) {
+            const inp = document.getElementById(inputId);
+            if (!inp) return;
+            if (inp.type === 'password') { inp.type = 'text'; if (btnEl) btnEl.textContent = 'Hide'; }
+            else { inp.type = 'password'; if (btnEl) btnEl.textContent = 'See'; }
+        }
+
+        async function runChangePasswordFlow(curId, newId, confId, fbId, btnId) {
+            const curPw = document.getElementById(curId)?.value || '';
+            const newPw = document.getElementById(newId)?.value || '';
+            const confPw = document.getElementById(confId)?.value || '';
+            const fb = document.getElementById(fbId);
+            const btn = document.getElementById(btnId);
+            if (!curPw || !newPw || !confPw) { if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'Current, New နဲ့ Confirm Password များအားလုံး ဖြည့်ပေးပါ။'; } return; }
+            if (newPw.length < 6) { if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'New Password အနည်းဆုံး ၆ လုံး ရှိရပါမည်။'; } return; }
+            if (newPw !== confPw) { if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'New Password နဲ့ Confirm Password မတူညီပါ။'; } return; }
+            if (btn) btn.disabled = true;
+            try {
+                if (currentUser && currentUser.email) {
+                    const { error: reauthErr } = await supabaseClient.auth.signInWithPassword({ email: currentUser.email, password: curPw });
+                    if (reauthErr) { if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'Current Password မှားယွင်းနေပါသည်။'; } return; }
+                }
+                const { error: updErr } = await supabaseClient.auth.updateUser({ password: newPw });
+                if (updErr) { if (fb) { fb.style.color = '#fa383e'; fb.textContent = updErr.message; } return; }
+                if (fb) { fb.style.color = '#137333'; fb.textContent = 'Password changed successfully!'; }
+                document.getElementById(curId).value = ''; document.getElementById(newId).value = ''; document.getElementById(confId).value = '';
+            } catch (e) { if (fb) { fb.style.color = '#fa383e'; fb.textContent = e.message || 'Error changing password'; } }
+            finally { if (btn) btn.disabled = false; }
+        }
+
+        function openTopChangePasswordBox() {
+            document.getElementById('top-forget-password-box').style.display = 'none';
+            document.getElementById('top-change-password-box').style.display = 'block';
+            document.getElementById('top-cp-feedback').textContent = '';
+        }
+        async function handleTopChangePasswordSubmit() {
+            await runChangePasswordFlow('top-cp-current-pw', 'top-cp-new-pw', 'top-cp-confirm-pw', 'top-cp-feedback', 'top-cp-submit-btn');
+        }
+
+        let generatedForgetCode = '';
+        function populateOpenedMailsDropdown(selectId = 'top-fp-mail-select') {
+            const sel = document.getElementById(selectId); if (!sel) return;
+            const mails = new Set();
+            if (currentUser?.email) mails.add(currentUser.email);
+            const typedEmail = document.getElementById('email')?.value?.trim();
+            if (typedEmail) mails.add(typedEmail);
+            mails.add('2000.yinaung@gmail.com');
+            sel.innerHTML = '';
+            mails.forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = m; sel.appendChild(o); });
+        }
+        function openTopForgetPasswordBox() {
+            populateOpenedMailsDropdown('top-fp-mail-select');
+            document.getElementById('top-change-password-box').style.display = 'none';
+            document.getElementById('top-forget-password-box').style.display = 'block';
+            document.getElementById('top-fp-step-1').style.display = 'block';
+            document.getElementById('top-fp-step-2').style.display = 'none';
+            document.getElementById('top-fp-step-3').style.display = 'none';
+            document.getElementById('top-fp-feedback').textContent = '';
+        }
+        async function handleTopForgetMailNext() {
+            const selMail = document.getElementById('top-fp-mail-select')?.value; if (!selMail) return;
+            generatedForgetCode = String(Math.floor(100000 + Math.random() * 900000));
+            try { await supabaseClient.auth.resetPasswordForEmail(selMail); } catch (e) {}
+            document.getElementById('top-fp-step-1').style.display = 'none';
+            document.getElementById('top-fp-step-2').style.display = 'block';
+            document.getElementById('top-fp-code-sent-msg').textContent = `Verification code sent to ${selMail} (Code: ${generatedForgetCode})`;
+        }
+        function handleTopForgetCodeNext() {
+            const enteredCode = (document.getElementById('top-fp-verify-code')?.value || '').trim();
+            const fb = document.getElementById('top-fp-feedback');
+            if (!enteredCode) { if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'အတည်ပြု code ရိုက်ထည့်ပါ။'; } return; }
+            if (generatedForgetCode && enteredCode !== generatedForgetCode) { if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'Verification code မကိုက်ညီပါ။'; } return; }
+            if (fb) fb.textContent = '';
+            document.getElementById('top-fp-step-2').style.display = 'none';
+            document.getElementById('top-fp-step-3').style.display = 'block';
+        }
+        async function handleTopForgetFinish() {
+            const newPw = document.getElementById('top-fp-new-pw')?.value || '';
+            const confPw = document.getElementById('top-fp-confirm-pw')?.value || '';
+            const fb = document.getElementById('top-fp-feedback');
+            const finishBtn = document.getElementById('top-fp-finish-btn');
+            if (!newPw || !confPw || newPw.length < 6 || newPw !== confPw) { if (fb) { fb.style.color = '#fa383e'; fb.textContent = 'Password ၆ လုံးအထက် နှင့် နှစ်ခုတူညီအောင် ဖြည့်ပါ။'; } return; }
+            if (finishBtn) { finishBtn.textContent = 'Finishing'; finishBtn.disabled = true; }
+            try { if (currentUser) await supabaseClient.auth.updateUser({ password: newPw }); } catch (e) {}
+            setTimeout(() => { if (finishBtn) { finishBtn.textContent = 'Finished'; finishBtn.disabled = true; } if (fb) { fb.style.color = '#137333'; fb.textContent = 'Password reset finished.'; } }, 900);
+        }
+
         const SUPABASE_URL = 'https://dwwubrcbwmxckeklfkan.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3d3VicmNid214Y2tla2xma2FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ3NTk0NjUsImV4cCI6MjExMDMzNTQ2NX0.QYu1M4zlTkOF8yTpOl944OAF5vGiXiL4mX3hbb0DhbY';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        const OWNER_EMAIL = 'yinaung303@gmail.com';
-        const OWNER_PASSWORD = 'yinaung133456';
+        let isLoginMode = true;
+        let currentUser = null, currentProfileData = null, activeChatUser = null, chatSyncBroadcastChannel = null, chatPollInterval = null, badgeSyncInterval = null;
+        let globalPresenceChannel = null, onlineUserIds = new Set(), activeChatBoxUsersMap = {}, cachedUsersMap = {}, heartbeatInterval = null;
+        let typingTimeout = null, isCurrentlyTyping = false, remoteTypingClearTimer = null;
+        let unreadBySenderMap = {}, totalUnreadMessages = 0;
+        let selectedPostPhotos = [], feedTabClickCount = 0;
+        let notificationsList = [], unreadNotiCount = 0, globalNotiChannel = null, globalNotiSubscribed = false, handledNotiKeys = new Set(), postStateSnapshotMap = {};
+        let currentLightboxMeta = { url: '', name: 'photo.jpg', canSave: false }, currentFilePreviewMeta = { url: '', name: 'file', size: 0 }, currentLocationMeta = { lat: 0, lng: 0, browserUrl: '' };
+        let pendingDeleteTarget = null, localDeletedForMeSet = new Set(), localDeletedForEveryoneSet = new Set();
 
-        let allProfiles = [], allPosts = [], expandedUserId = null;
+        function renderBlueMarkHtml(flag) { return flag ? `<span class="blue-mark-badge" title="Verified">✓</span>` : ''; }
+        function showAccountBanScreen(isBanned) {
+            const screen = document.getElementById('account-ban-screen'), app = document.getElementById('app-container');
+            if (!screen) return;
+            screen.style.display = isBanned ? 'flex' : 'none';
+            if (isBanned && app) app.style.display = 'none';
+        }
+        async function checkCurrentUserBanStatus() {
+            if (!currentUser) return false;
+            try {
+                const { data } = await supabaseClient.from('profiles').select('is_banned, is_verified, username, bio, avatar_url').eq('id', currentUser.id).maybeSingle();
+                if (data) {
+                    currentProfileData = { ...(currentProfileData || {}), ...data };
+                    cachedUsersMap[currentUser.id] = currentProfileData;
+                    if (data.is_banned === true) { showAccountBanScreen(true); return true; }
+                    showAccountBanScreen(false);
+                }
+            } catch (e) {}
+            return false;
+        }
+        function loadLocalDeletedSets() {
+            try {
+                localDeletedForMeSet = new Set(JSON.parse(localStorage.getItem('sc_msg_del_me') || '[]').map(String));
+                localDeletedForEveryoneSet = new Set(JSON.parse(localStorage.getItem('sc_msg_del_everyone') || '[]').map(String));
+            } catch (e) {}
+        }
+        function saveLocalDeletedSets() {
+            try {
+                localStorage.setItem('sc_msg_del_me', JSON.stringify(Array.from(localDeletedForMeSet)));
+                localStorage.setItem('sc_msg_del_everyone', JSON.stringify(Array.from(localDeletedForEveryoneSet)));
+            } catch (e) {}
+        }
+        loadLocalDeletedSets();
+
+        function formatMessageDateTime(isoStr) {
+            if (!isoStr) return '';
+            const d = new Date(isoStr);
+            return isNaN(d.getTime()) ? '' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
 
         window.addEventListener('DOMContentLoaded', async () => {
-            if (sessionStorage.getItem('sc_owner_authed') === '1') {
-                enterAdminShell(OWNER_EMAIL);
-                return;
-            }
+            document.addEventListener('visibilitychange', () => {
+                if (!currentUser) return;
+                if (document.visibilityState === 'hidden') globalPresenceChannel?.untrack().catch(() => {});
+                else if (document.visibilityState === 'visible') {
+                    checkCurrentUserBanStatus(); trackMyPresence(); updateMyLastSeen();
+                    refreshUnreadMessageCounts(); checkMyPostsEngagementChanges(); refreshAllPresenceDisplays();
+                }
+            });
+            window.addEventListener('beforeunload', () => { if (currentUser) updateMyLastSeen(); });
+
             const { data: { session } } = await supabaseClient.auth.getSession();
-            if (session?.user && (session.user.email || '').trim().toLowerCase() === OWNER_EMAIL.toLowerCase()) {
-                sessionStorage.setItem('sc_owner_authed', '1');
-                enterAdminShell(session.user.email);
+            if (session) {
+                if ((session.user?.email || '').trim().toLowerCase() === OWNER_EMAIL.toLowerCase()) {
+                    redirectToOwnerAdminPage();
+                    return;
+                }
+                onLoginSuccess(session.user);
             }
         });
 
-        async function ownerLogin() {
-            const email = document.getElementById('admin-email').value.trim();
-            const password = document.getElementById('admin-password').value.trim();
-            const errEl = document.getElementById('login-err');
-            errEl.textContent = '';
-
-            if (!email || !password) { errEl.textContent = 'Email နဲ့ Password ဖြည့်ပါ။'; return; }
-            if (email.toLowerCase() !== OWNER_EMAIL.toLowerCase() || password !== OWNER_PASSWORD) {
-                errEl.textContent = 'Owner Email သို့မဟုတ် Password မှားယွင်းနေပါသည်။';
-                return;
+        function formatBadgeNumber(num) { const n = Math.max(0, Number(num) || 0); return n > 99 ? '99+' : String(n); }
+        function updateChatBadgeDisplay() {
+            const badge = document.getElementById('chat-unread-badge');
+            if (badge) {
+                if (totalUnreadMessages > 0) { badge.textContent = formatBadgeNumber(totalUnreadMessages); badge.style.display = 'inline-block'; }
+                else { badge.textContent = '0'; badge.style.display = 'none'; }
             }
-
-            try { await supabaseClient.auth.signInWithPassword({ email, password }); } catch (e) {}
-            sessionStorage.setItem('sc_owner_authed', '1');
-            enterAdminShell(email);
-        }
-
-        function enterAdminShell(emailLabel) {
-            document.getElementById('login-gate').style.display = 'none';
-            document.getElementById('admin-shell').style.display = 'block';
-            document.getElementById('owner-email-label').textContent = emailLabel || OWNER_EMAIL;
-            refreshAllAdminData();
-        }
-
-        async function ownerLogout() {
-            sessionStorage.removeItem('sc_owner_authed');
-            try { await supabaseClient.auth.signOut(); } catch (e) {}
-            window.location.href = 'index.html';
-        }
-
-        function openAdminSection(secId) {
-            document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('active'));
-            document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(secId)?.classList.add('active');
-            document.querySelector(`.tag-btn[data-sec="${secId}"]`)?.classList.add('active');
-        }
-
-        async function refreshAllAdminData() {
-            const [profRes, postRes] = await Promise.all([
-                supabaseClient.from('profiles').select('*').order('username', { ascending: true }),
-                supabaseClient.from('posts').select('*, profiles(username)').order('created_at', { ascending: false })
-            ]);
-            allProfiles = profRes.data || [];
-            allPosts = postRes.data || [];
-
-            renderManageBlueList();
-            renderVerifiedBlueList();
-            renderAccountManageList();
-            renderPostManage();
-            renderCommentManage();
-        }
-
-        function buildUserAvatarHtml(u) {
-            const initial = (u.username || 'U').charAt(0).toUpperCase();
-            return u.avatar_url ? `<img src="${u.avatar_url}">` : `<span>${initial}</span>`;
-        }
-
-        function renderManageBlueList() {
-            const q = (document.getElementById('search-blue-manage')?.value || '').trim().toLowerCase();
-            const container = document.getElementById('manage-blue-list-container');
-            const list = allProfiles.filter(u => !q || (u.username || '').toLowerCase().includes(q));
-            container.innerHTML = '';
-            if (!list.length) { container.innerHTML = '<p style="color:var(--muted);">No users found.</p>'; return; }
-
-            list.forEach(u => {
-                const isOn = Boolean(u.is_verified), isOpen = expandedUserId === `blue_${u.id}`, wrap = document.createElement('div');
-                wrap.innerHTML = `
-                    <div class="user-row" onclick="toggleExpand('blue_${u.id}')">
-                        <div class="user-left">
-                            <div class="avatar-circle">${buildUserAvatarHtml(u)}</div>
-                            <div>
-                                <div style="font-weight:bold; display:flex; align-items:center;">${u.username || 'User'}${isOn ? `<span class="blue-tick">✓</span>` : ''}</div>
-                                <div style="font-size:12px; color:var(--muted);">Blue Mark: ${isOn ? 'ON' : 'OFF'}</div>
-                            </div>
-                        </div>
-                        <span style="font-size:12px; color:${isOn ? '#4da3ff' : 'var(--muted)'}; font-weight:bold;">${isOn ? 'ON' : 'OFF'}</span>
-                    </div>
-                    <div class="action-drawer ${isOpen ? 'open' : ''}">
-                        <span style="font-size:13px; font-weight:bold; margin-right:6px;">Blue Mark:</span>
-                        <button class="${isOn ? 'btn-green' : 'btn-gray'}" onclick="setBlueMark('${u.id}', true)">ON</button>
-                        <button class="${!isOn ? 'btn-red' : 'btn-gray'}" onclick="setBlueMark('${u.id}', false)">OFF</button>
-                    </div>`;
-                container.appendChild(wrap);
+            document.querySelectorAll('.chat-user-list-item[data-user-id]').forEach(item => {
+                const uid = item.getAttribute('data-user-id'), pill = item.querySelector('.chat-user-unread-pill'), cnt = unreadBySenderMap[uid] || 0;
+                if (pill) { if (cnt > 0) { pill.textContent = formatBadgeNumber(cnt); pill.style.display = 'inline-flex'; } else { pill.textContent = '0'; pill.style.display = 'none'; } }
             });
         }
-
-        async function setBlueMark(userId, nextState) {
-            const { error } = await supabaseClient.from('profiles').update({ is_verified: Boolean(nextState) }).eq('id', userId);
-            if (error) { alert('Error: ' + error.message); return; }
-            await refreshAllAdminData();
+        function updateNotiBadgeDisplay() {
+            const badge = document.getElementById('noti-unread-badge');
+            if (!badge) return;
+            if (unreadNotiCount > 0) { badge.textContent = formatBadgeNumber(unreadNotiCount); badge.style.display = 'inline-block'; }
+            else { badge.textContent = '0'; badge.style.display = 'none'; }
+        }
+        async function refreshUnreadMessageCounts() {
+            if (!currentUser) return;
+            try {
+                const { data, error } = await supabaseClient.from('messages').select('*').eq('receiver_id', currentUser.id).order('created_at', { ascending: false }).limit(300);
+                if (error || !data) return;
+                const map = {}; let total = 0;
+                const chatTabActive = document.getElementById('chat-tab')?.classList.contains('active');
+                const chatBoxVisible = document.getElementById('chat-box-view')?.style.display !== 'none';
+                data.forEach(row => {
+                    if (isMessageDeletedForMe(row)) return;
+                    if (chatTabActive && chatBoxVisible && activeChatUser && row.sender_id === activeChatUser.id) return;
+                    if (!row.seen_at) { map[row.sender_id] = (map[row.sender_id] || 0) + 1; total++; }
+                });
+                unreadBySenderMap = map; totalUnreadMessages = total; updateChatBadgeDisplay();
+            } catch (e) {}
         }
 
-        function renderVerifiedBlueList() {
-            const q = (document.getElementById('search-blue-list')?.value || '').trim().toLowerCase();
-            const container = document.getElementById('verified-blue-list-container');
-            const list = allProfiles.filter(u => u.is_verified === true && (!q || (u.username || '').toLowerCase().includes(q)));
-            container.innerHTML = '';
-            if (!list.length) { container.innerHTML = '<p style="color:var(--muted);">No blue mark accounts.</p>'; return; }
+        function isUserRecentlyActive(userId, lastSeenIso) {
+            if (userId && currentUser && userId === currentUser.id) return true;
+            if (userId && onlineUserIds.has(userId)) return true;
+            if (!lastSeenIso) return false;
+            const ms = new Date(lastSeenIso).getTime();
+            return !isNaN(ms) && (Date.now() - ms) <= 15000;
+        }
+        function formatUserPresenceStatus(userId, lastSeenIso) {
+            if (isUserRecentlyActive(userId, lastSeenIso)) return { text: 'Active', isOnline: true };
+            if (!lastSeenIso) return { text: 'Offline', isOnline: false };
+            const d = new Date(lastSeenIso), diffMs = Date.now() - d.getTime();
+            if (isNaN(diffMs) || diffMs < 0) return { text: 'Active', isOnline: true };
+            const mins = Math.max(1, Math.floor(diffMs / 60000)), hrs = Math.floor(diffMs / 3600000), days = Math.floor(hrs / 24);
+            if (hrs < 1) return { text: mins === 1 ? '1 minute ago' : `${mins} minutes ago`, isOnline: false };
+            if (hrs < 24) return { text: hrs === 1 ? '1 hour ago' : `${hrs} hours ago`, isOnline: false };
+            if (days < 3) return { text: days === 1 ? '1 day ago' : `${days} days ago`, isOnline: false };
+            return { text: d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }), isOnline: false };
+        }
+        async function updateMyLastSeen() {
+            if (!currentUser) return;
+            const nowIso = new Date().toISOString();
+            if (cachedUsersMap[currentUser.id]) cachedUsersMap[currentUser.id].last_seen = nowIso;
+            try { await supabaseClient.from('profiles').update({ last_seen: nowIso }).eq('id', currentUser.id); } catch (e) {}
+        }
+        async function syncOtherUsersPresenceFromDB() {
+            if (!currentUser) return;
+            try {
+                const { data, error } = await supabaseClient.from('profiles').select('*');
+                if (error || !data) return;
+                let changed = false;
+                data.forEach(p => {
+                    if (!p || !p.id) return;
+                    if (p.id === currentUser.id && p.is_banned === true) showAccountBanScreen(true);
+                    const prev = cachedUsersMap[p.id];
+                    const wasOnline = prev ? isUserRecentlyActive(p.id, prev.last_seen) : false;
+                    const wasVerified = prev ? Boolean(prev.is_verified) : false;
+                    cachedUsersMap[p.id] = { ...(prev || {}), ...p };
+                    if (wasOnline !== isUserRecentlyActive(p.id, p.last_seen) || wasVerified !== Boolean(p.is_verified)) changed = true;
+                });
+                refreshAllPresenceDisplays();
+                if (changed && document.getElementById('chat-list-view')?.style.display !== 'none') loadChatList();
+            } catch (e) {}
+        }
+        async function trackMyPresence() {
+            if (!globalPresenceChannel || !currentUser) return;
+            const chatTabActive = document.getElementById('chat-tab')?.classList.contains('active');
+            try { await globalPresenceChannel.track({ user_id: currentUser.id, online_at: new Date().toISOString(), in_chat_with: (chatTabActive && activeChatUser) ? activeChatUser.id : null }); } catch (e) {}
+        }
+        function refreshAllPresenceDisplays() {
+            if (activeChatUser) {
+                const profile = cachedUsersMap[activeChatUser.id] || activeChatUser;
+                const statusInfo = formatUserPresenceStatus(activeChatUser.id, profile.last_seen);
+                const statusEl = document.getElementById('chat-user-status-text'), dotEl = document.getElementById('chat-header-online-dot'), hdrName = document.getElementById('chat-header-name');
+                if (hdrName) hdrName.innerHTML = `${profile.username || activeChatUser.username || 'User'}${renderBlueMarkHtml(Boolean(profile.is_verified))}`;
+                if (statusEl) { statusEl.textContent = statusInfo.text; statusEl.style.color = statusInfo.isOnline ? '#31a24c' : 'var(--text-sub)'; }
+                if (dotEl) dotEl.style.display = statusInfo.isOnline ? 'block' : 'none';
+                if (statusInfo.isOnline) promoteSentToDeliveredInUI();
+            }
+            if (document.getElementById('chat-list-view')?.style.display !== 'none') {
+                document.querySelectorAll('.chat-user-list-item[data-user-id]').forEach(item => {
+                    const uid = item.getAttribute('data-user-id'), prof = cachedUsersMap[uid];
+                    if (!prof) return;
+                    const st = formatUserPresenceStatus(uid, prof.last_seen);
+                    const subEl = item.querySelector('.chat-list-status-sub'), dot = item.querySelector('.online-dot-badge');
+                    if (subEl) { subEl.textContent = st.text; subEl.style.color = st.isOnline ? '#31a24c' : 'var(--text-sub)'; }
+                    if (dot) dot.style.display = st.isOnline ? 'block' : 'none';
+                });
+            }
+        }
+        function initGlobalPresence() {
+            if (!currentUser) return;
+            if (globalPresenceChannel) supabaseClient.removeChannel(globalPresenceChannel);
+            globalPresenceChannel = supabaseClient.channel('global-online-presence', { config: { presence: { key: currentUser.id } } });
+            globalPresenceChannel.on('presence', { event: 'sync' }, () => {
+                const state = globalPresenceChannel.presenceState(), nextOnline = new Set(), nextChatMap = {};
+                Object.keys(state).forEach(key => {
+                    const entries = state[key] || [];
+                    if (entries.length > 0) { nextOnline.add(key); if (entries[entries.length - 1]?.in_chat_with) nextChatMap[key] = entries[entries.length - 1].in_chat_with; }
+                });
+                onlineUserIds = nextOnline; activeChatBoxUsersMap = nextChatMap;
+                refreshAllPresenceDisplays(); markIncomingMessagesDelivered();
+            }).subscribe(async status => { if (status === 'SUBSCRIBED') { await trackMyPresence(); await updateMyLastSeen(); await syncOtherUsersPresenceFromDB(); } });
 
-            list.forEach(u => {
-                const isOpen = expandedUserId === `vlist_${u.id}`, wrap = document.createElement('div');
-                wrap.innerHTML = `
-                    <div class="user-row" onclick="toggleExpand('vlist_${u.id}')">
-                        <div class="user-left">
-                            <div class="avatar-circle">${buildUserAvatarHtml(u)}</div>
-                            <div>
-                                <div style="font-weight:bold; display:flex; align-items:center;">${u.username || 'User'}<span class="blue-tick">✓</span></div>
-                                <div style="font-size:12px; color:#4da3ff;">Verified ON</div>
-                            </div>
-                        </div>
-                        <span style="font-size:12px; color:var(--muted);">Tap for ON/OFF</span>
-                    </div>
-                    <div class="action-drawer ${isOpen ? 'open' : ''}">
-                        <button class="btn-green" onclick="setBlueMark('${u.id}', true)">ON</button>
-                        <button class="btn-red" onclick="setBlueMark('${u.id}', false)">OFF</button>
-                    </div>`;
-                container.appendChild(wrap);
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            heartbeatInterval = setInterval(async () => {
+                if (!currentUser) return;
+                if (document.visibilityState === 'visible') { await updateMyLastSeen(); await trackMyPresence(); }
+                await syncOtherUsersPresenceFromDB();
+            }, 2500);
+        }
+
+        function setPublishStatus(bannerId, state, text) {
+            const el = document.getElementById(bannerId); if (!el) return;
+            el.className = 'posting-status-banner';
+            if (!state) { el.style.display = 'none'; el.textContent = ''; return; }
+            el.classList.add(state); el.textContent = text; el.style.display = 'block';
+        }
+        function handlePhotoSelection(input) {
+            const previewEl = document.getElementById('selected-photos-preview'); selectedPostPhotos = [];
+            if (previewEl) previewEl.innerHTML = '';
+            if (!input.files || !input.files.length) return;
+            const chosen = [];
+            for (let i = 0; i < input.files.length; i++) if (input.files[i].type?.startsWith('image/')) chosen.push(input.files[i]);
+            selectedPostPhotos = chosen.slice(0, 10);
+            selectedPostPhotos.forEach(file => {
+                const r = new FileReader();
+                r.onload = e => { const img = document.createElement('img'); img.src = e.target.result; img.className = 'selected-photo-thumb'; previewEl?.appendChild(img); };
+                r.readAsDataURL(file);
             });
         }
-
-        function renderAccountManageList() {
-            const q = (document.getElementById('search-account-manage')?.value || '').trim().toLowerCase();
-            const container = document.getElementById('account-manage-list-container');
-            const list = allProfiles.filter(u => !q || (u.username || '').toLowerCase().includes(q));
-            container.innerHTML = '';
-            if (!list.length) { container.innerHTML = '<p style="color:var(--muted);">No accounts found.</p>'; return; }
-
-            list.forEach(u => {
-                const isBanned = u.is_banned === true, isOpen = expandedUserId === `acc_${u.id}`, wrap = document.createElement('div');
-                wrap.innerHTML = `
-                    <div class="user-row" onclick="toggleExpand('acc_${u.id}')">
-                        <div class="user-left">
-                            <div class="avatar-circle">${buildUserAvatarHtml(u)}</div>
-                            <div>
-                                <div style="font-weight:bold; display:flex; align-items:center;">
-                                    ${u.username || 'User'}
-                                    ${u.is_verified ? `<span class="blue-tick">✓</span>` : ''}
-                                    ${isBanned ? `<span class="pill-ban">BANNED</span>` : ''}
-                                </div>
-                                <div style="font-size:12px; color:var(--muted);">ID: ${u.id}</div>
-                            </div>
-                        </div>
-                        <span style="font-size:12px; color:${isBanned ? '#ff6b81' : '#4cd964'}; font-weight:bold;">${isBanned ? 'Banned' : 'Active'}</span>
-                    </div>
-                    <div class="action-drawer ${isOpen ? 'open' : ''}">
-                        ${!isBanned
-                            ? `<button class="btn-red" onclick="setAccountBan('${u.id}', true)">Ban</button>`
-                            : `<button class="btn-green" onclick="setAccountBan('${u.id}', false)">Unban</button>`
-                        }
-                    </div>`;
-                container.appendChild(wrap);
+        function compressFileToDataUrl(file, maxWidth = 800, quality = 0.68) {
+            return new Promise(resolve => {
+                const r = new FileReader();
+                r.onload = e => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const c = document.createElement('canvas'), s = img.width > maxWidth ? maxWidth / img.width : 1;
+                        c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+                        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                        resolve(c.toDataURL('image/jpeg', quality));
+                    };
+                    img.onerror = () => resolve(e.target.result); img.src = e.target.result;
+                };
+                r.onerror = () => resolve(null); r.readAsDataURL(file);
             });
         }
-
-        async function setAccountBan(userId, banState) {
-            const { error } = await supabaseClient.from('profiles').update({ is_banned: Boolean(banState) }).eq('id', userId);
-            if (error) { alert('Error: ' + error.message); return; }
-            await refreshAllAdminData();
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = e => resolve(e.target.result); r.onerror = reject; r.readAsDataURL(file); });
+        }
+        async function uploadPostPhotos(files) {
+            const urls = [];
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i], fileName = `photo_${currentUser.id}_${Date.now()}_${i}_${(file.name || 'photo.jpg').replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+                try {
+                    const { error } = await supabaseClient.storage.from('media').upload(fileName, file);
+                    if (!error) { const { data } = supabaseClient.storage.from('media').getPublicUrl(fileName); if (data?.publicUrl) { urls.push(data.publicUrl); continue; } }
+                } catch (e) {}
+                const fb = await compressFileToDataUrl(file, 720, 0.62);
+                if (fb) urls.push(fb);
+            }
+            return urls;
         }
 
-        function renderPostManage() {
-            const container = document.getElementById('post-manage-container');
+        const PHOTO_PACK_PREFIX = '<<<SC_PHOTOS_JSON:', PHOTO_PACK_SUFFIX = ':SC_PHOTOS_JSON>>>';
+        function encodePostPayload(caption, photoUrls) { return (photoUrls && photoUrls.length > 0) ? `${PHOTO_PACK_PREFIX}${JSON.stringify({ photos: photoUrls, caption: caption || '' })}${PHOTO_PACK_SUFFIX}` : (caption || ''); }
+        function parseMultiPhotoContent(rawContent) {
+            const str = (rawContent || '').trim();
+            if (str.startsWith(PHOTO_PACK_PREFIX) && str.endsWith(PHOTO_PACK_SUFFIX)) {
+                try { const p = JSON.parse(str.slice(PHOTO_PACK_PREFIX.length, str.length - PHOTO_PACK_SUFFIX.length)); return { photos: Array.isArray(p.photos) ? p.photos : [], text: typeof p.caption === 'string' ? p.caption : '' }; } catch (e) { return { photos: [], text: '' }; }
+            }
+            return { photos: [], text: rawContent || '' };
+        }
+        function isMessageDeletedForEveryone(msg) { return Boolean(msg && (msg.deleted_for_everyone === true || (msg.id && localDeletedForEveryoneSet.has(String(msg.id))))); }
+        function isMessageDeletedForMe(msg) { return Boolean(msg && currentUser && ((msg.id && localDeletedForMeSet.has(String(msg.id))) || (Array.isArray(msg.deleted_for_users) && msg.deleted_for_users.includes(currentUser.id)))); }
+        function openDeleteChoiceModal(msgId, senderId) { pendingDeleteTarget = { msgId: String(msgId), senderId }; document.getElementById('delete-choice-modal').style.display = 'flex'; }
+        function closeDeleteChoiceModal() { pendingDeleteTarget = null; document.getElementById('delete-choice-modal').style.display = 'none'; }
+        function applyDeletedEveryoneToDom(msgId) {
+            if (!msgId) return; localDeletedForEveryoneSet.add(String(msgId)); saveLocalDeletedSets();
+            const w = document.querySelector(`.msg-wrapper[data-id="${msgId}"]`);
+            if (w) { const b = w.querySelector('.msg-bubble'); if (b) b.innerHTML = `<span class="msg-deleted-italic">Deleted message</span>`; w.querySelector('.msg-longpress-action-btn')?.remove(); }
+        }
+        async function executeDeleteMyself(msgId) { if (!msgId || !currentUser) return; localDeletedForMeSet.add(String(msgId)); saveLocalDeletedSets(); document.querySelector(`.msg-wrapper[data-id="${msgId}"]`)?.remove(); }
+        async function executeDeleteEveryone(msgId) {
+            if (!msgId || !currentUser) return; applyDeletedEveryoneToDom(msgId);
+            try { await supabaseClient.from('messages').update({ deleted_for_everyone: true }).eq('id', msgId); } catch (e) {}
+            chatSyncBroadcastChannel?.send({ type: 'broadcast', event: 'msg_deleted_everyone', payload: { message_id: String(msgId), actor_id: currentUser.id } }).catch(() => {});
+        }
+        async function confirmDeleteChoice(choice) {
+            if (!pendingDeleteTarget) return; const { msgId } = pendingDeleteTarget; closeDeleteChoiceModal();
+            if (choice === 'myself') await executeDeleteMyself(msgId); else if (choice === 'everyone') await executeDeleteEveryone(msgId);
+        }
+        function attachLongPressToMessageWrapper(wrapper, msg, isMe) {
+            if (!wrapper || !msg || !msg.id || String(msg.id).startsWith('tmp_')) return;
+            const msgId = String(msg.id); let timer = null, startX = 0, startY = 0;
+            const clearTimer = () => { if (timer) { clearTimeout(timer); timer = null; } };
+            wrapper.addEventListener('touchstart', e => {
+                if (e.target.closest('.msg-longpress-action-btn')) return; clearTimer();
+                if (e.touches?.[0]) { startX = e.touches[0].clientX; startY = e.touches[0].clientY; }
+                timer = setTimeout(() => {
+                    const row = wrapper.querySelector('.msg-bubble-row');
+                    if (!row || row.querySelector('.msg-longpress-action-btn')) return;
+                    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'msg-longpress-action-btn'; btn.textContent = isMe ? 'Delete' : 'Delete Myself';
+                    btn.addEventListener('click', async ev => { ev.preventDefault(); ev.stopPropagation(); btn.remove(); if (isMe) openDeleteChoiceModal(msgId, msg.sender_id); else await executeDeleteMyself(msgId); });
+                    row.appendChild(btn);
+                }, 550);
+            }, { passive: true });
+            wrapper.addEventListener('touchmove', e => { if (timer && e.touches?.[0] && (Math.abs(e.touches[0].clientX - startX) > 15 || Math.abs(e.touches[0].clientY - startY) > 15)) clearTimer(); }, { passive: true });
+            wrapper.addEventListener('touchend', clearTimer); wrapper.addEventListener('touchcancel', clearTimer); wrapper.addEventListener('contextmenu', e => e.preventDefault());
+        }
+
+        const CHAT_MEDIA_PREFIX = '<<<SC_CHAT_MEDIA:', CHAT_MEDIA_SUFFIX = ':SC_CHAT_MEDIA>>>';
+        function encodeChatMedia(obj) { return `${CHAT_MEDIA_PREFIX}${JSON.stringify(obj)}${CHAT_MEDIA_SUFFIX}`; }
+        function parseChatMediaContent(rawContent) {
+            const str = (rawContent || '').trim(), s = str.indexOf(CHAT_MEDIA_PREFIX), e = str.lastIndexOf(CHAT_MEDIA_SUFFIX);
+            if (s !== -1 && e !== -1 && e > s) { try { return JSON.parse(str.slice(s + CHAT_MEDIA_PREFIX.length, e).trim()); } catch (err) { return null; } }
+            return null;
+        }
+        function formatBytesSize(bytes) { const b = Number(bytes) || 0; return b < 1024 ? `${b} B` : (b < 1048576 ? `${(b / 1024).toFixed(1)} KB` : `${(b / 1048576).toFixed(1)} MB`); }
+        function triggerDirectBlobDownload(blob, filename = 'photo.jpg') {
+            const u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = filename; a.style.display = 'none';
+            document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(u); }, 1500);
+        }
+        async function savePhotoAsImage(url, filename = 'photo.jpg') {
+            if (!url) return; const cn = (filename || `photo_${Date.now()}.jpg`).replace(/[^a-zA-Z0-9._-]/g, '_');
+            try { const r = await fetch(url, { mode: 'cors' }); if (r.ok) { triggerDirectBlobDownload(await r.blob(), cn); return; } } catch (e) {}
+            const a = document.createElement('a'); a.href = url; a.download = cn; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 1000);
+        }
+        async function saveFileAttachment(url, filename = 'download') {
+            if (!url) return;
+            try { const r = await fetch(url); if (r.ok) { triggerDirectBlobDownload(await r.blob(), filename); return; } } catch (e) {}
+            const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 1000);
+        }
+        function openFilePreviewModal(url, name, size) {
+            currentFilePreviewMeta = { url: url || '', name: name || 'file', size: Number(size) || 0 };
+            document.getElementById('file-preview-name').textContent = currentFilePreviewMeta.name;
+            document.getElementById('file-preview-size').textContent = formatBytesSize(currentFilePreviewMeta.size);
+            document.getElementById('file-preview-modal').style.display = 'flex';
+        }
+        function closeFilePreviewModal() { document.getElementById('file-preview-modal').style.display = 'none'; }
+        async function saveCurrentPreviewFile() { if (currentFilePreviewMeta.url) await saveFileAttachment(currentFilePreviewMeta.url, currentFilePreviewMeta.name); }
+        function openLocationFrameModal(lat, lng, browserUrl = '') {
+            const nLat = Number(lat), nLng = Number(lng);
+            currentLocationMeta = { lat: nLat, lng: nLng, browserUrl: browserUrl || `https://www.google.com/maps?q=${nLat},${nLng}` };
+            document.getElementById('location-coords-text').textContent = `Lat: ${nLat.toFixed(6)}, Lng: ${nLng.toFixed(6)}`;
+            document.getElementById('location-map-iframe').src = `https://maps.google.com/maps?q=${nLat},${nLng}&z=15&output=embed`;
+            document.getElementById('location-frame-modal').style.display = 'flex';
+        }
+        function closeLocationFrameModal() { document.getElementById('location-frame-modal').style.display = 'none'; document.getElementById('location-map-iframe').src = ''; }
+        function openLocationInExternalBrowser() { if (currentLocationMeta.browserUrl) window.open(currentLocationMeta.browserUrl, '_blank', 'noopener,noreferrer'); }
+
+        function renderMessageBubbleInner(bubble, rawContent) {
+            const m = parseChatMediaContent(rawContent);
+            if (!m?.kind) { bubble.textContent = rawContent || ''; return; }
+            if (m.kind === 'photo' && m.url) {
+                const img = document.createElement('img'); img.src = m.url; img.className = 'msg-photo-img';
+                img.onclick = ev => { ev.stopPropagation(); openLightbox(m.url, m.name || 'photo.jpg', true); };
+                bubble.appendChild(img);
+            } else if (m.kind === 'file' && m.url) {
+                const fc = document.createElement('div'); fc.className = 'msg-file-card';
+                fc.innerHTML = `<span style="font-size:20px;">📎</span><span style="min-width:0;"><div style="word-break:break-word;">${m.name || 'Attached File'}</div><div class="msg-file-meta">${formatBytesSize(m.size)} · Tap to view & save</div></span>`;
+                fc.onclick = ev => { ev.stopPropagation(); openFilePreviewModal(m.url, m.name || 'file', m.size || 0); };
+                bubble.appendChild(fc);
+            } else if (m.kind === 'location') {
+                const lat = Number(m.lat), lng = Number(m.lng), mapUrl = m.mapUrl || `https://www.google.com/maps?q=${lat},${lng}`;
+                const w = document.createElement('div'); w.className = 'msg-loc-box';
+                w.innerHTML = `<div><b>📍 Shared Location</b></div><div style="font-size:12px;">Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}</div><span class="msg-loc-hint">Tap to view map</span>`;
+                w.onclick = ev => { ev.stopPropagation(); openLocationFrameModal(lat, lng, mapUrl); };
+                bubble.appendChild(w);
+            } else bubble.textContent = rawContent || '';
+        }
+
+        async function persistAndBroadcastChatContent(encodedContent) {
+            if (await checkCurrentUserBanStatus()) return;
+            const sendBtn = document.getElementById('chat-send-btn');
+            if (!currentUser || !activeChatUser || !encodedContent) return;
+            if (isCurrentlyTyping) { isCurrentlyTyping = false; sendTypingSignal(false); }
+            if (typingTimeout) clearTimeout(typingTimeout);
+            const targetUser = { ...activeChatUser }, tempId = 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+            if (sendBtn) sendBtn.disabled = true;
+            appendMessageBubble({ content: encodedContent, sender_id: currentUser.id, receiver_id: targetUser.id, created_at: new Date().toISOString() }, 'sending...', tempId);
+            try {
+                const partnerProf = cachedUsersMap[targetUser.id] || targetUser;
+                const partnerIsOnline = isUserRecentlyActive(targetUser.id, partnerProf.last_seen), partnerInSameChat = activeChatBoxUsersMap[targetUser.id] === currentUser.id, nowIso = new Date().toISOString();
+                const insertPayload = { content: encodedContent, sender_id: currentUser.id, receiver_id: targetUser.id };
+                if (partnerIsOnline) insertPayload.delivered_at = nowIso;
+                if (partnerInSameChat) insertPayload.seen_at = nowIso;
+                const { data, error } = await supabaseClient.from('messages').insert([insertPayload]).select().single();
+                if (error) { updateMessageBubbleStatus(tempId, null, `Failed (${error.message})`, 'failed'); return; }
+                const finalLabel = (data.seen_at || partnerInSameChat) ? 'seen' : ((data.delivered_at || partnerIsOnline) ? 'delivered' : 'sent');
+                updateMessageBubbleStatus(tempId, data, finalLabel, finalLabel);
+                chatSyncBroadcastChannel?.send({ type: 'broadcast', event: 'new_dm', payload: { ...data, delivered_at: data.delivered_at || (partnerIsOnline ? nowIso : null) } }).catch(() => {});
+            } finally { if (sendBtn) sendBtn.disabled = false; }
+        }
+
+        async function handleChatPhotoSelected(input) {
+            if (!input.files?.[0] || !currentUser || !activeChatUser) return;
+            const file = input.files[0]; input.value = '';
+            if (!file.type?.startsWith('image/')) { alert('ဓာတ်ပုံ ဖိုင်တစ်ခု ရွေးချယ်ပါ။'); return; }
+            let photoUrl = '';
+            const fileName = `chat_photo_${currentUser.id}_${Date.now()}_${(file.name || 'photo.jpg').replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            try { const { error } = await supabaseClient.storage.from('media').upload(fileName, file); if (!error) photoUrl = supabaseClient.storage.from('media').getPublicUrl(fileName)?.data?.publicUrl || ''; } catch (e) {}
+            if (!photoUrl) photoUrl = await compressFileToDataUrl(file, 760, 0.65);
+            if (photoUrl) await persistAndBroadcastChatContent(encodeChatMedia({ kind: 'photo', url: photoUrl, name: file.name || 'photo.jpg' }));
+        }
+        async function handleChatFileSelected(input) {
+            if (!input.files?.[0] || !currentUser || !activeChatUser) return;
+            const file = input.files[0]; input.value = '';
+            if (file.size > 4 * 1024 * 1024) { alert('ဖိုင်အရွယ်အစား 4 MB အောက် ဖြစ်ရပါမည်။'); return; }
+            let fileUrl = '';
+            const fileName = `chat_file_${currentUser.id}_${Date.now()}_${(file.name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            try { const { error } = await supabaseClient.storage.from('media').upload(fileName, file); if (!error) fileUrl = supabaseClient.storage.from('media').getPublicUrl(fileName)?.data?.publicUrl || ''; } catch (e) {}
+            if (!fileUrl) fileUrl = await readFileAsDataUrl(file);
+            if (fileUrl) await persistAndBroadcastChatContent(encodeChatMedia({ kind: 'file', url: fileUrl, name: file.name || 'file', size: file.size || 0 }));
+        }
+        async function shareCurrentLocationInChat() {
+            if (!currentUser || !activeChatUser || !navigator.geolocation) return;
+            navigator.geolocation.getCurrentPosition(async pos => {
+                await persistAndBroadcastChatContent(encodeChatMedia({ kind: 'location', lat: pos.coords.latitude, lng: pos.coords.longitude, mapUrl: `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}` }));
+            }, err => alert('Location error: ' + err.message), { enableHighAccuracy: true, timeout: 10000 });
+        }
+
+        function handleFeedTabClick() {
+            const feedTabEl = document.getElementById('feed-tab');
+            if (!feedTabEl?.classList.contains('active')) { switchTab('feed'); feedTabClickCount = 1; return; }
+            feedTabEl.scrollTo({ top: 0, behavior: 'smooth' }); feedTabClickCount = 0; loadFeed();
+        }
+        function addNotificationItem(noti) {
+            if (!noti || noti.type === 'message') return;
+            const key = noti.id || `${noti.type}_${noti.actorId}_${noti.message}_${noti.detailText}`;
+            if (key && handledNotiKeys.has(key)) return;
+            if (key) handledNotiKeys.add(key);
+            notificationsList.unshift({ ...noti, id: key, isRead: false, createdAt: noti.createdAt || new Date().toISOString() });
+            if (notificationsList.length > 120) notificationsList = notificationsList.slice(0, 120);
+            if (!document.getElementById('notification-tab')?.classList.contains('active')) { unreadNotiCount++; updateNotiBadgeDisplay(); }
+            else { notificationsList[0].isRead = true; unreadNotiCount = 0; updateNotiBadgeDisplay(); }
+            renderNotificationsList();
+        }
+        function markAllNotificationsRead() { unreadNotiCount = 0; notificationsList.forEach(n => { n.isRead = true; }); updateNotiBadgeDisplay(); }
+        async function getUsernameById(userId) {
+            if (!userId) return 'Someone';
+            if (cachedUsersMap[userId]?.username) return cachedUsersMap[userId].username;
+            const { data } = await supabaseClient.from('profiles').select('username, avatar_url, bio, last_seen, is_verified').eq('id', userId).maybeSingle();
+            if (data) { cachedUsersMap[userId] = data; return data.username || 'Someone'; }
+            return 'Someone';
+        }
+        async function handleIncomingMessageCountOnly(msgRow) {
+            if (!msgRow || !currentUser || msgRow.receiver_id !== currentUser.id || isMessageDeletedForMe(msgRow)) return;
+            const chatTabActive = document.getElementById('chat-tab')?.classList.contains('active'), chatBoxVisible = document.getElementById('chat-box-view')?.style.display !== 'none';
+            if (!(chatTabActive && chatBoxVisible && activeChatUser && activeChatUser.id === msgRow.sender_id)) await refreshUnreadMessageCounts();
+        }
+        async function emitPostInteractionNotification(postId, actionType, detailText = '') {
+            if (!currentUser || !postId) return;
+            try {
+                const { data: postRow } = await supabaseClient.from('posts').select('id, user_id').eq('id', postId).maybeSingle();
+                if (!postRow?.user_id || postRow.user_id === currentUser.id) return;
+                const actorName = currentProfileData?.username || await getUsernameById(currentUser.id);
+                const ch = await ensureGlobalNotiChannel();
+                if (ch) await ch.send({ type: 'broadcast', event: 'post_interaction', payload: { id: `post_act_${actionType}_${postId}_${currentUser.id}_${Date.now()}`, type: 'post_' + actionType, actionType, postId, postOwnerId: postRow.user_id, actorId: currentUser.id, actorName, detailText, createdAt: new Date().toISOString() } });
+            } catch (e) {}
+        }
+        function handleIncomingPostInteractionNoti(payload) {
+            if (!payload || !currentUser || payload.postOwnerId !== currentUser.id || payload.actorId === currentUser.id) return;
+            const msgMap = { like: 'liked your post', comment: 'commented on your post', share: 'shared your post' };
+            addNotificationItem({ ...payload, message: msgMap[payload.actionType] || 'interacted with your post' });
+        }
+        async function checkMyPostsEngagementChanges(postRowOverride = null) {
+            if (!currentUser) return;
+            try {
+                const myPosts = postRowOverride ? [postRowOverride] : ((await supabaseClient.from('posts').select('id, user_id, likes_count, comments, shares_count').eq('user_id', currentUser.id)).data || []);
+                const myName = currentProfileData?.username || '';
+                myPosts.forEach(p => {
+                    const likes = Number(p.likes_count || 0), cArr = Array.isArray(p.comments) ? p.comments : [], shares = Number(p.shares_count || 0), prev = postStateSnapshotMap[p.id];
+                    if (!prev) { postStateSnapshotMap[p.id] = { likes, commentsLen: cArr.length, shares }; return; }
+                    if (cArr.length > prev.commentsLen) for (let i = prev.commentsLen; i < cArr.length; i++) if (!myName || cArr[i]?.username !== myName) addNotificationItem({ id: `db_cmt_${p.id}_${i}`, type: 'post_comment', postId: p.id, actorName: cArr[i]?.username || 'Someone', message: 'commented on your post', detailText: cArr[i]?.text ? `"${cArr[i].text}"` : '' });
+                    if (likes > prev.likes) addNotificationItem({ id: `db_like_${p.id}_${likes}`, type: 'post_like', postId: p.id, actorName: 'Someone', message: 'liked your post' });
+                    if (shares > prev.shares) addNotificationItem({ id: `db_share_${p.id}_${shares}`, type: 'post_share', postId: p.id, actorName: 'Someone', message: 'shared your post' });
+                    postStateSnapshotMap[p.id] = { likes, commentsLen: cArr.length, shares };
+                });
+            } catch (e) {}
+        }
+        function renderNotificationsList() {
+            const container = document.getElementById('notifications-list'); if (!container) return;
+            const filtered = notificationsList.filter(item => item.type !== 'message');
+            if (!filtered.length) { container.innerHTML = '<p style="color: var(--text-sub); font-size: 14px;">No new notifications right now.</p>'; return; }
             container.innerHTML = '';
-            if (!allPosts.length) { container.innerHTML = '<p style="color:var(--muted);">No posts found.</p>'; return; }
-            allPosts.forEach(p => {
-                const isBanned = p.is_banned === true, div = document.createElement('div');
-                div.className = 'post-manage-item';
-                div.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-                        <div><b>${p.profiles?.username || p.user_id}</b>${isBanned ? `<span class="pill-ban">BANNED</span>` : ''}<div style="font-size:11px; color:var(--muted);">${new Date(p.created_at).toLocaleString()}</div></div>
-                        <div style="display:flex; gap:6px;"><button class="${isBanned ? 'btn-green' : 'btn-gray'}" onclick="toggleBanPost('${p.id}', ${!isBanned})">${isBanned ? 'Unban' : 'Ban'}</button><button class="btn-red" onclick="deletePostAdmin('${p.id}')">Delete</button></div>
-                    </div>
-                    <div style="margin-top:8px; font-size:13px; white-space:pre-wrap;">${p.content || '(Media post)'}</div>`;
+            filtered.forEach(item => {
+                const div = document.createElement('div'); div.className = 'noti-item' + (!item.isRead ? ' unread' : '');
+                div.innerHTML = `<div style="min-width:0;"><div style="font-size:13px;"><b>${item.actorName}</b> ${item.message}</div>${item.detailText ? `<div style="font-size:12px; color:var(--text-sub);">${item.detailText}</div>` : ''}<div style="font-size:11px; color:#8a8d91;">${new Date(item.createdAt).toLocaleTimeString()}</div></div><span class="noti-tag-pill">${item.type === 'live' ? 'LIVE' : 'POST'}</span>`;
+                div.onclick = () => { item.isRead = true; div.classList.remove('unread'); if (item.type === 'live' && item.liveId) openLiveViewer(item.liveId, item.actorName, item.coverUrl, item.caption); else switchTab('feed'); };
                 container.appendChild(div);
             });
         }
-
-        async function toggleBanPost(postId, nextBan) {
-            const { error } = await supabaseClient.from('posts').update({ is_banned: Boolean(nextBan) }).eq('id', postId);
-            if (error) { alert('Error: ' + error.message); return; }
-            await refreshAllAdminData();
-        }
-
-        async function deletePostAdmin(postId) {
-            if (!confirm('Delete this post permanently?')) return;
-            const { error } = await supabaseClient.from('posts').delete().eq('id', postId);
-            if (error) { alert('Error: ' + error.message); return; }
-            await refreshAllAdminData();
-        }
-
-        function renderCommentManage() {
-            const container = document.getElementById('comment-manage-container');
-            container.innerHTML = '';
-            let anyComment = false;
-            allPosts.forEach(p => {
-                const comments = Array.isArray(p.comments) ? p.comments : [];
-                if (!comments.length) return;
-                anyComment = true;
-                const bannedSet = new Set(Array.isArray(p.banned_comments) ? p.banned_comments.map(Number) : []);
-                const box = document.createElement('div');
-                box.className = 'post-manage-item';
-                box.innerHTML = `<div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Post by <b>${p.profiles?.username || p.user_id}</b></div>`;
-                comments.forEach((c, idx) => {
-                    const isBanned = bannedSet.has(idx) || c?.is_banned === true, row = document.createElement('div');
-                    row.className = 'comment-manage-row';
-                    row.innerHTML = `<div style="min-width:0; flex:1;"><b>${c?.username || 'User'}:</b> ${c?.text || ''}${isBanned ? `<span class="pill-ban">BANNED</span>` : ''}</div><div style="display:flex; gap:6px; flex-shrink:0;"><button class="${isBanned ? 'btn-green' : 'btn-gray'}" onclick="toggleBanComment('${p.id}', ${idx}, ${!isBanned})">${isBanned ? 'Unban' : 'Ban'}</button><button class="btn-red" onclick="deleteCommentAdmin('${p.id}', ${idx})">Delete</button></div>`;
-                    box.appendChild(row);
-                });
-                container.appendChild(box);
+        async function ensureGlobalNotiChannel() {
+            if (globalNotiChannel && globalNotiSubscribed) return globalNotiChannel;
+            return new Promise(resolve => {
+                const ch = supabaseClient.channel('global-live-notifications')
+                    .on('broadcast', { event: 'live_started' }, p => { if (p?.payload && currentUser && p.payload.actorId !== currentUser.id) addNotificationItem({ ...p.payload, type: 'live' }); })
+                    .on('broadcast', { event: 'post_interaction' }, p => { if (p?.payload && currentUser) handleIncomingPostInteractionNoti(p.payload); })
+                    .subscribe(status => { if (status === 'SUBSCRIBED') { globalNotiChannel = ch; globalNotiSubscribed = true; resolve(ch); } });
+                setTimeout(() => resolve(globalNotiChannel || ch), 1000);
             });
-            if (!anyComment) container.innerHTML = '<p style="color:var(--muted);">No comments found.</p>';
+        }
+        async function handleLivePostInsertedNoti(postRow) {
+            if (!postRow || !currentUser || postRow.user_id === currentUser.id) return;
+            const liveInfo = parseLivePost(postRow);
+            if (liveInfo?.liveId) addNotificationItem({ id: 'live_post_noti_' + postRow.id, type: 'live', actorId: postRow.user_id, actorName: await getUsernameById(postRow.user_id), message: 'started a live stream!', liveId: liveInfo.liveId, coverUrl: postRow.media_url || '', caption: liveInfo.caption || '' });
+        }
+        async function broadcastLiveStartNotification(liveId, coverUrl, caption, startedAtMs) {
+            if (!currentUser) return;
+            const actorName = currentProfileData?.username || document.getElementById('profile-name')?.textContent || 'User';
+            const ch = await ensureGlobalNotiChannel();
+            if (ch) await ch.send({ type: 'broadcast', event: 'live_started', payload: { id: 'live_noti_' + liveId, type: 'live', actorId: currentUser.id, actorName, message: 'started a live stream!', liveId, coverUrl, caption, startedAt: startedAtMs } });
         }
 
-        async function toggleBanComment(postId, commentIdx, nextBan) {
-            const post = allPosts.find(x => String(x.id) === String(postId)); if (!post) return;
-            const bannedSet = new Set(Array.isArray(post.banned_comments) ? post.banned_comments.map(Number) : []);
-            if (nextBan) bannedSet.add(Number(commentIdx)); else bannedSet.delete(Number(commentIdx));
-            const { error } = await supabaseClient.from('posts').update({ banned_comments: Array.from(bannedSet) }).eq('id', postId);
-            if (error) { alert('Error: ' + error.message); return; }
-            await refreshAllAdminData();
+        function toggleMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('username').style.display = isLoginMode ? 'none' : 'block';
+            document.getElementById('form-title').textContent = isLoginMode ? 'SocialChat - Login' : 'SocialChat - Sign Up';
+            document.getElementById('action-btn').textContent = isLoginMode ? 'Login' : 'Create new account';
+            document.getElementById('toggle-mode-btn').textContent = isLoginMode ? "Don't have an account? Sign Up" : 'Already have an account? Login';
+            document.getElementById('message').textContent = '';
         }
 
-        async function deleteCommentAdmin(postId, commentIdx) {
-            const post = allPosts.find(x => String(x.id) === String(postId)); if (!post) return;
-            const comments = [...(Array.isArray(post.comments) ? post.comments : [])];
-            comments.splice(commentIdx, 1);
-            const bannedSet = new Set((Array.isArray(post.banned_comments) ? post.banned_comments : []).map(Number).filter(i => i !== commentIdx).map(i => (i > commentIdx ? i - 1 : i)));
-            const { error } = await supabaseClient.from('posts').update({ comments, banned_comments: Array.from(bannedSet) }).eq('id', postId);
-            if (error) { alert('Error: ' + error.message); return; }
-            await refreshAllAdminData();
+        async function handleAuth() {
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const msgDiv = document.getElementById('message');
+            msgDiv.textContent = '';
+
+            if (!email || !password || (!isLoginMode && !username)) {
+                msgDiv.textContent = 'ကျေးဇူးပြု၍ အချက်အလက်အားလုံး ဖြည့်ပါ။';
+                return;
+            }
+
+            if (isLoginMode && isOwnerCredentials(email, password)) {
+                try { await supabaseClient.auth.signInWithPassword({ email, password }); } catch (e) {}
+                redirectToOwnerAdminPage();
+                return;
+            }
+
+            try {
+                if (isLoginMode) {
+                    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                    if (error) throw error;
+                    if ((data.user?.email || '').trim().toLowerCase() === OWNER_EMAIL.toLowerCase()) {
+                        redirectToOwnerAdminPage();
+                        return;
+                    }
+                    onLoginSuccess(data.user);
+                } else {
+                    const { data: existingUser } = await supabaseClient.from('profiles').select('username').eq('username', username).maybeSingle();
+                    if (existingUser) { msgDiv.textContent = 'ယခု Username မှာ အသုံးပြုပြီးသား ဖြစ်နေပါသည်။'; return; }
+                    const { data, error } = await supabaseClient.auth.signUp({ email, password, options: { data: { username } } });
+                    if (error) throw error;
+                    onLoginSuccess(data.user, username);
+                }
+            } catch (err) { msgDiv.textContent = err.message; }
         }
 
-        function toggleExpand(key) {
-            expandedUserId = expandedUserId === key ? null : key;
-            renderManageBlueList(); renderVerifiedBlueList(); renderAccountManageList();
+        async function onLoginSuccess(user, explicitUsername = '') {
+            currentUser = user;
+            document.getElementById('auth-container').style.display = 'none';
+            await ensureProfileExists(user, explicitUsername);
+            if (await checkCurrentUserBanStatus()) return;
+
+            document.getElementById('app-container').style.display = 'flex';
+            initGlobalPresence(); loadFeed(); loadChatList(); loadProfile(); ensureGlobalNotiChannel(); markIncomingMessagesDelivered();
+            await refreshUnreadMessageCounts(); await checkMyPostsEngagementChanges();
+
+            if (badgeSyncInterval) clearInterval(badgeSyncInterval);
+            badgeSyncInterval = setInterval(async () => {
+                if (!currentUser) return;
+                if (await checkCurrentUserBanStatus()) return;
+                await refreshUnreadMessageCounts(); await checkMyPostsEngagementChanges();
+            }, 2000);
+
+            chatSyncBroadcastChannel = supabaseClient.channel('global-chat-sync')
+                .on('broadcast', { event: 'new_dm' }, p => {
+                    const row = p?.payload; if (!row || !currentUser || row.receiver_id !== currentUser.id) return;
+                    markSingleMessageDelivered(row.id, row.sender_id); handleIncomingMessageCountOnly(row);
+                    if (activeChatUser && activeChatUser.id === row.sender_id && document.getElementById('chat-tab')?.classList.contains('active')) { hideRemoteTyping(); appendMessageBubble(row); markSingleMessageSeen(row.id, row.sender_id); }
+                })
+                .on('broadcast', { event: 'msg_status' }, p => {
+                    const row = p?.payload; if (!row || !currentUser || row.sender_id !== currentUser.id) return;
+                    if (row.status === 'seen') updateAllMessagesToSeenInUI(row.message_id); else if (row.status === 'delivered') updateSingleMessageToDeliveredInUI(row.message_id);
+                })
+                .on('broadcast', { event: 'msg_deleted_everyone' }, p => { if (p?.payload?.message_id) applyDeletedEveryoneToDom(p.payload.message_id); })
+                .on('broadcast', { event: 'typing_state' }, p => {
+                    const row = p?.payload; if (!row || !currentUser || row.receiver_id !== currentUser.id || !activeChatUser || activeChatUser.id !== row.sender_id) return;
+                    if (document.getElementById('chat-tab')?.classList.contains('active') && document.getElementById('chat-box-view')?.style.display !== 'none' && row.is_typing) showRemoteTyping(); else hideRemoteTyping();
+                }).subscribe();
+
+            supabaseClient.channel('public:profiles:chat-list').on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, payload => {
+                if (payload?.new?.id) {
+                    cachedUsersMap[payload.new.id] = { ...(cachedUsersMap[payload.new.id] || {}), ...payload.new };
+                    if (payload.new.id === currentUser.id && payload.new.is_banned === true) { showAccountBanScreen(true); return; }
+                }
+                refreshAllPresenceDisplays();
+                if (document.getElementById('chat-list-view')?.style.display !== 'none') loadChatList();
+            }).subscribe();
+
+            supabaseClient.channel('public:posts:live-noti')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, payload => { if (payload?.new) handleLivePostInsertedNoti(payload.new); })
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'posts' }, payload => { if (payload?.new?.user_id === currentUser.id) checkMyPostsEngagementChanges(payload.new); if (document.getElementById('feed-tab')?.classList.contains('active')) loadFeed(); })
+                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'posts' }, () => { if (document.getElementById('feed-tab')?.classList.contains('active')) loadFeed(); }).subscribe();
+
+            supabaseClient.channel('public:messages').on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, payload => {
+                const row = payload.new; if (!row || !currentUser) return;
+                if (payload.eventType === 'INSERT') {
+                    if (row.receiver_id === currentUser.id) { markSingleMessageDelivered(row.id, row.sender_id); handleIncomingMessageCountOnly(row); }
+                    if (activeChatUser && ((row.sender_id === currentUser.id && row.receiver_id === activeChatUser.id) || (row.sender_id === activeChatUser.id && row.receiver_id === currentUser.id))) {
+                        if (row.sender_id === activeChatUser.id) { hideRemoteTyping(); if (document.getElementById('chat-tab')?.classList.contains('active')) markSingleMessageSeen(row.id, row.sender_id); }
+                        appendMessageBubble(row);
+                    }
+                } else if (payload.eventType === 'UPDATE') {
+                    if (row.deleted_for_everyone) applyDeletedEveryoneToDom(row.id);
+                    if (row.sender_id === currentUser.id && activeChatUser && row.receiver_id === activeChatUser.id) {
+                        const st = computeMessageStatusLabel(row); updateMessageBubbleStatus(null, row, st.text, st.type);
+                    }
+                }
+            }).subscribe();
         }
+
+        async function ensureProfileExists(user, explicitUsername = '') {
+            const { data } = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
+            const preferredName = explicitUsername || user.user_metadata?.username || (user.email ? user.email.split('@')[0] : 'User');
+            const nowIso = new Date().toISOString();
+            if (!data) {
+                const { data: created } = await supabaseClient.from('profiles').upsert([{ id: user.id, username: preferredName, last_seen: nowIso }], { onConflict: 'id' }).select().maybeSingle();
+                currentProfileData = created || { id: user.id, username: preferredName, last_seen: nowIso };
+            } else {
+                const updateFields = { last_seen: nowIso };
+                if (explicitUsername && data.username !== explicitUsername) updateFields.username = explicitUsername;
+                const { data: updated } = await supabaseClient.from('profiles').update(updateFields).eq('id', user.id).select().maybeSingle();
+                currentProfileData = updated || data;
+            }
+            if (currentProfileData) cachedUsersMap[user.id] = currentProfileData;
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            const tabs = { 'feed': 0, 'post': 1, 'chat': 2, 'notification': 3, 'profile': 4, 'menu': 5 };
+            if (tabName === 'user-profile') document.getElementById('user-profile-tab').classList.add('active');
+            else {
+                document.getElementById(`${tabName}-tab`).classList.add('active');
+                if (tabs[tabName] !== undefined) document.querySelectorAll('.tab-btn')[tabs[tabName]]?.classList.add('active');
+                if (tabName === 'notification') { markAllNotificationsRead(); renderNotificationsList(); }
+                else if (tabName === 'chat') {
+                    if (activeChatUser) { document.getElementById('chat-list-view').style.display = 'none'; document.getElementById('chat-box-view').style.display = 'flex'; loadMessages(); startChatPolling(); }
+                    else backToChatList();
+                } else if (tabName === 'menu') populateOpenedMailsDropdown('top-fp-mail-select');
+            }
+            updateMyLastSeen(); trackMyPresence(); refreshAllPresenceDisplays();
+        }
+
+        // Live & Feed helpers
+        let selectedLiveMode = 'camera', selectedLiveCoverDataUrl = '', selectedLiveCaption = '', studioMediaStream = null, currentFacingMode = 'user', isCameraEnabled = true, isMicEnabled = true, effectIndex = 0;
+        const liveEffects = [{ label: 'Normal', category: 'Default', filter: 'none' }, { label: 'Fair Bright', category: 'Whitening', filter: 'brightness(1.16) contrast(1.03) saturate(1.06)' }, { label: 'Silk Smooth 1', category: 'Smooth', filter: 'brightness(1.08) contrast(0.92) saturate(1.04)' }];
+        let isLiveActive = false, activeLiveId = null, activeLivePostId = null, broadcasterChannel = null, broadcastFrameInterval = null, isSendingFrame = false, captureCanvas = document.createElement('canvas');
+        captureCanvas.width = 373; captureCanvas.height = 210;
+        let viewerChannel = null, viewingLiveId = null, liveCommentsQueue = [], isRenderingFrame = false, viewerFrameImg = new Image();
+
+        function openLiveModeModal() { document.getElementById('live-mode-modal').style.display = 'flex'; }
+        function closeLiveModeModal() { document.getElementById('live-mode-modal').style.display = 'none'; }
+        function selectLiveMode(mode) { selectedLiveMode = mode; selectedLiveCoverDataUrl = ''; document.getElementById('live-cover-preview').style.display = 'none'; document.getElementById('live-caption-input').value = ''; closeLiveModeModal(); document.getElementById('live-setup-modal').style.display = 'flex'; }
+        function closeLiveSetupModal() { document.getElementById('live-setup-modal').style.display = 'none'; }
+        function previewLiveCover(input) { if (input.files?.[0]) { const r = new FileReader(); r.onload = e => { selectedLiveCoverDataUrl = e.target.result; const i = document.getElementById('live-cover-preview'); i.src = selectedLiveCoverDataUrl; i.style.display = 'block'; }; r.readAsDataURL(input.files[0]); } }
+        function openEffectPickerModal() {
+            const c = document.getElementById('effect-list-container'); c.innerHTML = '';
+            liveEffects.forEach((fx, idx) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'effect-list-item' + (idx === effectIndex ? ' selected' : ''); b.innerHTML = `<span>${fx.label}</span><span class="effect-tag-label">${fx.category}</span>`; b.onclick = () => { effectIndex = idx; syncStudioControlButtons(); closeEffectPickerModal(); }; c.appendChild(b); });
+            document.getElementById('effect-picker-modal').style.display = 'flex';
+        }
+        function closeEffectPickerModal() { document.getElementById('effect-picker-modal').style.display = 'none'; }
+        function syncStudioControlButtons() {
+            const micBtn = document.getElementById('toggle-mic-btn'); if (micBtn) { micBtn.textContent = isMicEnabled ? '🎤 Mic: ON' : '🔇 Mic: OFF'; micBtn.classList.toggle('muted-mic', !isMicEnabled); }
+            const camBtn = document.getElementById('toggle-cam-btn'); if (camBtn) { camBtn.textContent = isCameraEnabled ? '📷 Cam: ON' : '🚫 Cam: OFF'; camBtn.classList.toggle('active-off', !isCameraEnabled); }
+            const v = document.getElementById('studio-video'), fx = liveEffects[effectIndex] || liveEffects[0];
+            if (v) { v.style.filter = isCameraEnabled ? fx.filter : 'none'; v.style.display = (selectedLiveMode === 'camera' && !isCameraEnabled) ? 'none' : 'block'; }
+        }
+        function toggleMicPower() { isMicEnabled = !isMicEnabled; studioMediaStream?.getAudioTracks().forEach(t => t.enabled = isMicEnabled); syncStudioControlButtons(); }
+        function toggleCameraPower() { if (selectedLiveMode === 'camera' && studioMediaStream) { isCameraEnabled = !isCameraEnabled; studioMediaStream.getVideoTracks().forEach(t => t.enabled = isCameraEnabled); syncStudioControlButtons(); } }
+        async function flipCameraFacing() { if (selectedLiveMode === 'camera') { currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user'; await initCameraStream(currentFacingMode); } }
+        async function initCameraStream(facing = 'user') {
+            const v = document.getElementById('studio-video'); if (studioMediaStream) studioMediaStream.getTracks().forEach(t => t.stop());
+            studioMediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing } }, audio: true });
+            v.srcObject = studioMediaStream; syncStudioControlButtons();
+        }
+        async function goToLiveStudio() {
+            selectedLiveCaption = document.getElementById('live-caption-input').value.trim();
+            if (!selectedLiveCoverDataUrl) selectedLiveCoverDataUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#1c1e21"/><text x="50%" y="50%" fill="#ffffff" font-size="28" font-family="Arial" dominant-baseline="middle" text-anchor="middle">LIVE STREAM</text></svg>`);
+            closeLiveSetupModal(); isLiveActive = false; document.getElementById('live-action-btn').textContent = 'Start Live'; document.getElementById('live-studio-modal').style.display = 'flex';
+            await initCameraStream('user');
+        }
+        function closeStudioWithoutStarting() { studioMediaStream?.getTracks().forEach(t => t.stop()); studioMediaStream = null; document.getElementById('live-studio-modal').style.display = 'none'; }
+        async function toggleStartOrEndLive() { if (!isLiveActive) await startLiveBroadcast(); else await endLiveBroadcast(); }
+        async function startLiveBroadcast() {
+            if (!currentUser) return; activeLiveId = 'live_' + currentUser.id + '_' + Date.now(); const startMs = Date.now();
+            const { data: post } = await supabaseClient.from('posts').insert([{ content: `[LIVE_STREAM:${activeLiveId}:${selectedLiveMode}:${startMs}] ${selectedLiveCaption}`, media_url: selectedLiveCoverDataUrl, privacy: 'public', user_id: currentUser.id }]).select().single();
+            activeLivePostId = post?.id || null; isLiveActive = true; document.getElementById('live-action-btn').textContent = 'End Live';
+            broadcastLiveStartNotification(activeLiveId, selectedLiveCoverDataUrl, selectedLiveCaption, startMs);
+            broadcasterChannel = supabaseClient.channel(`live-room:${activeLiveId}`).subscribe();
+            broadcastFrameInterval = setInterval(() => {
+                if (!isLiveActive || !broadcasterChannel || isSendingFrame) return; isSendingFrame = true;
+                try {
+                    const v = document.getElementById('studio-video');
+                    if (v && v.readyState >= 2) { captureCanvas.getContext('2d').drawImage(v, 0, 0, captureCanvas.width, captureCanvas.height); broadcasterChannel.send({ type: 'broadcast', event: 'live_frame', payload: { frame: captureCanvas.toDataURL('image/jpeg', 0.3) } }).catch(() => {}); }
+                } finally { isSendingFrame = false; }
+            }, 140);
+            loadFeed();
+        }
+        async function endLiveBroadcast(targetPostId = null) {
+            isLiveActive = false; clearInterval(broadcastFrameInterval); studioMediaStream?.getTracks().forEach(t => t.stop());
+            if (broadcasterChannel) { await broadcasterChannel.send({ type: 'broadcast', event: 'live_ended', payload: {} }); supabaseClient.removeChannel(broadcasterChannel); broadcasterChannel = null; }
+            const pId = targetPostId || activeLivePostId;
+            if (pId && currentUser) await supabaseClient.from('posts').delete().eq('id', pId).eq('user_id', currentUser.id);
+            document.getElementById('live-studio-modal').style.display = 'none'; loadFeed(); loadProfile();
+        }
+        function parseLivePost(post) {
+            if (!post?.content?.startsWith('[LIVE_STREAM:')) return null;
+            const endIdx = post.content.indexOf(']'); if (endIdx === -1) return null;
+            const parts = post.content.slice('[LIVE_STREAM:'.length, endIdx).split(':');
+            return { liveId: parts[0] || '', mode: parts[1] || 'camera', startedAt: parts[2] ? Number(parts[2]) : Date.now(), caption: post.content.slice(endIdx + 1).trim() };
+        }
+        function openLiveViewer(liveId, hostName, coverUrl, caption) {
+            viewingLiveId = liveId; liveCommentsQueue = [];
+            document.getElementById('viewer-host-name').textContent = hostName || 'Host';
+            document.getElementById('viewer-caption-text').textContent = caption || '';
+            document.getElementById('live-viewer-modal').style.display = 'flex';
+            viewerFrameImg.onload = () => { if (!isRenderingFrame) return; document.getElementById('viewer-video-canvas').getContext('2d').drawImage(viewerFrameImg, 0, 0, 373, 210); isRenderingFrame = false; };
+            if (viewerChannel) supabaseClient.removeChannel(viewerChannel);
+            viewerChannel = supabaseClient.channel(`live-room:${liveId}`)
+                .on('broadcast', { event: 'live_frame' }, p => { if (p?.payload?.frame && !isRenderingFrame) { isRenderingFrame = true; viewerFrameImg.src = p.payload.frame; } })
+                .on('broadcast', { event: 'live_comment' }, p => { if (p?.payload) { liveCommentsQueue.push(p.payload); renderLiveComments(); } })
+                .on('broadcast', { event: 'live_ended' }, () => { alert('Live has ended.'); closeLiveViewer(); loadFeed(); }).subscribe();
+        }
+        function closeLiveViewer() { viewingLiveId = null; document.getElementById('live-viewer-modal').style.display = 'none'; if (viewerChannel) { supabaseClient.removeChannel(viewerChannel); viewerChannel = null; } }
+        function unlockViewerAudioContext() {}
+        function toggleViewerOrientation() {}
+        function renderLiveComments() {
+            const el = document.getElementById('viewer-comments-list'); el.innerHTML = '';
+            liveCommentsQueue.slice(-6).forEach(c => { el.innerHTML += `<div class="viewer-comment-line"><b>${c.username}:</b> ${c.text}</div>`; });
+        }
+        function handleLiveCommentKey(e) { if (e.key === 'Enter') sendLiveComment(); }
+        async function sendLiveComment() {
+            const inp = document.getElementById('viewer-comment-input'), text = inp.value.trim(); if (!text || !viewingLiveId) return;
+            const uname = document.getElementById('profile-name').textContent || 'Viewer';
+            liveCommentsQueue.push({ username: uname, text }); renderLiveComments();
+            await (viewerChannel || supabaseClient.channel(`live-room:${viewingLiveId}`)).send({ type: 'broadcast', event: 'live_comment', payload: { username: uname, text } });
+            inp.value = '';
+        }
+
+        function buildPhotosCollageHtml(photos) {
+            const list = (photos || []).slice(0, 10); if (!list.length) return '';
+            const esc = u => u.replace(/'/g, "\\'");
+            if (list.length === 1) return `<img src="${list[0]}" class="post-media" onclick="openLightbox('${esc(list[0])}', 'post_photo.jpg', true)">`;
+            if (list.length === 2) return `<div class="collage-wrap collage-2"><div class="collage-cell" onclick="openLightbox('${esc(list[0])}', '1.jpg', true)"><img src="${list[0]}"></div><div class="collage-cell" onclick="openLightbox('${esc(list[1])}', '2.jpg', true)"><img src="${list[1]}"></div></div>`;
+            if (list.length === 3) return `<div class="collage-wrap collage-3"><div class="collage-cell collage-cell-top" onclick="openLightbox('${esc(list[0])}', '1.jpg', true)"><img src="${list[0]}"></div><div class="collage-cell collage-cell-bottom" onclick="openLightbox('${esc(list[1])}', '2.jpg', true)"><img src="${list[1]}"></div><div class="collage-cell collage-cell-bottom" onclick="openLightbox('${esc(list[2])}', '3.jpg', true)"><img src="${list[2]}"></div></div>`;
+            const extra = list.length - 4;
+            return `<div class="collage-wrap collage-4plus"><div class="collage-cell" onclick="openLightbox('${esc(list[0])}', '1.jpg', true)"><img src="${list[0]}"></div><div class="collage-cell" onclick="openLightbox('${esc(list[1])}', '2.jpg', true)"><img src="${list[1]}"></div><div class="collage-cell" onclick="openLightbox('${esc(list[2])}', '3.jpg', true)"><img src="${list[2]}"></div><div class="collage-cell" onclick="openLightbox('${esc(list[3])}', '4.jpg', true)"><img src="${list[3]}">${extra > 0 ? `<div class="collage-more-overlay">+${extra}</div>` : ''}</div></div>`;
+        }
+
+        function buildPostCardHtml(post, showAuthorHeader) {
+            const safePostKey = encodeURIComponent(String(post.id));
+            const uname = post.profiles ? post.profiles.username : 'User';
+            const uBio = post.profiles ? (post.profiles.bio || '') : '';
+            const uAvatar = post.profiles ? (post.profiles.avatar_url || '') : '';
+            const uVerified = Boolean(post.profiles && post.profiles.is_verified);
+            const badgeHtml = renderBlueMarkHtml(uVerified);
+            const time = new Date(post.created_at).toLocaleString();
+            const isPostBanned = post.is_banned === true;
+            const bannedCommentsSet = new Set(Array.isArray(post.banned_comments) ? post.banned_comments.map(Number) : []);
+
+            const liveInfo = parseLivePost(post);
+            if (liveInfo) {
+                const endBtnHtml = post.user_id === currentUser.id ? `<button onclick="endLiveBroadcast('${post.id}')" style="width:auto; padding:4px 10px; font-size:11px; background:#e41e3f; margin:0;">End Live</button>` : '';
+                return `<div class="card post-item" data-post-id="${post.id}"><div style="display:flex; justify-content:space-between; align-items:center;"><div>${showAuthorHeader ? `<span class="post-author" onclick="viewUserProfile('${post.user_id}', '${uname.replace(/'/g, "\\'")}', '${uBio.replace(/'/g, "\\'")}', '${uAvatar.replace(/'/g, "\\'")}', ${uVerified})">${uname}${badgeHtml}</span><span class="live-badge">LIVE</span>` : `<span style="font-weight:bold; font-size:13px;">Live Stream</span><span class="live-badge">LIVE</span>`}<div class="post-time">${time} (${post.privacy})</div></div><div>${endBtnHtml}</div></div>${isPostBanned ? `<div class="banned-content-notice">This post is ban</div>` : `<div class="post-body">${liveInfo.caption || ''}</div><div class="live-cover-wrapper" onclick="openLiveViewer('${liveInfo.liveId}', '${uname.replace(/'/g, "\\'")}', '${(post.media_url || '').replace(/'/g, "\\'")}', '${(liveInfo.caption || '').replace(/'/g, "\\'")}')"><img src="${post.media_url || ''}" alt="Live Cover"><div class="live-cover-overlay-badge">LIVE</div><div class="live-cover-play-hint">▶ Tap to watch</div></div>`}</div>`;
+            }
+
+            const parsedContent = parseMultiPhotoContent(post.content || '');
+            const allPhotos = parsedContent.photos.length > 0 ? parsedContent.photos.slice(0, 10) : (post.media_url ? [post.media_url] : []);
+            const mediaHtml = buildPhotosCollageHtml(allPhotos), displayText = parsedContent.text;
+            let actionButtons = post.user_id === currentUser.id ? `<button onclick="editPost('${post.id}', '${displayText.replace(/'/g, "\\'")}')" style="width:auto; padding:3px 8px; font-size:11px; background:var(--text-sub);">Edit</button> <button onclick="deletePost('${post.id}')" style="width:auto; padding:3px 8px; font-size:11px; background:#fa383e;">Delete</button>` : '';
+
+            const commentsArr = Array.isArray(post.comments) ? post.comments : [];
+            let commentsHtml = '';
+            commentsArr.forEach((c, idx) => {
+                if (bannedCommentsSet.has(idx) || c?.is_banned === true) commentsHtml += `<div class="banned-content-notice" style="margin-top:4px; padding:6px 8px;">This comment is ban</div>`;
+                else commentsHtml += `<div style="margin-top:4px; font-size:12px;"><b>${c?.username || 'User'}:</b> ${c?.text || ''}</div>`;
+            });
+
+            const headerLeft = showAuthorHeader
+                ? `<div><span class="post-author" onclick="viewUserProfile('${post.user_id}', '${uname.replace(/'/g, "\\'")}', '${uBio.replace(/'/g, "\\'")}', '${uAvatar.replace(/'/g, "\\'")}', ${uVerified})">${uname}${badgeHtml}</span><div class="post-time">${time} (${post.privacy})</div></div>`
+                : `<div style="font-size:11px; color:var(--text-sub);">Privacy: ${post.privacy} · ${time}</div>`;
+
+            const bodyBlockHtml = isPostBanned ? `<div class="banned-content-notice">This post is ban</div>` : `${displayText ? `<div class="post-body">${displayText}</div>` : ''}${mediaHtml}`;
+
+            return `<div class="card post-item" data-post-id="${post.id}"><div style="display:flex; justify-content:space-between; align-items:center;">${headerLeft}<div>${actionButtons}</div></div>${bodyBlockHtml}<div class="action-bar"><span onclick="likePost('${post.id}', ${post.likes_count || 0})">❤️ Like (${post.likes_count || 0})</span><span onclick="toggleCommentBox('${safePostKey}')">💬 Comment (${commentsArr.length})</span><span onclick="sharePost('${post.id}', '${displayText.replace(/'/g, "\\'")}', '${allPhotos[0] || ''}')">🔗 Share (${post.shares_count || 0})</span></div><div id="comment-section-${safePostKey}" class="comment-section" style="display:none;"><div id="comments-list-${safePostKey}">${commentsHtml || '<div style="font-size:12px; color:var(--text-sub);">No comments yet.</div>'}</div><div style="display:flex; margin-top:6px; gap:5px;"><input type="text" id="comment-input-${safePostKey}" placeholder="Write a comment..." style="margin:0; padding:6px; font-size:12px;"><button onclick="addComment('${safePostKey}', '${post.id}')" style="width:60px; margin:0; padding:6px; font-size:12px;">Post</button></div></div></div>`;
+        }
+
+        async function searchUsers(query) {
+            const resultsBox = document.getElementById('search-results');
+            if (!query.trim()) { resultsBox.style.display = 'none'; return; }
+            const { data } = await supabaseClient.from('profiles').select('*').ilike('username', `%${query}%`).limit(5);
+            resultsBox.innerHTML = '';
+            if (data?.length) {
+                resultsBox.style.display = 'block';
+                data.forEach(user => {
+                    if (user.id !== currentUser.id) {
+                        const div = document.createElement('div'); div.className = 'search-item';
+                        div.innerHTML = `<span>${user.username}</span>${renderBlueMarkHtml(Boolean(user.is_verified))}`;
+                        div.onclick = () => viewUserProfile(user.id, user.username, user.bio || '', user.avatar_url || '', Boolean(user.is_verified));
+                        resultsBox.appendChild(div);
+                    }
+                });
+            } else resultsBox.style.display = 'none';
+        }
+
+        async function viewUserProfile(userId, username, bio, avatarUrl, isVerified = false) {
+            document.getElementById('search-results').style.display = 'none'; document.getElementById('search-user-input').value = ''; switchTab('user-profile');
+            const prof = cachedUsersMap[userId] || {}, verifiedFlag = typeof prof.is_verified === 'boolean' ? prof.is_verified : Boolean(isVerified);
+            document.getElementById('visitor-name').innerHTML = `${username}${renderBlueMarkHtml(verifiedFlag)}`;
+            document.getElementById('visitor-bio').textContent = bio || '';
+            document.getElementById('visitor-avatar-container').innerHTML = avatarUrl ? `<img src="${avatarUrl}" style="width:100%; height:100%; object-fit:cover;">` : `<span id="visitor-initial">${username.charAt(0).toUpperCase()}</span>`;
+            let msgBtn = document.getElementById('visitor-msg-btn');
+            if (!msgBtn) { msgBtn = document.createElement('button'); msgBtn.id = 'visitor-msg-btn'; msgBtn.textContent = '💬 Send Message'; msgBtn.style.cssText = 'margin-top: 10px; background: #1877f2; padding: 8px 15px; font-size: 13px; width: auto; display: inline-block;'; document.getElementById('visitor-bio').after(msgBtn); }
+            msgBtn.onclick = () => openDirectChat(userId, username, avatarUrl, verifiedFlag);
+            const { data: posts } = await supabaseClient.from('posts').select('*, profiles(username, avatar_url, bio, is_verified)').eq('user_id', userId).order('created_at', { ascending: false });
+            const visitorPostsDiv = document.getElementById('visitor-posts'); visitorPostsDiv.innerHTML = '';
+            if (posts?.length) posts.forEach(p => { visitorPostsDiv.innerHTML += buildPostCardHtml(p, false); });
+            else visitorPostsDiv.innerHTML = '<p style="color:var(--text-sub); font-size:13px;">No public posts.</p>';
+        }
+
+        async function loadChatList() {
+            if (!currentUser) return;
+            const listDiv = document.getElementById('conversations-list');
+            const { data: users, error } = await supabaseClient.from('profiles').select('*').neq('id', currentUser.id).order('username', { ascending: true });
+            if (error) { listDiv.innerHTML = `<p style="color:#fa383e;">${error.message}</p>`; return; }
+            listDiv.innerHTML = '';
+            if (users?.length) {
+                users.forEach(user => {
+                    cachedUsersMap[user.id] = { ...(cachedUsersMap[user.id] || {}), ...user };
+                    const presenceInfo = formatUserPresenceStatus(user.id, user.last_seen), unreadCnt = unreadBySenderMap[user.id] || 0, verifiedFlag = Boolean(user.is_verified);
+                    const avatarHtml = user.avatar_url ? `<img src="${user.avatar_url}" style="width:100%; height:100%; object-fit:cover;">` : `<span>${(user.username || 'U').charAt(0).toUpperCase()}</span>`;
+                    listDiv.innerHTML += `<div class="chat-user-list-item" data-user-id="${user.id}" onclick="openDirectChat('${user.id}', '${(user.username || 'User').replace(/'/g, "\\'")}', '${(user.avatar_url || '').replace(/'/g, "\\'")}', ${verifiedFlag})"><div class="chat-avatar-wrap"><div style="width: 45px; height: 45px; border-radius: 50%; background: #1877f2; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 18px;">${avatarHtml}</div><span class="chat-user-unread-pill" style="display:${unreadCnt > 0 ? 'inline-flex' : 'none'};">${formatBadgeNumber(unreadCnt)}</span><span class="online-dot-badge" style="display:${presenceInfo.isOnline ? 'block' : 'none'};"></span></div><div style="min-width:0; flex:1;"><div style="font-weight: bold; font-size: 15px; display:flex; align-items:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${user.username || 'User'}${renderBlueMarkHtml(verifiedFlag)}</div><div class="chat-list-status-sub" style="font-size: 12px; color: ${presenceInfo.isOnline ? '#31a24c' : 'var(--text-sub)'};">${presenceInfo.text}</div></div></div>`;
+                });
+            } else listDiv.innerHTML = '<p style="color: var(--text-sub); font-size: 13px;">No other users found yet.</p>';
+        }
+
+        function startChatPolling() { stopChatPolling(); chatPollInterval = setInterval(() => { if (activeChatUser && currentUser && document.getElementById('chat-box-view')?.style.display !== 'none') loadMessages(true); }, 1500); }
+        function stopChatPolling() { if (chatPollInterval) { clearInterval(chatPollInterval); chatPollInterval = null; } }
+        function showRemoteTyping() { const bar = document.getElementById('typing-indicator-bar'); if (bar) bar.classList.add('visible'); if (remoteTypingClearTimer) clearTimeout(remoteTypingClearTimer); remoteTypingClearTimer = setTimeout(hideRemoteTyping, 3500); }
+        function hideRemoteTyping() { const bar = document.getElementById('typing-indicator-bar'); if (bar) bar.classList.remove('visible'); if (remoteTypingClearTimer) { clearTimeout(remoteTypingClearTimer); remoteTypingClearTimer = null; } }
+        function sendTypingSignal(isTyping) { if (chatSyncBroadcastChannel && currentUser && activeChatUser) chatSyncBroadcastChannel.send({ type: 'broadcast', event: 'typing_state', payload: { sender_id: currentUser.id, receiver_id: activeChatUser.id, is_typing: isTyping } }).catch(() => {}); }
+        function handleChatTyping() {
+            if (!currentUser || !activeChatUser) return;
+            const hasText = (document.getElementById('chat-input')?.value || '').trim().length > 0;
+            if (!hasText) { if (isCurrentlyTyping) { isCurrentlyTyping = false; sendTypingSignal(false); } return; }
+            if (!isCurrentlyTyping) { isCurrentlyTyping = true; sendTypingSignal(true); }
+            if (typingTimeout) clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => { isCurrentlyTyping = false; sendTypingSignal(false); }, 2000);
+        }
+
+        function openDirectChat(userId, username, avatarUrl, isVerified = false) {
+            const cached = cachedUsersMap[userId] || {};
+            activeChatUser = { id: userId, username, avatar_url: avatarUrl, last_seen: cached.last_seen || null, is_verified: typeof cached.is_verified === 'boolean' ? cached.is_verified : Boolean(isVerified) };
+            if (unreadBySenderMap[userId]) { totalUnreadMessages = Math.max(0, totalUnreadMessages - unreadBySenderMap[userId]); delete unreadBySenderMap[userId]; updateChatBadgeDisplay(); }
+            hideRemoteTyping(); switchTab('chat');
+            document.getElementById('chat-list-view').style.display = 'none'; document.getElementById('chat-box-view').style.display = 'flex';
+            document.getElementById('chat-header-name').innerHTML = `${username}${renderBlueMarkHtml(Boolean(activeChatUser.is_verified))}`;
+            refreshAllPresenceDisplays(); syncOtherUsersPresenceFromDB();
+            document.getElementById('chat-header-avatar-container').innerHTML = avatarUrl ? `<img src="${avatarUrl}" style="width:100%; height:100%; object-fit:cover;">` : (username || 'U').charAt(0).toUpperCase();
+            trackMyPresence(); loadMessages(); startChatPolling();
+        }
+        function backToChatList() {
+            if (isCurrentlyTyping) { isCurrentlyTyping = false; sendTypingSignal(false); }
+            hideRemoteTyping(); stopChatPolling(); activeChatUser = null; trackMyPresence();
+            document.getElementById('chat-box-view').style.display = 'none'; document.getElementById('chat-list-view').style.display = 'block';
+            loadChatList(); refreshUnreadMessageCounts();
+        }
+        function computeMessageStatusLabel(msg) {
+            if (!msg) return { text: 'sent', type: 'sent' };
+            if (msg.seen_at) return { text: 'seen', type: 'seen' };
+            const partnerProf = activeChatUser ? (cachedUsersMap[activeChatUser.id] || activeChatUser) : null;
+            if (activeChatUser && (msg.delivered_at || isUserRecentlyActive(activeChatUser.id, partnerProf?.last_seen))) return { text: 'delivered', type: 'delivered' };
+            return { text: 'sent', type: 'sent' };
+        }
+        async function markIncomingMessagesDelivered() {
+            if (!currentUser) return;
+            try { const { data } = await supabaseClient.from('messages').update({ delivered_at: new Date().toISOString() }).eq('receiver_id', currentUser.id).is('delivered_at', null).select('id, sender_id'); if (data) data.forEach(r => chatSyncBroadcastChannel?.send({ type: 'broadcast', event: 'msg_status', payload: { message_id: r.id, sender_id: r.sender_id, receiver_id: currentUser.id, status: 'delivered' } }).catch(() => {})); } catch (e) {}
+        }
+        async function markSingleMessageDelivered(messageId, senderId) {
+            if (!currentUser || !messageId) return;
+            try { await supabaseClient.from('messages').update({ delivered_at: new Date().toISOString() }).eq('id', messageId).eq('receiver_id', currentUser.id); chatSyncBroadcastChannel?.send({ type: 'broadcast', event: 'msg_status', payload: { message_id: messageId, sender_id: senderId, receiver_id: currentUser.id, status: 'delivered' } }).catch(() => {}); } catch (e) {}
+        }
+        async function markConversationSeen(partnerId) {
+            if (!currentUser || !partnerId) return;
+            const nowIso = new Date().toISOString();
+            try {
+                const { data } = await supabaseClient.from('messages').update({ seen_at: nowIso, delivered_at: nowIso }).eq('sender_id', partnerId).eq('receiver_id', currentUser.id).is('seen_at', null).select('id');
+                if (unreadBySenderMap[partnerId]) { totalUnreadMessages = Math.max(0, totalUnreadMessages - unreadBySenderMap[partnerId]); delete unreadBySenderMap[partnerId]; updateChatBadgeDisplay(); }
+                if (data) data.forEach(r => chatSyncBroadcastChannel?.send({ type: 'broadcast', event: 'msg_status', payload: { message_id: r.id, sender_id: partnerId, receiver_id: currentUser.id, status: 'seen' } }).catch(() => {}));
+            } catch (e) {}
+        }
+        async function markSingleMessageSeen(messageId, senderId) {
+            if (!currentUser || !messageId) return;
+            const nowIso = new Date().toISOString();
+            try { await supabaseClient.from('messages').update({ seen_at: nowIso, delivered_at: nowIso }).eq('id', messageId).eq('receiver_id', currentUser.id); chatSyncBroadcastChannel?.send({ type: 'broadcast', event: 'msg_status', payload: { message_id: messageId, sender_id: senderId, receiver_id: currentUser.id, status: 'seen' } }).catch(() => {}); } catch (e) {}
+        }
+        function promoteSentToDeliveredInUI() { document.querySelectorAll('#chat-box .msg-status.sent').forEach(el => { if (el.textContent === 'sent') { el.textContent = 'delivered'; el.className = 'msg-status delivered'; } }); }
+        function updateSingleMessageToDeliveredInUI(messageId) { const st = document.querySelector(`#chat-box .msg-wrapper[data-id="${messageId}"] .msg-status`); if (st && st.textContent !== 'seen') { st.textContent = 'delivered'; st.className = 'msg-status delivered'; } }
+        function updateAllMessagesToSeenInUI(messageId = null) {
+            if (messageId) { const st = document.querySelector(`#chat-box .msg-wrapper[data-id="${messageId}"] .msg-status`); if (st) { st.textContent = 'seen'; st.className = 'msg-status seen'; } }
+            document.querySelectorAll('#chat-box .msg-status').forEach(el => { if (el.textContent === 'sent' || el.textContent === 'delivered') { el.textContent = 'seen'; el.className = 'msg-status seen'; } });
+        }
+        async function loadMessages(silent = false) {
+            if (!activeChatUser || !currentUser) return;
+            const { data } = await supabaseClient.from('messages').select('*').or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${activeChatUser.id}),and(sender_id.eq.${activeChatUser.id},receiver_id.eq.${currentUser.id})`).order('created_at', { ascending: true });
+            const chatBox = document.getElementById('chat-box'); if (!chatBox) return;
+            const visibleRows = (data || []).filter(m => !isMessageDeletedForMe(m));
+            if (!silent) chatBox.innerHTML = '';
+            if (visibleRows.length) { visibleRows.forEach(msg => appendMessageBubble(msg)); chatBox.scrollTop = chatBox.scrollHeight; await markConversationSeen(activeChatUser.id); }
+            else if (!silent) chatBox.innerHTML = '<p style="color:var(--text-sub); text-align:center; font-size:13px; margin-top:20px;">No messages yet. Say hello!</p>';
+        }
+        function updateMessageBubbleStatus(tempId, realMsg, statusText, statusType = '') {
+            const wrapper = (tempId ? document.querySelector(`#chat-box .msg-wrapper[data-temp-id="${tempId}"]`) : null) || (realMsg?.id ? document.querySelector(`#chat-box .msg-wrapper[data-id="${realMsg.id}"]`) : null);
+            if (!wrapper) return;
+            if (realMsg?.id) { wrapper.setAttribute('data-id', realMsg.id); wrapper.removeAttribute('data-temp-id'); attachLongPressToMessageWrapper(wrapper, realMsg, realMsg.sender_id === currentUser?.id); }
+            const statusEl = wrapper.querySelector('.msg-status'); if (statusEl) { statusEl.textContent = statusText; statusEl.className = 'msg-status' + (statusType ? ` ${statusType}` : ''); }
+        }
+        function appendMessageBubble(msg, overrideStatusLabel = '', tempId = '') {
+            if (!msg || !currentUser || isMessageDeletedForMe(msg)) return;
+            const chatBox = document.getElementById('chat-box'); if (!chatBox) return;
+            if ((msg.id && chatBox.querySelector(`.msg-wrapper[data-id="${msg.id}"]`)) || (tempId && chatBox.querySelector(`.msg-wrapper[data-temp-id="${tempId}"]`))) return;
+            const isMe = msg.sender_id === currentUser.id, wrapper = document.createElement('div');
+            wrapper.className = `msg-wrapper ${isMe ? 'msg-wrapper-right' : 'msg-wrapper-left'}`;
+            if (msg.id) wrapper.setAttribute('data-id', msg.id); if (tempId) wrapper.setAttribute('data-temp-id', tempId);
+            const row = document.createElement('div'); row.className = 'msg-bubble-row';
+            const bubble = document.createElement('div'); bubble.className = `msg-bubble ${isMe ? 'msg-right' : 'msg-left'}`;
+            if (isMessageDeletedForEveryone(msg)) bubble.innerHTML = `<span class="msg-deleted-italic">Deleted message</span>`; else renderMessageBubbleInner(bubble, msg.content);
+            row.appendChild(bubble); wrapper.appendChild(row);
+            const metaRow = document.createElement('div'); metaRow.className = 'msg-meta-row';
+            const timeText = document.createElement('span'); timeText.className = 'msg-timestamp-text'; timeText.textContent = formatMessageDateTime(msg.created_at || new Date().toISOString());
+            metaRow.appendChild(timeText);
+            if (isMe) {
+                const computed = overrideStatusLabel ? { text: overrideStatusLabel, type: overrideStatusLabel.includes('Failed') ? 'failed' : 'sent' } : computeMessageStatusLabel(msg);
+                const statusEl = document.createElement('span'); statusEl.className = `msg-status ${computed.type}`; statusEl.textContent = computed.text; metaRow.appendChild(statusEl);
+            }
+            wrapper.appendChild(metaRow);
+            if (!isMessageDeletedForEveryone(msg) && msg.id && !String(msg.id).startsWith('tmp_')) attachLongPressToMessageWrapper(wrapper, msg, isMe);
+            chatBox.appendChild(wrapper); chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        async function sendMessage() { const inp = document.getElementById('chat-input'), content = inp.value.trim(); if (!content || !currentUser || !activeChatUser) return; inp.value = ''; await persistAndBroadcastChatContent(content); }
+        function handleChatKeyPress(e) { if (e.key === 'Enter') sendMessage(); }
+        async function uploadAvatar(input) {
+            if (await checkCurrentUserBanStatus()) return;
+            if (input.files.length) {
+                const fileName = `avatar_${currentUser.id}_${Date.now()}`;
+                const { error } = await supabaseClient.storage.from('media').upload(fileName, input.files[0]);
+                if (!error) { const { data } = supabaseClient.storage.from('media').getPublicUrl(fileName); await supabaseClient.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', currentUser.id); loadProfile(); }
+            }
+        }
+        async function saveProfile() {
+            if (await checkCurrentUserBanStatus()) return;
+            const newUsername = document.getElementById('edit-username').value.trim(), bio = document.getElementById('edit-bio').value.trim(), updateData = { bio };
+            if (newUsername) updateData.username = newUsername;
+            const { error } = await supabaseClient.from('profiles').update(updateData).eq('id', currentUser.id);
+            if (!error) { alert('Profile updated!'); loadProfile(); loadChatList(); }
+        }
+        async function createPost() {
+            if (await checkCurrentUserBanStatus()) return;
+            if (!currentUser) return;
+            const caption = document.getElementById('post-content').value.trim(), privacy = document.getElementById('post-privacy').value, submitBtn = document.getElementById('create-post-btn');
+            if (!caption && !selectedPostPhotos.length) { alert('Caption သို့မဟုတ် ဓာတ်ပုံ ရွေးချယ်ပါ။'); return; }
+            submitBtn.disabled = true; setPublishStatus('post-publish-status', 'uploading', 'Share posting...');
+            try {
+                const photoUrls = selectedPostPhotos.length ? await uploadPostPhotos(selectedPostPhotos.slice(0, 10)) : [];
+                const { error } = await supabaseClient.from('posts').insert([{ content: encodePostPayload(caption, photoUrls), media_url: photoUrls[0] || null, privacy, user_id: currentUser.id }]);
+                if (error) { alert(error.message); submitBtn.disabled = false; setPublishStatus('post-publish-status', null, ''); return; }
+                setPublishStatus('post-publish-status', 'finished', 'Finished');
+                document.getElementById('post-content').value = ''; document.getElementById('media-file').value = ''; selectedPostPhotos = []; document.getElementById('selected-photos-preview').innerHTML = '';
+                await loadFeed(); await loadProfile();
+                setTimeout(() => { submitBtn.disabled = false; setPublishStatus('post-publish-status', null, ''); switchTab('feed'); }, 650);
+            } catch (err) { submitBtn.disabled = false; setPublishStatus('post-publish-status', null, ''); alert(err.message); }
+        }
+        async function loadFeed() {
+            const { data } = await supabaseClient.from('posts').select('*, profiles(username, avatar_url, bio, last_seen, is_verified)').order('created_at', { ascending: false });
+            const feed = document.getElementById('posts-feed'); feed.innerHTML = '';
+            if (data?.length) {
+                data.forEach(post => {
+                    if (post.privacy === 'only_me' && post.user_id !== currentUser.id) return;
+                    if (post.profiles && post.user_id) cachedUsersMap[post.user_id] = { ...(cachedUsersMap[post.user_id] || {}), ...post.profiles };
+                    feed.innerHTML += buildPostCardHtml(post, true);
+                });
+            } else feed.innerHTML = '<p style="color:var(--text-sub); text-align:center;">No posts available.</p>';
+        }
+        async function editPost(postId, oldContent) { if (await checkCurrentUserBanStatus()) return; const nc = prompt('Edit your post caption:', oldContent); if (nc !== null) { await supabaseClient.from('posts').update({ content: nc }).eq('id', postId); loadFeed(); loadProfile(); } }
+        async function deletePost(postId) { if (await checkCurrentUserBanStatus()) return; if (confirm('Are you sure you want to delete this post?')) { await supabaseClient.from('posts').delete().eq('id', postId); loadFeed(); loadProfile(); } }
+        async function likePost(postId, currentLikes) { if (await checkCurrentUserBanStatus()) return; await supabaseClient.from('posts').update({ likes_count: currentLikes + 1 }).eq('id', postId); await emitPostInteractionNotification(postId, 'like'); loadFeed(); loadProfile(); }
+        function toggleCommentBox(safePostKey) { const box = document.getElementById(`comment-section-${safePostKey}`); if (box) box.style.display = (box.style.display === 'none' || !box.style.display) ? 'block' : 'none'; }
+        async function addComment(safePostKey, realPostId = null) {
+            if (await checkCurrentUserBanStatus()) return;
+            const targetPostId = realPostId || decodeURIComponent(safePostKey), input = document.getElementById(`comment-input-${safePostKey}`), text = input?.value.trim() || '';
+            if (!text) return;
+            const { data: postData } = await supabaseClient.from('posts').select('comments').eq('id', targetPostId).maybeSingle();
+            const comments = Array.isArray(postData?.comments) ? [...postData.comments] : [];
+            comments.push({ username: currentProfileData?.username || 'User', text });
+            await supabaseClient.from('posts').update({ comments }).eq('id', targetPostId);
+            await emitPostInteractionNotification(targetPostId, 'comment', `"${text}"`);
+            if (input) input.value = ''; loadFeed(); loadProfile();
+        }
+        async function sharePost(postId, content, mediaUrl) {
+            if (await checkCurrentUserBanStatus()) return;
+            const privacy = prompt('Share privacy (public, friends, only_me):', 'public');
+            if (privacy) { await supabaseClient.from('posts').insert([{ content: 'Shared: ' + content, media_url: mediaUrl || null, privacy, user_id: currentUser.id }]); await emitPostInteractionNotification(postId, 'share'); alert('Post shared!'); loadFeed(); loadProfile(); }
+        }
+        function openLightbox(url, filename = 'photo.jpg', canSave = false) { currentLightboxMeta = { url: url || '', name: filename || 'photo.jpg', canSave: Boolean(canSave) }; document.getElementById('lightbox-save-btn').style.display = currentLightboxMeta.canSave ? 'inline-block' : 'none'; document.getElementById('lightbox-img').src = url; document.getElementById('lightbox-modal').style.display = 'flex'; }
+        function closeLightbox() { document.getElementById('lightbox-modal').style.display = 'none'; }
+        async function saveCurrentLightboxPhoto() { if (currentLightboxMeta.url) await savePhotoAsImage(currentLightboxMeta.url, currentLightboxMeta.name); }
+        async function loadProfile() {
+            const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
+            if (profile) { currentProfileData = profile; cachedUsersMap[currentUser.id] = profile; }
+            const uname = profile?.username || 'User', isVerified = Boolean(profile?.is_verified);
+            document.getElementById('profile-name').innerHTML = `${uname}${renderBlueMarkHtml(isVerified)}`;
+            document.getElementById('edit-username').value = uname; document.getElementById('profile-bio-text').textContent = profile?.bio || ''; document.getElementById('edit-bio').value = profile?.bio || '';
+            document.getElementById('profile-avatar-container').innerHTML = profile?.avatar_url ? `<img src="${profile.avatar_url}" style="width:100%; height:100%; object-fit:cover;">` : `<span>${uname.charAt(0).toUpperCase()}</span>`;
+            const { data: myPosts } = await supabaseClient.from('posts').select('*, profiles(username, avatar_url, bio, is_verified)').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+            const myPostsDiv = document.getElementById('my-posts'); myPostsDiv.innerHTML = '';
+            if (myPosts?.length) myPosts.forEach(p => { myPostsDiv.innerHTML += buildPostCardHtml(p, false); });
+            else myPostsDiv.innerHTML = '<p style="color:var(--text-sub); font-size:13px;">No posts yet.</p>';
+        }
+        async function logout() { sessionStorage.removeItem('sc_owner_authed'); await updateMyLastSeen(); if (globalPresenceChannel) await globalPresenceChannel.untrack().catch(() => {}); await supabaseClient.auth.signOut(); location.reload(); }
     </script>
 </body>
 </html>
