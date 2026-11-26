@@ -291,9 +291,9 @@
         .live-badge { display: inline-block; background: #e41e3f; color: white; font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.5px; margin-left: 6px; }
         .live-meta-pill { display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.14); color: #fff; font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 12px; }
         .live-cover-wrapper { position: relative; margin-top: 8px; border-radius: 8px; overflow: hidden; cursor: pointer; background: #000; }
-        .live-cover-wrapper img { width: 100%; max-height: 280px; object-fit: cover; display: block; opacity: 0.92; }
+        .live-cover-wrapper img { width: 100%; max-height: 280px; object-fit: cover; display: block; opacity: 0.96; }
         .live-cover-overlay-badge { position: absolute; top: 10px; left: 10px; background: #e41e3f; color: white; font-weight: bold; font-size: 12px; padding: 3px 8px; border-radius: 4px; }
-        .live-cover-play-hint { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; font-size: 12px; padding: 4px 10px; border-radius: 20px; }
+        .live-cover-play-hint { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.72); color: white; font-size: 12px; padding: 4px 10px; border-radius: 20px; }
 
         .live-modal-backdrop { display: none; position: fixed; z-index: 1200; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); justify-content: center; align-items: center; padding: 15px; box-sizing: border-box; }
         .live-modal-card { background: var(--bg-card); color: var(--text-main); width: 100%; max-width: 460px; border-radius: 10px; padding: 18px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
@@ -308,12 +308,13 @@
         #live-studio-modal { display: none; position: fixed; z-index: 1300; top: 0; left: 0; width: 100%; height: 100%; background: #111; color: white; flex-direction: column; justify-content: space-between; }
         .studio-top { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.75); }
         .studio-stage { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8px 12px; position: relative; overflow: hidden; min-height: 0; }
-        .studio-frame-box { position: relative; display: flex; justify-content: center; align-items: center; max-width: 100%; max-height: 100%; }
+        .studio-frame-box { position: relative; display: flex; justify-content: center; align-items: center; width: 100%; max-width: 480px; height: 100%; max-height: 56vh; background: #000; border-radius: 8px; overflow: hidden; }
         .studio-mic-top-left-btn { position: absolute; top: 10px; left: 10px; z-index: 10; width: auto; margin: 0; padding: 6px 10px; font-size: 12px; border-radius: 16px; background: rgba(0,0,0,0.65); color: #fff; border: 1px solid rgba(255,255,255,0.28); }
         .studio-mic-top-left-btn:hover { background: rgba(0,0,0,0.85); }
         .studio-mic-top-left-btn.muted-mic { background: rgba(176,42,55,0.88); border-color: rgba(255,255,255,0.4); }
-        #studio-video { max-width: 100%; max-height: 100%; background: #000; border-radius: 8px; object-fit: contain; transition: filter 0.2s ease, transform 0.2s ease; }
+        #studio-video { width: 100%; height: 100%; background: #000; object-fit: contain; transition: filter 0.2s ease, transform 0.2s ease; }
         #studio-video.mirrored { transform: scaleX(-1); }
+        #studio-cv-placeholder { display: none; width: 100%; height: 100%; object-fit: cover; }
         .studio-controls-row { display: flex; gap: 8px; padding: 6px 15px; max-width: 560px; margin: 0 auto; width: 100%; box-sizing: border-box; }
         .studio-ctrl-btn { flex: 1; width: auto; margin: 0; padding: 8px 6px; font-size: 12px; background: #2c2e30; color: #fff; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .studio-ctrl-btn:hover { background: #3d4043; }
@@ -326,6 +327,7 @@
         .viewer-top-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #141414; z-index: 10; }
         .viewer-video-container { width: 100%; max-height: 54vh; aspect-ratio: 16 / 9; background: #000; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; margin: 0 auto; }
         #viewer-video-canvas { width: 100%; height: 100%; object-fit: contain; background: #000; }
+        #viewer-cv-placeholder { display: none; width: 100%; height: 100%; object-fit: cover; }
         .viewer-caption-bar { background: #101112; border-top: 1px solid #26282a; border-bottom: 1px solid #26282a; padding: 7px 12px; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #f0f2f5; }
         .viewer-caption-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #e4e6eb; }
         .viewer-comments-area { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; background: #18191a; padding: 10px 12px; overflow: hidden; }
@@ -378,6 +380,7 @@
                 <input type="text" id="search-user-input" placeholder="Search users by name..." oninput="searchUsers(this.value)" style="margin: 0;">
                 <div id="search-results" class="search-results"></div>
             </div>
+            <div id="live-feed-container"></div>
             <div id="posts-feed"></div>
         </div>
 
@@ -466,6 +469,7 @@
             </div>
             <div class="profile-main-layout">
                 <div class="profile-posts-col">
+                    <div id="profile-live-container"></div>
                     <div id="profile-section-posts" class="card">
                         <h4 style="margin-top: 0;">My Posts</h4>
                         <div id="my-posts"></div>
@@ -531,10 +535,10 @@
 
     <!-- Modals -->
     <div id="live-mode-modal" class="live-modal-backdrop"><div class="live-modal-card"><h3 style="margin-top:0;">Choose Live Mode</h3><button class="live-btn" onclick="selectLiveMode('camera')">📷 Camera Live</button><button style="background:#1877f2; margin-top:10px;" onclick="selectLiveMode('screen')">🖥️ Screen Share Live</button><button style="background:var(--bg-muted); color:var(--text-main); margin-top:12px;" onclick="closeLiveModeModal()">Cancel</button></div></div>
-    <div id="live-setup-modal" class="live-modal-backdrop"><div class="live-modal-card"><h3 id="live-setup-title" style="margin-top:0;">Setup Live</h3><label style="font-size:13px; color:var(--text-sub); display:block;">Cover Photo:</label><input type="file" id="live-cover-input" accept="image/*" style="padding:6px;" onchange="previewLiveCover(this)"><img id="live-cover-preview" src="" style="display:none; width:100%; max-height:160px; object-fit:cover; border-radius:6px; margin-top:6px;"><label style="font-size:13px; color:var(--text-sub); display:block; margin-top:10px;">Caption:</label><textarea id="live-caption-input" class="post-input" placeholder="Write a live caption..."></textarea><button class="live-btn" onclick="goToLiveStudio()" style="margin-top:10px;">Go to Live</button><button style="background:var(--bg-muted); color:var(--text-main); margin-top:8px;" onclick="closeLiveSetupModal()">Back</button></div></div>
+    <div id="live-setup-modal" class="live-modal-backdrop"><div class="live-modal-card"><h3 id="live-setup-title" style="margin-top:0;">Setup Live</h3><label style="font-size:13px; color:var(--text-sub); display:block;">Cover Photo (CV):</label><input type="file" id="live-cover-input" accept="image/*" style="padding:6px;" onchange="previewLiveCover(this)"><img id="live-cover-preview" src="" style="display:none; width:100%; max-height:160px; object-fit:cover; border-radius:6px; margin-top:6px;"><label style="font-size:13px; color:var(--text-sub); display:block; margin-top:10px;">Caption:</label><textarea id="live-caption-input" class="post-input" placeholder="Write a live caption..."></textarea><button class="live-btn" onclick="goToLiveStudio()" style="margin-top:10px;">Go to Live</button><button style="background:var(--bg-muted); color:var(--text-main); margin-top:8px;" onclick="closeLiveSetupModal()">Back</button></div></div>
     <div id="effect-picker-modal" class="live-modal-backdrop" onclick="closeEffectPickerModal()"><div class="live-modal-card" onclick="event.stopPropagation()"><h3 style="margin-top:0;">✨ Choose Effect</h3><div id="effect-list-container" class="effect-list-container"></div><button style="background:var(--bg-muted); color:var(--text-main); margin-top:12px;" onclick="closeEffectPickerModal()">Close</button></div></div>
-    <div id="live-studio-modal"><div class="studio-top"><div style="display:flex; align-items:center; gap:8px;"><span id="studio-live-badge" class="live-badge" style="margin-left:0;">LIVE</span><span id="studio-timer-display" class="live-meta-pill">00:00</span><span id="studio-viewer-count" class="live-meta-pill">👁 0</span></div><button onclick="closeStudioWithoutStarting()" id="studio-close-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#444; margin:0;">Close</button></div><div class="studio-stage"><div class="studio-frame-box"><button id="toggle-mic-btn" type="button" class="studio-mic-top-left-btn" onclick="toggleMicPower()">🎤 Mic: ON</button><video id="studio-video" class="mirrored" autoplay playsinline muted></video></div><div id="studio-caption-display" style="margin-top:6px; font-size:13px; color:#ddd; text-align:center;"></div></div><div id="studio-camera-controls" class="studio-controls-row"><button id="toggle-cam-btn" class="studio-ctrl-btn" onclick="toggleCameraPower()">📷 Cam: ON</button><button id="flip-cam-btn" class="studio-ctrl-btn" onclick="flipCameraFacing()">🔄 Front</button><button id="brighten-effect-btn" class="studio-ctrl-btn" onclick="openEffectPickerModal()">✨ Normal</button></div><div class="studio-footer-stack"><div id="studio-comments-list" class="studio-comments-box"></div><div class="studio-bottom"><button id="live-action-btn" class="live-btn" onclick="toggleStartOrEndLive()">Start Live</button></div></div></div>
-    <div id="live-viewer-modal" onclick="unlockViewerAudioContext()"><div class="viewer-top-bar"><div style="display:flex; align-items:center; gap:8px; min-width:0;"><span class="live-badge" style="margin-left:0; flex-shrink:0;">LIVE</span><span id="viewer-timer-display" class="live-meta-pill" style="flex-shrink:0;">00:00</span><span id="viewer-count-display" class="live-meta-pill" style="flex-shrink:0;">👁 0</span><span id="viewer-host-name" style="font-weight:bold; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Host</span></div><div style="display:flex; gap:8px; flex-shrink:0;"><button id="orientation-toggle-btn" onclick="event.stopPropagation(); toggleViewerOrientation();" style="width:auto; padding:5px 10px; font-size:12px; background:#1877f2; margin:0;">🔄 Landscape</button><button onclick="event.stopPropagation(); closeLiveViewer();" style="width:auto; padding:5px 10px; font-size:12px; background:#555; margin:0;">✕ Exit</button></div></div><div id="viewer-video-container" class="viewer-video-container"><canvas id="viewer-video-canvas" width="373" height="210"></canvas></div><div id="viewer-caption-bar" class="viewer-caption-bar"><span id="viewer-bottom-time" class="live-meta-pill" style="background:rgba(228,30,63,0.22); color:#ff7b93; flex-shrink:0;">⏱ 00:00</span><span id="viewer-caption-text" class="viewer-caption-text"></span></div><div id="viewer-comments-area" class="viewer-comments-area"><div id="viewer-comments-list" class="viewer-comments-list"></div><div class="viewer-comment-input-row"><input type="text" id="viewer-comment-input" placeholder="Comment on live..." onkeypress="handleLiveCommentKey(event)"><button onclick="sendLiveComment()">Send</button></div></div></div>
+    <div id="live-studio-modal"><div class="studio-top"><div style="display:flex; align-items:center; gap:8px;"><span id="studio-live-badge" class="live-badge" style="margin-left:0;">LIVE</span><span id="studio-timer-display" class="live-meta-pill">00:00</span><span id="studio-viewer-count" class="live-meta-pill">👁 0</span></div><button onclick="closeStudioWithoutStarting()" id="studio-close-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#444; margin:0;">Close</button></div><div class="studio-stage"><div class="studio-frame-box"><button id="toggle-mic-btn" type="button" class="studio-mic-top-left-btn" onclick="toggleMicPower()">🎤 Mic: ON</button><video id="studio-video" class="mirrored" autoplay playsinline muted></video><img id="studio-cv-placeholder" src="" alt="CV Cover"></div><div id="studio-caption-display" style="margin-top:6px; font-size:13px; color:#ddd; text-align:center;"></div></div><div id="studio-camera-controls" class="studio-controls-row"><button id="toggle-cam-btn" class="studio-ctrl-btn" onclick="toggleCameraPower()">📷 Cam: ON</button><button id="flip-cam-btn" class="studio-ctrl-btn" onclick="flipCameraFacing()">🔄 Front</button><button id="brighten-effect-btn" class="studio-ctrl-btn" onclick="openEffectPickerModal()">✨ Normal</button></div><div class="studio-footer-stack"><div id="studio-comments-list" class="studio-comments-box"></div><div class="studio-bottom"><button id="live-action-btn" class="live-btn" onclick="toggleStartOrEndLive()">Start Live</button></div></div></div>
+    <div id="live-viewer-modal" onclick="unlockViewerAudioContext()"><div class="viewer-top-bar"><div style="display:flex; align-items:center; gap:8px; min-width:0;"><span class="live-badge" style="margin-left:0; flex-shrink:0;">LIVE</span><span id="viewer-timer-display" class="live-meta-pill" style="flex-shrink:0;">00:00</span><span id="viewer-count-display" class="live-meta-pill" style="flex-shrink:0;">👁 0</span><span id="viewer-host-name" style="font-weight:bold; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Host</span></div><div style="display:flex; gap:8px; flex-shrink:0;"><button id="orientation-toggle-btn" onclick="event.stopPropagation(); toggleViewerOrientation();" style="width:auto; padding:5px 10px; font-size:12px; background:#1877f2; margin:0;">🔄 Landscape</button><button onclick="event.stopPropagation(); closeLiveViewer();" style="width:auto; padding:5px 10px; font-size:12px; background:#555; margin:0;">✕ Exit</button></div></div><div id="viewer-video-container" class="viewer-video-container"><canvas id="viewer-video-canvas" width="373" height="210"></canvas><img id="viewer-cv-placeholder" src="" alt="CV Cover"></div><div id="viewer-caption-bar" class="viewer-caption-bar"><span id="viewer-bottom-time" class="live-meta-pill" style="background:rgba(228,30,63,0.22); color:#ff7b93; flex-shrink:0;">⏱ 00:00</span><span id="viewer-caption-text" class="viewer-caption-text"></span></div><div id="viewer-comments-area" class="viewer-comments-area"><div id="viewer-comments-list" class="viewer-comments-list"></div><div class="viewer-comment-input-row"><input type="text" id="viewer-comment-input" placeholder="Comment on live..." onkeypress="handleLiveCommentKey(event)"><button onclick="sendLiveComment()">Send</button></div></div></div>
     <div id="lightbox-modal" onclick="closeLightbox()"><div class="lightbox-top-bar" onclick="event.stopPropagation()"><button id="lightbox-save-btn" type="button" class="lightbox-save-btn" style="display:none;" onclick="saveCurrentLightboxPhoto()">⬇ Save Photo</button><span id="lightbox-close" onclick="closeLightbox()">&times;</span></div><div class="lightbox-center-stage" onclick="event.stopPropagation()"><img id="lightbox-img" src="" onclick="closeLightbox()"></div></div>
     <div id="delete-choice-modal" onclick="closeDeleteChoiceModal()"><div class="delete-choice-card" onclick="event.stopPropagation()"><div style="font-weight:bold; font-size:16px; margin-bottom:12px;">Delete Message</div><button type="button" onclick="confirmDeleteChoice('myself')" style="background:#1877f2; margin-top:6px;">Delete Myself</button><button type="button" onclick="confirmDeleteChoice('everyone')" style="background:#e41e3f; margin-top:8px;">Delete Everyone</button><button type="button" onclick="closeDeleteChoiceModal()" style="background:var(--bg-muted); color:var(--text-main); margin-top:10px;">Cancel</button></div></div>
     <div id="file-preview-modal" onclick="closeFilePreviewModal()"><div class="file-preview-card" onclick="event.stopPropagation()"><div class="file-preview-top"><span style="font-weight:bold; font-size:15px;">📎 File Attachment</span><button type="button" class="modal-red-x-btn" onclick="closeFilePreviewModal()">✕</button></div><div id="file-preview-name" style="font-size:14px; font-weight:bold; word-break:break-word; margin-bottom:4px;">File</div><div id="file-preview-size" style="font-size:12px; color:var(--text-sub); margin-bottom:14px;">0 KB</div><button id="file-preview-save-btn" type="button" onclick="saveCurrentPreviewFile()">⬇ Save File</button></div></div>
@@ -678,6 +682,10 @@
         let currentLightboxMeta = { url: '', name: 'photo.jpg', canSave: false }, currentFilePreviewMeta = { url: '', name: 'file', size: 0 }, currentLocationMeta = { lat: 0, lng: 0, browserUrl: '' };
         let pendingDeleteTarget = null, localDeletedForMeSet = new Set(), localDeletedForEveryoneSet = new Set();
 
+        // Ephemeral (non-DB) Live state
+        let activeLivesMap = new Map(); // liveId -> { liveId, hostId, hostName, hostVerified, coverUrl, caption, startedAt, mode, cameraOn }
+        let endedLiveIds = new Set();
+
         function getNotiCacheKey() {
             return currentUser?.id ? `sc_noti_cache_${currentUser.id}` : 'sc_noti_cache_guest';
         }
@@ -764,6 +772,7 @@
                 else if (document.visibilityState === 'visible') {
                     checkCurrentUserBanStatus(); trackMyPresence(); updateMyLastSeen();
                     refreshUnreadMessageCounts(); checkMyPostsEngagementChanges(); refreshAllPresenceDisplays(); loadNotificationsFromDB(true);
+                    requestActiveLivesSync();
                 }
             });
             window.addEventListener('beforeunload', () => { if (currentUser) { updateMyLastSeen(); saveNotificationsToCache(); } });
@@ -1337,7 +1346,12 @@
                         await loadProfile();
                         switchTab('profile');
                     } else if (item.type === 'live' && item.liveId) {
-                        openLiveViewer(item.liveId, item.actorName, item.coverUrl, item.caption, item.actorId);
+                        const liveObj = activeLivesMap.get(item.liveId);
+                        if (!liveObj || endedLiveIds.has(item.liveId)) {
+                            alert('live ended');
+                            return;
+                        }
+                        openLiveViewer(liveObj.liveId, liveObj.hostName, liveObj.coverUrl, liveObj.caption, liveObj.hostId, liveObj.startedAt, liveObj.cameraOn !== false);
                     } else {
                         switchTab('feed');
                     }
@@ -1346,21 +1360,21 @@
             });
         }
 
-        async function broadcastLiveStartToAllUsers(liveId, coverUrl, caption, startedAtMs) {
-            if (!currentUser) return;
-            const actorName = currentProfileData?.username || document.getElementById('profile-name')?.textContent || 'User';
+        async function broadcastLiveStartToAllUsers(liveObj) {
+            if (!currentUser || !liveObj) return;
             const notiItem = {
-                id: 'live_noti_' + liveId,
+                id: 'live_noti_' + liveObj.liveId,
                 type: 'live',
                 actorId: currentUser.id,
-                actorName,
+                actorName: liveObj.hostName,
                 message: 'started a live stream!',
-                liveId,
-                coverUrl,
-                caption,
-                startedAt: startedAtMs,
+                liveId: liveObj.liveId,
+                coverUrl: liveObj.coverUrl || '',
+                caption: liveObj.caption || '',
+                startedAt: liveObj.startedAt,
                 createdAt: new Date().toISOString()
             };
+
             try {
                 const { data: allUsers } = await supabaseClient.from('profiles').select('id');
                 if (Array.isArray(allUsers) && allUsers.length) {
@@ -1371,13 +1385,13 @@
                             user_id: u.id,
                             type: 'live',
                             actor_id: currentUser.id,
-                            actor_name: actorName,
+                            actor_name: liveObj.hostName,
                             message: 'started a live stream!',
-                            detail_text: caption || '',
+                            detail_text: liveObj.caption || '',
                             post_id: null,
-                            live_id: liveId,
+                            live_id: liveObj.liveId,
                             cover_url: '',
-                            caption: caption || '',
+                            caption: liveObj.caption || '',
                             is_read: false,
                             created_at: notiItem.createdAt
                         }));
@@ -1386,10 +1400,27 @@
                     }
                 }
             } catch (e) {}
+
             const ch = await ensureGlobalNotiChannel();
             if (ch) {
                 try {
-                    await ch.send({ type: 'broadcast', event: 'live_started', payload: { ...notiItem, coverUrl: '' } });
+                    await ch.send({
+                        type: 'broadcast',
+                        event: 'live_started',
+                        payload: {
+                            live: liveObj,
+                            noti: { ...notiItem, coverUrl: '' }
+                        }
+                    });
+                } catch (e) {}
+            }
+        }
+
+        async function requestActiveLivesSync() {
+            const ch = await ensureGlobalNotiChannel();
+            if (ch) {
+                try {
+                    await ch.send({ type: 'broadcast', event: 'live_sync_request', payload: { requesterId: currentUser?.id || '' } });
                 } catch (e) {}
             }
         }
@@ -1402,8 +1433,44 @@
                 }
                 const ch = supabaseClient.channel('global-live-notifications')
                     .on('broadcast', { event: 'live_started' }, p => {
-                        if (p?.payload && currentUser && p.payload.actorId !== currentUser.id) {
-                            addNotificationItem({ ...p.payload, type: 'live', persistDb: true });
+                        const pl = p?.payload;
+                        if (!pl) return;
+                        const liveObj = pl.live || pl;
+                        if (liveObj?.liveId && !endedLiveIds.has(liveObj.liveId)) {
+                            activeLivesMap.set(liveObj.liveId, liveObj);
+                            renderActiveLivesSections();
+                        }
+                        const noti = pl.noti;
+                        if (noti && currentUser && noti.actorId !== currentUser.id) {
+                            addNotificationItem({ ...noti, type: 'live', persistDb: true });
+                        }
+                    })
+                    .on('broadcast', { event: 'live_sync_request' }, () => {
+                        if (isLiveActive && activeLiveId && activeLivesMap.has(activeLiveId)) {
+                            ch.send({
+                                type: 'broadcast',
+                                event: 'live_sync_state',
+                                payload: { live: activeLivesMap.get(activeLiveId) }
+                            }).catch(() => {});
+                        }
+                    })
+                    .on('broadcast', { event: 'live_sync_state' }, p => {
+                        const liveObj = p?.payload?.live;
+                        if (liveObj?.liveId && !endedLiveIds.has(liveObj.liveId)) {
+                            activeLivesMap.set(liveObj.liveId, liveObj);
+                            renderActiveLivesSections();
+                        }
+                    })
+                    .on('broadcast', { event: 'live_ended' }, p => {
+                        const lid = p?.payload?.liveId;
+                        if (lid) {
+                            endedLiveIds.add(lid);
+                            activeLivesMap.delete(lid);
+                            renderActiveLivesSections();
+                            if (viewingLiveId === lid) {
+                                alert('live ended');
+                                closeLiveViewer();
+                            }
                         }
                     })
                     .on('broadcast', { event: 'post_interaction' }, p => {
@@ -1451,12 +1518,6 @@
                 globalNotiChannel = ch;
                 setTimeout(() => resolve(globalNotiChannel || ch), 1200);
             });
-        }
-
-        async function handleLivePostInsertedNoti(postRow) {
-            if (!postRow || !currentUser || postRow.user_id === currentUser.id) return;
-            const liveInfo = parseLivePost(postRow);
-            if (liveInfo?.liveId) addNotificationItem({ id: 'live_post_noti_' + postRow.id, type: 'live', actorId: postRow.user_id, actorName: await getUsernameById(postRow.user_id), message: 'started a live stream!', liveId: liveInfo.liveId, coverUrl: '', caption: liveInfo.caption || '', persistDb: true });
         }
 
         function toggleMode() {
@@ -1519,7 +1580,10 @@
             if (await checkCurrentUserBanStatus()) return;
 
             document.getElementById('app-container').style.display = 'flex';
-            initGlobalPresence(); loadFeed(); loadChatList(); loadProfile(); ensureGlobalNotiChannel(); markIncomingMessagesDelivered();
+            initGlobalPresence(); loadFeed(); loadChatList(); loadProfile();
+            await ensureGlobalNotiChannel();
+            await requestActiveLivesSync();
+            markIncomingMessagesDelivered();
             await loadNotificationsFromDB(true);
             await refreshUnreadMessageCounts(); await checkMyPostsEngagementChanges();
 
@@ -1592,8 +1656,7 @@
                 }).subscribe();
 
             supabaseClient.channel('public:posts:live-noti')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, payload => {
-                    if (payload?.new) handleLivePostInsertedNoti(payload.new);
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, () => {
                     if (document.getElementById('feed-tab')?.classList.contains('active')) loadFeed();
                 })
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'posts' }, payload => {
@@ -1647,10 +1710,14 @@
                 if (tabs[tabName] !== undefined) document.querySelectorAll('.tab-btn')[tabs[tabName]]?.classList.add('active');
                 if (tabName === 'feed') {
                     await loadFeed();
+                    renderActiveLivesSections();
                 } else if (tabName === 'notification') {
                     await loadNotificationsFromDB(true);
                     await markAllNotificationsRead();
                     renderNotificationsList();
+                } else if (tabName === 'profile') {
+                    await loadProfile();
+                    renderActiveLivesSections();
                 } else if (tabName === 'chat') {
                     if (activeChatUser) { document.getElementById('chat-list-view').style.display = 'none'; document.getElementById('chat-box-view').style.display = 'flex'; loadMessages(); startChatPolling(); }
                     else backToChatList();
@@ -1659,18 +1726,120 @@
             updateMyLastSeen(); trackMyPresence(); refreshAllPresenceDisplays();
         }
 
-        // Live & Feed helpers
+        // Live Studio & Viewer (Ephemeral / No DB storage)
+        const DEFAULT_CV_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#1c1e21"/><text x="50%" y="50%" fill="#ffffff" font-size="28" font-family="Arial" dominant-baseline="middle" text-anchor="middle">LIVE STREAM</text></svg>');
+
         let selectedLiveMode = 'camera', selectedLiveCoverDataUrl = '', selectedLiveCaption = '', studioMediaStream = null, currentFacingMode = 'user', isCameraEnabled = true, isMicEnabled = true, effectIndex = 0;
         const liveEffects = [{ label: 'Normal', category: 'Default', filter: 'none' }, { label: 'Fair Bright', category: 'Whitening', filter: 'brightness(1.16) contrast(1.03) saturate(1.06)' }, { label: 'Silk Smooth 1', category: 'Smooth', filter: 'brightness(1.08) contrast(0.92) saturate(1.04)' }];
-        let isLiveActive = false, isStartingLive = false, activeLiveId = null, activeLivePostId = null, liveStartTimeMs = 0, studioTimerInterval = null, broadcasterChannel = null, broadcastFrameInterval = null, isSendingFrame = false, captureCanvas = document.createElement('canvas');
+        let isLiveActive = false, isStartingLive = false, activeLiveId = null, liveStartTimeMs = 0, studioTimerInterval = null, broadcasterChannel = null, broadcastFrameInterval = null, isSendingFrame = false, captureCanvas = document.createElement('canvas');
         captureCanvas.width = 373; captureCanvas.height = 210;
-        let viewerChannel = null, viewingLiveId = null, viewingHostId = null, viewingCoverUrl = '', viewingCaption = '', liveCommentsQueue = [], isRenderingFrame = false, viewerFrameImg = new Image();
+        let viewerChannel = null, viewingLiveId = null, viewingHostId = null, viewingCoverUrl = '', viewingCaption = '', viewingCameraOn = true, liveCommentsQueue = [], isRenderingFrame = false, viewerFrameImg = new Image();
 
         function formatElapsedMMSS(startMs) {
             const diffSec = Math.max(0, Math.floor((Date.now() - (startMs || Date.now())) / 1000));
             const mm = String(Math.floor(diffSec / 60)).padStart(2, '0');
             const ss = String(diffSec % 60).padStart(2, '0');
             return `${mm}:${ss}`;
+        }
+
+        function buildLiveCardElement(liveObj, showAuthorHeader) {
+            const card = document.createElement('div');
+            card.className = 'card post-item';
+            card.setAttribute('data-live-id', liveObj.liveId);
+
+            const uname = liveObj.hostName || 'User';
+            const badgeHtml = renderBlueMarkHtml(Boolean(liveObj.hostVerified));
+            const elapsedText = formatElapsedMMSS(liveObj.startedAt);
+
+            const topRow = document.createElement('div');
+            topRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center;';
+
+            const leftInfo = document.createElement('div');
+            if (showAuthorHeader) {
+                const authorSpan = document.createElement('span');
+                authorSpan.className = 'post-author';
+                authorSpan.innerHTML = `${uname}${badgeHtml}`;
+                leftInfo.appendChild(authorSpan);
+            } else {
+                const b = document.createElement('span');
+                b.style.cssText = 'font-weight:bold; font-size:13px;';
+                b.textContent = 'Live Stream';
+                leftInfo.appendChild(b);
+            }
+
+            const liveTag = document.createElement('span');
+            liveTag.className = 'live-badge';
+            liveTag.textContent = 'LIVE';
+            leftInfo.appendChild(liveTag);
+
+            const tDiv = document.createElement('div');
+            tDiv.className = 'post-time';
+            tDiv.textContent = `Duration ${elapsedText}`;
+            leftInfo.appendChild(tDiv);
+            topRow.appendChild(leftInfo);
+
+            const rightBox = document.createElement('div');
+            if (currentUser && liveObj.hostId === currentUser.id) {
+                const endBtn = document.createElement('button');
+                endBtn.textContent = 'End Live';
+                endBtn.style.cssText = 'width:auto; padding:4px 10px; font-size:11px; background:#e41e3f; margin:0;';
+                endBtn.onclick = () => endLiveBroadcast(liveObj.liveId);
+                rightBox.appendChild(endBtn);
+            }
+            topRow.appendChild(rightBox);
+            card.appendChild(topRow);
+
+            if (liveObj.caption) {
+                const capDiv = document.createElement('div');
+                capDiv.className = 'post-body';
+                capDiv.textContent = liveObj.caption;
+                card.appendChild(capDiv);
+            }
+
+            const coverWrap = document.createElement('div');
+            coverWrap.className = 'live-cover-wrapper';
+            const cvImg = document.createElement('img');
+            cvImg.src = liveObj.coverUrl || DEFAULT_CV_SVG;
+            cvImg.alt = 'Live Cover';
+
+            const badgeOverlay = document.createElement('div');
+            badgeOverlay.className = 'live-cover-overlay-badge';
+            badgeOverlay.textContent = 'LIVE';
+
+            const hintOverlay = document.createElement('div');
+            hintOverlay.className = 'live-cover-play-hint';
+            hintOverlay.textContent = '▶ Tap CV to watch';
+
+            coverWrap.appendChild(cvImg);
+            coverWrap.appendChild(badgeOverlay);
+            coverWrap.appendChild(hintOverlay);
+            coverWrap.onclick = () => {
+                if (!activeLivesMap.has(liveObj.liveId) || endedLiveIds.has(liveObj.liveId)) {
+                    alert('live ended');
+                    renderActiveLivesSections();
+                    return;
+                }
+                openLiveViewer(liveObj.liveId, uname, liveObj.coverUrl || DEFAULT_CV_SVG, liveObj.caption || '', liveObj.hostId, liveObj.startedAt, liveObj.cameraOn !== false);
+            };
+            card.appendChild(coverWrap);
+
+            return card;
+        }
+
+        function renderActiveLivesSections() {
+            const feedLiveBox = document.getElementById('live-feed-container');
+            const profileLiveBox = document.getElementById('profile-live-container');
+            const lives = Array.from(activeLivesMap.values()).filter(l => l && l.liveId && !endedLiveIds.has(l.liveId));
+
+            if (feedLiveBox) {
+                feedLiveBox.innerHTML = '';
+                lives.forEach(liveObj => feedLiveBox.appendChild(buildLiveCardElement(liveObj, true)));
+            }
+            if (profileLiveBox) {
+                profileLiveBox.innerHTML = '';
+                const myLives = currentUser ? lives.filter(l => l.hostId === currentUser.id) : [];
+                myLives.forEach(liveObj => profileLiveBox.appendChild(buildLiveCardElement(liveObj, false)));
+            }
         }
 
         function openLiveModeModal() { document.getElementById('live-mode-modal').style.display = 'flex'; }
@@ -1705,14 +1874,47 @@
             document.getElementById('effect-picker-modal').style.display = 'flex';
         }
         function closeEffectPickerModal() { document.getElementById('effect-picker-modal').style.display = 'none'; }
+
+        function applyStudioCameraVisualState() {
+            const v = document.getElementById('studio-video');
+            const cvImg = document.getElementById('studio-cv-placeholder');
+            const fx = liveEffects[effectIndex] || liveEffects[0];
+            const showCv = (selectedLiveMode === 'camera' && !isCameraEnabled);
+
+            if (cvImg) {
+                cvImg.src = selectedLiveCoverDataUrl || DEFAULT_CV_SVG;
+                cvImg.style.display = showCv ? 'block' : 'none';
+            }
+            if (v) {
+                v.style.filter = isCameraEnabled ? fx.filter : 'none';
+                v.style.display = showCv ? 'none' : 'block';
+            }
+            if (isLiveActive && broadcasterChannel) {
+                broadcasterChannel.send({
+                    type: 'broadcast',
+                    event: 'camera_state',
+                    payload: { cameraOn: isCameraEnabled, coverUrl: selectedLiveCoverDataUrl || DEFAULT_CV_SVG }
+                }).catch(() => {});
+            }
+            if (isLiveActive && activeLiveId && activeLivesMap.has(activeLiveId)) {
+                const cur = activeLivesMap.get(activeLiveId);
+                activeLivesMap.set(activeLiveId, { ...cur, cameraOn: isCameraEnabled });
+            }
+        }
+
         function syncStudioControlButtons() {
             const micBtn = document.getElementById('toggle-mic-btn'); if (micBtn) { micBtn.textContent = isMicEnabled ? '🎤 Mic: ON' : '🔇 Mic: OFF'; micBtn.classList.toggle('muted-mic', !isMicEnabled); }
             const camBtn = document.getElementById('toggle-cam-btn'); if (camBtn) { camBtn.textContent = isCameraEnabled ? '📷 Cam: ON' : '🚫 Cam: OFF'; camBtn.classList.toggle('active-off', !isCameraEnabled); }
-            const v = document.getElementById('studio-video'), fx = liveEffects[effectIndex] || liveEffects[0];
-            if (v) { v.style.filter = isCameraEnabled ? fx.filter : 'none'; v.style.display = (selectedLiveMode === 'camera' && !isCameraEnabled) ? 'none' : 'block'; }
+            applyStudioCameraVisualState();
         }
         function toggleMicPower() { isMicEnabled = !isMicEnabled; studioMediaStream?.getAudioTracks().forEach(t => t.enabled = isMicEnabled); syncStudioControlButtons(); }
-        function toggleCameraPower() { if (selectedLiveMode === 'camera' && studioMediaStream) { isCameraEnabled = !isCameraEnabled; studioMediaStream.getVideoTracks().forEach(t => t.enabled = isCameraEnabled); syncStudioControlButtons(); } }
+        function toggleCameraPower() {
+            if (selectedLiveMode === 'camera') {
+                isCameraEnabled = !isCameraEnabled;
+                if (studioMediaStream) studioMediaStream.getVideoTracks().forEach(t => t.enabled = isCameraEnabled);
+                syncStudioControlButtons();
+            }
+        }
         async function flipCameraFacing() { if (selectedLiveMode === 'camera') { currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user'; await initCameraStream(currentFacingMode); } }
 
         async function initStudioMediaStream(mode = 'camera', facing = 'user') {
@@ -1729,9 +1931,7 @@
                     if (v) { v.classList.remove('mirrored'); v.srcObject = studioMediaStream; await v.play().catch(() => {}); }
                     syncStudioControlButtons();
                     return;
-                } catch (e) {
-                    // Fallback to camera if screen capture not supported or cancelled
-                }
+                } catch (e) {}
             }
             if (navigator.mediaDevices?.getUserMedia) {
                 try {
@@ -1764,13 +1964,12 @@
         async function goToLiveStudio() {
             selectedLiveCaption = (document.getElementById('live-caption-input')?.value || '').trim();
             if (!selectedLiveCoverDataUrl) {
-                selectedLiveCoverDataUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#1c1e21"/><text x="50%" y="50%" fill="#ffffff" font-size="28" font-family="Arial" dominant-baseline="middle" text-anchor="middle">LIVE STREAM</text></svg>');
+                selectedLiveCoverDataUrl = DEFAULT_CV_SVG;
             }
             closeLiveSetupModal();
             isLiveActive = false;
             isStartingLive = false;
             activeLiveId = null;
-            activeLivePostId = null;
             liveCommentsQueue = [];
             const cBox = document.getElementById('studio-comments-list');
             if (cBox) cBox.innerHTML = '';
@@ -1778,6 +1977,8 @@
             if (capDisp) capDisp.textContent = selectedLiveCaption || '';
             const timerEl = document.getElementById('studio-timer-display');
             if (timerEl) timerEl.textContent = '00:00';
+            const vcEl = document.getElementById('studio-viewer-count');
+            if (vcEl) vcEl.textContent = '👁 0';
             const actBtn = document.getElementById('live-action-btn');
             if (actBtn) { actBtn.disabled = false; actBtn.textContent = 'Start Live'; }
             document.getElementById('live-studio-modal').style.display = 'flex';
@@ -1786,7 +1987,7 @@
 
         function closeStudioWithoutStarting() {
             if (isLiveActive) {
-                endLiveBroadcast();
+                endLiveBroadcast(activeLiveId);
                 return;
             }
             if (studioTimerInterval) { clearInterval(studioTimerInterval); studioTimerInterval = null; }
@@ -1801,7 +2002,12 @@
         async function toggleStartOrEndLive() {
             if (isStartingLive) return;
             if (!isLiveActive) await startLiveBroadcast();
-            else await endLiveBroadcast();
+            else await endLiveBroadcast(activeLiveId);
+        }
+
+        function updateStudioViewerCountDisplay(count) {
+            const vcEl = document.getElementById('studio-viewer-count');
+            if (vcEl) vcEl.textContent = `👁 ${Math.max(0, Number(count) || 0)}`;
         }
 
         async function startLiveBroadcast() {
@@ -1812,35 +2018,28 @@
 
             try {
                 activeLiveId = 'live_' + currentUser.id + '_' + Date.now();
+                endedLiveIds.delete(activeLiveId);
                 liveStartTimeMs = Date.now();
-                const contentPayload = `[LIVE_STREAM:${activeLiveId}:${selectedLiveMode}:${liveStartTimeMs}] ${selectedLiveCaption || ''}`;
+                const hostName = currentProfileData?.username || document.getElementById('profile-name')?.textContent || 'User';
+                const hostVerified = Boolean(currentProfileData?.is_verified);
 
-                let postRow = null;
-                let insRes = await supabaseClient
-                    .from('posts')
-                    .insert([{ content: contentPayload, media_url: selectedLiveCoverDataUrl || null, privacy: 'public', user_id: currentUser.id }])
-                    .select()
-                    .single();
+                const liveObj = {
+                    liveId: activeLiveId,
+                    hostId: currentUser.id,
+                    hostName,
+                    hostVerified,
+                    coverUrl: selectedLiveCoverDataUrl || DEFAULT_CV_SVG,
+                    caption: selectedLiveCaption || '',
+                    startedAt: liveStartTimeMs,
+                    mode: selectedLiveMode,
+                    cameraOn: isCameraEnabled
+                };
 
-                if (insRes.error) {
-                    insRes = await supabaseClient
-                        .from('posts')
-                        .insert([{ content: contentPayload, media_url: null, privacy: 'public', user_id: currentUser.id }])
-                        .select()
-                        .single();
-                }
-
-                if (insRes.error) {
-                    alert('Live စတင်လို့မရပါ: ' + insRes.error.message);
-                    if (actBtn) { actBtn.disabled = false; actBtn.textContent = 'Start Live'; }
-                    isStartingLive = false;
-                    return;
-                }
-
-                postRow = insRes.data;
-                activeLivePostId = postRow?.id || null;
+                activeLivesMap.set(activeLiveId, liveObj);
                 isLiveActive = true;
                 if (actBtn) { actBtn.disabled = false; actBtn.textContent = 'End Live'; }
+
+                renderActiveLivesSections();
 
                 if (studioTimerInterval) clearInterval(studioTimerInterval);
                 studioTimerInterval = setInterval(() => {
@@ -1848,12 +2047,27 @@
                     if (tEl && isLiveActive) tEl.textContent = formatElapsedMMSS(liveStartTimeMs);
                 }, 1000);
 
-                await broadcastLiveStartToAllUsers(activeLiveId, selectedLiveCoverDataUrl, selectedLiveCaption, liveStartTimeMs);
+                await broadcastLiveStartToAllUsers(liveObj);
 
                 if (broadcasterChannel) {
                     try { supabaseClient.removeChannel(broadcasterChannel); } catch (e) {}
                 }
+                const viewerSet = new Set();
                 broadcasterChannel = supabaseClient.channel(`live-room:${activeLiveId}`)
+                    .on('broadcast', { event: 'viewer_join' }, p => {
+                        const vid = p?.payload?.viewerId;
+                        if (vid && vid !== currentUser.id) {
+                            viewerSet.add(vid);
+                            updateStudioViewerCountDisplay(viewerSet.size);
+                        }
+                    })
+                    .on('broadcast', { event: 'viewer_leave' }, p => {
+                        const vid = p?.payload?.viewerId;
+                        if (vid) {
+                            viewerSet.delete(vid);
+                            updateStudioViewerCountDisplay(viewerSet.size);
+                        }
+                    })
                     .on('broadcast', { event: 'live_comment' }, p => {
                         if (p?.payload) {
                             liveCommentsQueue.push(p.payload);
@@ -1871,13 +2085,16 @@
                     })
                     .subscribe();
 
+                applyStudioCameraVisualState();
+
                 if (broadcastFrameInterval) clearInterval(broadcastFrameInterval);
                 broadcastFrameInterval = setInterval(() => {
                     if (!isLiveActive || !broadcasterChannel || isSendingFrame) return;
+                    if (selectedLiveMode === 'camera' && !isCameraEnabled) return;
                     isSendingFrame = true;
                     try {
                         const v = document.getElementById('studio-video');
-                        if (v && v.readyState >= 2 && isCameraEnabled) {
+                        if (v && v.readyState >= 2) {
                             const ctx = captureCanvas.getContext('2d');
                             const fx = liveEffects[effectIndex] || liveEffects[0];
                             ctx.save();
@@ -1892,9 +2109,6 @@
                         }
                     } finally { isSendingFrame = false; }
                 }, 160);
-
-                await loadFeed();
-                await loadProfile();
             } catch (err) {
                 alert('Live error: ' + (err?.message || err));
                 if (actBtn) { actBtn.disabled = false; actBtn.textContent = 'Start Live'; }
@@ -1903,47 +2117,69 @@
             }
         }
 
-        async function endLiveBroadcast(targetPostId = null) {
-            isLiveActive = false;
-            isStartingLive = false;
-            if (studioTimerInterval) { clearInterval(studioTimerInterval); studioTimerInterval = null; }
-            if (broadcastFrameInterval) { clearInterval(broadcastFrameInterval); broadcastFrameInterval = null; }
-            try { studioMediaStream?.getTracks().forEach(t => t.stop()); } catch (e) {}
-            studioMediaStream = null;
-            if (broadcasterChannel) {
-                try { await broadcasterChannel.send({ type: 'broadcast', event: 'live_ended', payload: {} }); } catch (e) {}
-                try { supabaseClient.removeChannel(broadcasterChannel); } catch (e) {}
-                broadcasterChannel = null;
+        async function endLiveBroadcast(targetLiveId = null) {
+            const lid = targetLiveId || activeLiveId;
+            if (lid) {
+                endedLiveIds.add(lid);
+                activeLivesMap.delete(lid);
             }
-            const pId = targetPostId || activeLivePostId;
-            if (pId && currentUser) {
-                try { await supabaseClient.from('posts').delete().eq('id', pId).eq('user_id', currentUser.id); } catch (e) {}
+            if (!targetLiveId || targetLiveId === activeLiveId) {
+                isLiveActive = false;
+                isStartingLive = false;
+                activeLiveId = null;
+                if (studioTimerInterval) { clearInterval(studioTimerInterval); studioTimerInterval = null; }
+                if (broadcastFrameInterval) { clearInterval(broadcastFrameInterval); broadcastFrameInterval = null; }
+                try { studioMediaStream?.getTracks().forEach(t => t.stop()); } catch (e) {}
+                studioMediaStream = null;
+                if (broadcasterChannel) {
+                    try { await broadcasterChannel.send({ type: 'broadcast', event: 'live_ended', payload: { liveId: lid } }); } catch (e) {}
+                    try { supabaseClient.removeChannel(broadcasterChannel); } catch (e) {}
+                    broadcasterChannel = null;
+                }
+                document.getElementById('live-studio-modal').style.display = 'none';
             }
-            activeLiveId = null;
-            activeLivePostId = null;
-            document.getElementById('live-studio-modal').style.display = 'none';
-            await loadFeed();
-            await loadProfile();
+            if (globalNotiChannel && lid) {
+                try { await globalNotiChannel.send({ type: 'broadcast', event: 'live_ended', payload: { liveId: lid } }); } catch (e) {}
+            }
+            renderActiveLivesSections();
         }
 
-        function parseLivePost(post) {
-            if (!post?.content || typeof post.content !== 'string' || !post.content.startsWith('[LIVE_STREAM:')) return null;
-            const endIdx = post.content.indexOf(']'); if (endIdx === -1) return null;
-            const parts = post.content.slice('[LIVE_STREAM:'.length, endIdx).split(':');
-            return { liveId: parts[0] || '', mode: parts[1] || 'camera', startedAt: parts[2] ? Number(parts[2]) : Date.now(), caption: post.content.slice(endIdx + 1).trim() };
+        let viewerTimerInterval = null, viewingStartedAtMs = 0, localViewerCount = 1;
+        function applyViewerCameraVisualState() {
+            const canvas = document.getElementById('viewer-video-canvas');
+            const cvImg = document.getElementById('viewer-cv-placeholder');
+            if (cvImg) {
+                cvImg.src = viewingCoverUrl || DEFAULT_CV_SVG;
+                cvImg.style.display = viewingCameraOn ? 'none' : 'block';
+            }
+            if (canvas) {
+                canvas.style.display = viewingCameraOn ? 'block' : 'none';
+            }
         }
 
-        let viewerTimerInterval = null, viewingStartedAtMs = 0;
-        function openLiveViewer(liveId, hostName, coverUrl, caption, hostId = null, startedAtMs = 0) {
-            viewingLiveId = liveId; viewingHostId = hostId || null; viewingCoverUrl = coverUrl || ''; viewingCaption = caption || '';
+        function openLiveViewer(liveId, hostName, coverUrl, caption, hostId = null, startedAtMs = 0, cameraOn = true) {
+            if (!liveId || endedLiveIds.has(liveId) || !activeLivesMap.has(liveId)) {
+                alert('live ended');
+                renderActiveLivesSections();
+                return;
+            }
+            viewingLiveId = liveId;
+            viewingHostId = hostId || null;
+            viewingCoverUrl = coverUrl || DEFAULT_CV_SVG;
+            viewingCaption = caption || '';
+            viewingCameraOn = cameraOn !== false;
             viewingStartedAtMs = startedAtMs || Date.now();
             liveCommentsQueue = [];
+            localViewerCount = 1;
+
             document.getElementById('viewer-host-name').textContent = hostName || 'Host';
             document.getElementById('viewer-caption-text').textContent = caption || '';
             document.getElementById('viewer-comments-list').innerHTML = '';
             document.getElementById('viewer-timer-display').textContent = formatElapsedMMSS(viewingStartedAtMs);
             document.getElementById('viewer-bottom-time').textContent = '⏱ ' + formatElapsedMMSS(viewingStartedAtMs);
+            document.getElementById('viewer-count-display').textContent = `👁 ${localViewerCount}`;
             document.getElementById('live-viewer-modal').style.display = 'flex';
+            applyViewerCameraVisualState();
 
             if (viewerTimerInterval) clearInterval(viewerTimerInterval);
             viewerTimerInterval = setInterval(() => {
@@ -1954,22 +2190,73 @@
             }, 1000);
 
             viewerFrameImg.onload = () => {
-                if (!isRenderingFrame) return;
+                if (!isRenderingFrame || !viewingCameraOn) return;
                 const canvas = document.getElementById('viewer-video-canvas');
                 if (canvas) canvas.getContext('2d').drawImage(viewerFrameImg, 0, 0, canvas.width, canvas.height);
                 isRenderingFrame = false;
             };
             if (viewerChannel) { try { supabaseClient.removeChannel(viewerChannel); } catch (e) {} }
+            const activeViewers = new Set([currentUser?.id || ('guest_' + Math.random().toString(36).slice(2, 7))]);
             viewerChannel = supabaseClient.channel(`live-room:${liveId}`)
-                .on('broadcast', { event: 'live_frame' }, p => { if (p?.payload?.frame && !isRenderingFrame) { isRenderingFrame = true; viewerFrameImg.src = p.payload.frame; } })
-                .on('broadcast', { event: 'live_comment' }, p => { if (p?.payload) { liveCommentsQueue.push(p.payload); renderLiveComments(); } })
-                .on('broadcast', { event: 'live_ended' }, () => { alert('Live has ended.'); closeLiveViewer(); loadFeed(); }).subscribe();
+                .on('broadcast', { event: 'viewer_join' }, p => {
+                    if (p?.payload?.viewerId) {
+                        activeViewers.add(p.payload.viewerId);
+                        localViewerCount = Math.max(1, activeViewers.size);
+                        document.getElementById('viewer-count-display').textContent = `👁 ${localViewerCount}`;
+                    }
+                })
+                .on('broadcast', { event: 'viewer_leave' }, p => {
+                    if (p?.payload?.viewerId) {
+                        activeViewers.delete(p.payload.viewerId);
+                        localViewerCount = Math.max(1, activeViewers.size);
+                        document.getElementById('viewer-count-display').textContent = `👁 ${localViewerCount}`;
+                    }
+                })
+                .on('broadcast', { event: 'camera_state' }, p => {
+                    if (typeof p?.payload?.cameraOn === 'boolean') {
+                        viewingCameraOn = p.payload.cameraOn;
+                        if (p.payload.coverUrl) viewingCoverUrl = p.payload.coverUrl;
+                        applyViewerCameraVisualState();
+                    }
+                })
+                .on('broadcast', { event: 'live_frame' }, p => {
+                    if (viewingCameraOn && p?.payload?.frame && !isRenderingFrame) {
+                        isRenderingFrame = true;
+                        viewerFrameImg.src = p.payload.frame;
+                    }
+                })
+                .on('broadcast', { event: 'live_comment' }, p => {
+                    if (p?.payload) { liveCommentsQueue.push(p.payload); renderLiveComments(); }
+                })
+                .on('broadcast', { event: 'live_ended' }, () => {
+                    endedLiveIds.add(liveId);
+                    activeLivesMap.delete(liveId);
+                    renderActiveLivesSections();
+                    alert('live ended');
+                    closeLiveViewer();
+                })
+                .subscribe(status => {
+                    if (status === 'SUBSCRIBED') {
+                        viewerChannel.send({
+                            type: 'broadcast',
+                            event: 'viewer_join',
+                            payload: { viewerId: currentUser?.id || ('v_' + Date.now()) }
+                        }).catch(() => {});
+                    }
+                });
         }
         function closeLiveViewer() {
+            const lid = viewingLiveId;
             viewingLiveId = null; viewingHostId = null;
             if (viewerTimerInterval) { clearInterval(viewerTimerInterval); viewerTimerInterval = null; }
             document.getElementById('live-viewer-modal').style.display = 'none';
-            if (viewerChannel) { try { supabaseClient.removeChannel(viewerChannel); } catch (e) {} viewerChannel = null; }
+            if (viewerChannel) {
+                try {
+                    if (lid) viewerChannel.send({ type: 'broadcast', event: 'viewer_leave', payload: { viewerId: currentUser?.id || '' } }).catch(() => {});
+                    supabaseClient.removeChannel(viewerChannel);
+                } catch (e) {}
+                viewerChannel = null;
+            }
         }
         function unlockViewerAudioContext() {}
         function toggleViewerOrientation() {}
@@ -2015,66 +2302,6 @@
             topRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center;';
 
             const leftInfo = document.createElement('div');
-            const liveInfo = parseLivePost(post);
-
-            if (liveInfo) {
-                if (showAuthorHeader) {
-                    const authorSpan = document.createElement('span');
-                    authorSpan.className = 'post-author';
-                    authorSpan.innerHTML = `${uname}${badgeHtml}`;
-                    authorSpan.onclick = () => viewUserProfile(post.user_id, uname, uBio, uAvatar, uVerified);
-                    leftInfo.appendChild(authorSpan);
-                } else {
-                    const b = document.createElement('span');
-                    b.style.cssText = 'font-weight:bold; font-size:13px;';
-                    b.textContent = 'Live Stream';
-                    leftInfo.appendChild(b);
-                }
-                const liveTag = document.createElement('span');
-                liveTag.className = 'live-badge';
-                liveTag.textContent = 'LIVE';
-                leftInfo.appendChild(liveTag);
-
-                const tDiv = document.createElement('div');
-                tDiv.className = 'post-time';
-                tDiv.textContent = `${time} (${post.privacy})`;
-                leftInfo.appendChild(tDiv);
-                topRow.appendChild(leftInfo);
-
-                const rightBox = document.createElement('div');
-                if (post.user_id === currentUser.id) {
-                    const endBtn = document.createElement('button');
-                    endBtn.textContent = 'End Live';
-                    endBtn.style.cssText = 'width:auto; padding:4px 10px; font-size:11px; background:#e41e3f; margin:0;';
-                    endBtn.onclick = () => endLiveBroadcast(post.id);
-                    rightBox.appendChild(endBtn);
-                }
-                topRow.appendChild(rightBox);
-                card.appendChild(topRow);
-
-                if (isPostBanned) {
-                    const banNotice = document.createElement('div');
-                    banNotice.className = 'banned-content-notice';
-                    banNotice.textContent = 'This post is ban';
-                    card.appendChild(banNotice);
-                } else {
-                    if (liveInfo.caption) {
-                        const capDiv = document.createElement('div');
-                        capDiv.className = 'post-body';
-                        capDiv.textContent = liveInfo.caption;
-                        card.appendChild(capDiv);
-                    }
-                    const coverWrap = document.createElement('div');
-                    coverWrap.className = 'live-cover-wrapper';
-                    const fallbackSvg = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#1c1e21"/><text x="50%" y="50%" fill="#ffffff" font-size="28" font-family="Arial" dominant-baseline="middle" text-anchor="middle">LIVE STREAM</text></svg>');
-                    const imgSrc = (post.media_url && post.media_url.trim()) ? post.media_url : fallbackSvg;
-                    coverWrap.innerHTML = `<img src="${imgSrc}" alt="Live Cover"><div class="live-cover-overlay-badge">LIVE</div><div class="live-cover-play-hint">▶ Tap to watch</div>`;
-                    coverWrap.onclick = () => openLiveViewer(liveInfo.liveId, uname, imgSrc, liveInfo.caption || '', post.user_id, liveInfo.startedAt);
-                    card.appendChild(coverWrap);
-                }
-                return card;
-            }
-
             const parsedContent = parseMultiPhotoContent(post.content || '');
             const allPhotos = parsedContent.photos.length > 0 ? parsedContent.photos.slice(0, 10) : (post.media_url ? [post.media_url] : []);
             const mediaHtml = buildPhotosCollageHtml(allPhotos), displayText = parsedContent.text;
@@ -2360,6 +2587,7 @@
         async function loadFeed() {
             const { data } = await supabaseClient.from('posts').select('*, profiles(username, avatar_url, bio, last_seen, is_verified)').order('created_at', { ascending: false });
             renderPostsIntoContainer(document.getElementById('posts-feed'), data, true, 'No posts available.');
+            renderActiveLivesSections();
         }
         async function editPost(postId, oldContent) { if (await checkCurrentUserBanStatus()) return; const nc = prompt('Edit your post caption:', oldContent); if (nc !== null) { await supabaseClient.from('posts').update({ content: nc }).eq('id', postId); loadFeed(); loadProfile(); } }
         async function deletePost(postId) { if (await checkCurrentUserBanStatus()) return; if (confirm('Are you sure you want to delete this post?')) { await supabaseClient.from('posts').delete().eq('id', postId); loadFeed(); loadProfile(); } }
@@ -2393,6 +2621,7 @@
             document.getElementById('profile-avatar-container').innerHTML = profile?.avatar_url ? `<img src="${profile.avatar_url}" style="width:100%; height:100%; object-fit:cover;">` : `<span>${uname.charAt(0).toUpperCase()}</span>`;
             const { data: myPosts } = await supabaseClient.from('posts').select('*, profiles(username, avatar_url, bio, is_verified)').eq('user_id', currentUser.id).order('created_at', { ascending: false });
             renderPostsIntoContainer(document.getElementById('my-posts'), myPosts, false, 'No posts yet.');
+            renderActiveLivesSections();
         }
         async function logout() { sessionStorage.removeItem('sc_owner_authed'); await updateMyLastSeen(); if (globalPresenceChannel) await globalPresenceChannel.untrack().catch(() => {}); await supabaseClient.auth.signOut(); location.reload(); }
     </script>
