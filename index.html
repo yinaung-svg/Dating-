@@ -683,7 +683,6 @@
         let currentLightboxMeta = { url: '', name: 'photo.jpg', canSave: false }, currentFilePreviewMeta = { url: '', name: 'file', size: 0 }, currentLocationMeta = { lat: 0, lng: 0, browserUrl: '' };
         let pendingDeleteTarget = null, localDeletedForMeSet = new Set(), localDeletedForEveryoneSet = new Set();
 
-        // Ephemeral (non-stored / non-recorded) Live state
         let activeLivesMap = new Map();
         let endedLiveIds = new Set();
 
@@ -1378,11 +1377,12 @@
                 createdAt: new Date().toISOString()
             };
 
-            const lightweightLiveObj = {
+            const sharedLiveObj = {
                 liveId: liveObj.liveId,
                 hostId: liveObj.hostId,
                 hostName: liveObj.hostName,
                 hostVerified: Boolean(liveObj.hostVerified),
+                coverUrl: liveObj.coverUrl || DEFAULT_CV_SVG,
                 caption: liveObj.caption || '',
                 startedAt: liveObj.startedAt,
                 mode: liveObj.mode || 'camera',
@@ -1396,7 +1396,7 @@
                         type: 'broadcast',
                         event: 'live_started',
                         payload: {
-                            live: lightweightLiveObj,
+                            live: sharedLiveObj,
                             noti: notiItem
                         }
                     });
@@ -1455,7 +1455,7 @@
                             activeLivesMap.set(liveObj.liveId, {
                                 ...existing,
                                 ...liveObj,
-                                coverUrl: existing.coverUrl || DEFAULT_CV_SVG
+                                coverUrl: liveObj.coverUrl || existing.coverUrl || DEFAULT_CV_SVG
                             });
                             renderActiveLivesSections();
                         }
@@ -1476,6 +1476,7 @@
                                         hostId: cur.hostId,
                                         hostName: cur.hostName,
                                         hostVerified: Boolean(cur.hostVerified),
+                                        coverUrl: cur.coverUrl || DEFAULT_CV_SVG,
                                         caption: cur.caption || '',
                                         startedAt: cur.startedAt,
                                         mode: cur.mode || 'camera',
@@ -1492,7 +1493,7 @@
                             activeLivesMap.set(liveObj.liveId, {
                                 ...existing,
                                 ...liveObj,
-                                coverUrl: existing.coverUrl || DEFAULT_CV_SVG
+                                coverUrl: liveObj.coverUrl || existing.coverUrl || DEFAULT_CV_SVG
                             });
                             renderActiveLivesSections();
                         }
@@ -1762,14 +1763,118 @@
             updateMyLastSeen(); trackMyPresence(); refreshAllPresenceDisplays();
         }
 
-        // Live Studio & Viewer (Live-only, zero DB/storage persistence, no recording/replay, matches source orientation, higher smooth frame rate)
         const DEFAULT_CV_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#1c1e21"/><text x="50%" y="50%" fill="#ffffff" font-size="28" font-family="Arial" dominant-baseline="middle" text-anchor="middle">LIVE STREAM</text></svg>');
 
         let selectedLiveMode = 'camera', selectedLiveCoverDataUrl = '', selectedLiveCaption = '', studioMediaStream = null, currentFacingMode = 'user', isCameraEnabled = true, isMicEnabled = true, effectIndex = 0;
         const liveEffects = [{ label: 'Normal', category: 'Default', filter: 'none' }, { label: 'Fair Bright', category: 'Whitening', filter: 'brightness(1.16) contrast(1.03) saturate(1.06)' }, { label: 'Silk Smooth 1', category: 'Smooth', filter: 'brightness(1.08) contrast(0.92) saturate(1.04)' }];
-        let isLiveActive = false, isStartingLive = false, activeLiveId = null, liveStartTimeMs = 0, studioTimerInterval = null, broadcasterChannel = null, broadcasterChannelReady = false, broadcastFrameInterval = null, isSendingFrame = false, captureCanvas = document.createElement('canvas');
-        captureCanvas.width = 360; captureCanvas.height = 202;
+        let isLiveActive = false, isStartingLive = false, activeLiveId = null, liveStartTimeMs = 0, studioTimerInterval = null, broadcasterChannel = null, broadcasterChannelReady = false, broadcastFrameInterval = null, captureCanvas = document.createElement('canvas');
+        captureCanvas.width = 320; captureCanvas.height = 180;
         let viewerChannel = null, viewerChannelReady = false, viewingLiveId = null, viewingHostId = null, viewingCoverUrl = '', viewingCaption = '', viewingCameraOn = true, viewingMode = 'camera', liveCommentsQueue = [], isRenderingFrame = false, viewerFrameImg = new Image(), viewerManualOrientation = null, lastStreamIsPortrait = false;
+
+        // Live Mic Audio bridge (Web Audio PCM chunks over Supabase Broadcast)
+        let micAudioCtx = null, micSourceNode = null, micProcessorNode = null, micGainNode = null;
+        let viewerAudioCtx = null, viewerNextPlayTime = 0;
+
+        function startMicAudioStreaming() {
+            stopMicAudioStreaming();
+            if (!studioMediaStream) return;
+            const audioTracks = studioMediaStream.getAudioTracks();
+            if (!audioTracks || !audioTracks.length) return;
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                micAudioCtx = new AudioCtx({ sampleRate: 16000 });
+                const micStream = new MediaStream(audioTracks);
+                micSourceNode = micAudioCtx.createMediaStreamSource(micStream);
+                micProcessorNode = micAudioCtx.createScriptProcessor(2048, 1, 1);
+                micGainNode = micAudioCtx.createGain();
+                micGainNode.gain.value = 0;
+
+                micProcessorNode.onaudioprocess = (ev) => {
+                    if (!isLiveActive || !isMicEnabled || !broadcasterChannel || !broadcasterChannelReady) return;
+                    const input = ev.inputBuffer.getChannelData(0);
+                    let sumSq = 0;
+                    for (let i = 0; i < input.length; i += 4) sumSq += input[i] * input[i];
+                    if (Math.sqrt(sumSq / (input.length / 4)) < 0.003) return;
+
+                    const pcm16 = new Int16Array(input.length);
+                    for (let i = 0; i < input.length; i++) {
+                        const s = Math.max(-1, Math.min(1, input[i]));
+                        pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                    }
+                    const bytes = new Uint8Array(pcm16.buffer);
+                    let bin = '';
+                    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+                    broadcasterChannel.send({
+                        type: 'broadcast',
+                        event: 'live_audio',
+                        payload: { pcm: btoa(bin), sr: micAudioCtx.sampleRate || 16000 }
+                    }).catch(() => {});
+                };
+
+                micSourceNode.connect(micProcessorNode);
+                micProcessorNode.connect(micGainNode);
+                micGainNode.connect(micAudioCtx.destination);
+            } catch (e) {}
+        }
+
+        function stopMicAudioStreaming() {
+            try { if (micProcessorNode) { micProcessorNode.disconnect(); micProcessorNode.onaudioprocess = null; } } catch (e) {}
+            try { if (micSourceNode) micSourceNode.disconnect(); } catch (e) {}
+            try { if (micGainNode) micGainNode.disconnect(); } catch (e) {}
+            try { if (micAudioCtx && micAudioCtx.state !== 'closed') micAudioCtx.close(); } catch (e) {}
+            micProcessorNode = null; micSourceNode = null; micGainNode = null; micAudioCtx = null;
+        }
+
+        function ensureViewerAudioContext() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return null;
+                if (!viewerAudioCtx) {
+                    viewerAudioCtx = new AudioCtx({ sampleRate: 16000 });
+                    viewerNextPlayTime = viewerAudioCtx.currentTime;
+                }
+                if (viewerAudioCtx.state === 'suspended') {
+                    viewerAudioCtx.resume().catch(() => {});
+                }
+                return viewerAudioCtx;
+            } catch (e) { return null; }
+        }
+
+        function playIncomingLiveAudioChunk(payload) {
+            if (!payload?.pcm || !viewingLiveId) return;
+            const ctx = ensureViewerAudioContext();
+            if (!ctx || ctx.state !== 'running') return;
+            try {
+                const bin = atob(payload.pcm);
+                const len = bin.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+                const pcm16 = new Int16Array(bytes.buffer);
+                if (!pcm16.length) return;
+                const sr = Number(payload.sr) || 16000;
+                const buf = ctx.createBuffer(1, pcm16.length, sr);
+                const chData = buf.getChannelData(0);
+                for (let i = 0; i < pcm16.length; i++) chData[i] = pcm16[i] / 32768;
+
+                const src = ctx.createBufferSource();
+                src.buffer = buf;
+                src.connect(ctx.destination);
+
+                const now = ctx.currentTime;
+                if (viewerNextPlayTime < now || viewerNextPlayTime > now + 0.35) {
+                    viewerNextPlayTime = now + 0.02;
+                }
+                src.start(viewerNextPlayTime);
+                viewerNextPlayTime += buf.duration;
+            } catch (e) {}
+        }
+
+        function stopViewerAudioContext() {
+            try { if (viewerAudioCtx && viewerAudioCtx.state !== 'closed') viewerAudioCtx.close(); } catch (e) {}
+            viewerAudioCtx = null;
+            viewerNextPlayTime = 0;
+        }
 
         function formatElapsedMMSS(startMs) {
             const diffSec = Math.max(0, Math.floor((Date.now() - (startMs || Date.now())) / 1000));
@@ -1819,6 +1924,7 @@
             const badgeHtml = renderBlueMarkHtml(Boolean(liveObj.hostVerified));
             const elapsedText = formatElapsedMMSS(liveObj.startedAt);
             const modeLabel = liveObj.mode === 'screen' ? 'Screen Share Live' : 'Camera Live';
+            const effectiveCover = liveObj.coverUrl || DEFAULT_CV_SVG;
 
             const topRow = document.createElement('div');
             topRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center;';
@@ -1868,7 +1974,7 @@
             const coverWrap = document.createElement('div');
             coverWrap.className = 'live-cover-wrapper';
             const cvImg = document.createElement('img');
-            cvImg.src = liveObj.coverUrl || DEFAULT_CV_SVG;
+            cvImg.src = effectiveCover;
             cvImg.alt = 'Live Cover';
 
             const badgeOverlay = document.createElement('div');
@@ -1891,7 +1997,7 @@
                 openLiveViewer(
                     liveObj.liveId,
                     uname,
-                    liveObj.coverUrl || DEFAULT_CV_SVG,
+                    effectiveCover,
                     liveObj.caption || '',
                     liveObj.hostId,
                     liveObj.startedAt,
@@ -1936,14 +2042,14 @@
         function closeLiveSetupModal() { document.getElementById('live-setup-modal').style.display = 'none'; }
         function previewLiveCover(input) {
             if (input.files?.[0]) {
-                const r = new FileReader();
-                r.onload = e => {
-                    selectedLiveCoverDataUrl = e.target.result;
+                compressFileToDataUrl(input.files[0], 480, 0.65).then(compressed => {
+                    selectedLiveCoverDataUrl = compressed || DEFAULT_CV_SVG;
                     const i = document.getElementById('live-cover-preview');
-                    i.src = selectedLiveCoverDataUrl;
-                    i.style.display = 'block';
-                };
-                r.readAsDataURL(input.files[0]);
+                    if (i) {
+                        i.src = selectedLiveCoverDataUrl;
+                        i.style.display = 'block';
+                    }
+                });
             }
         }
         function openEffectPickerModal() {
@@ -1958,9 +2064,10 @@
             const cvImg = document.getElementById('studio-cv-placeholder');
             const fx = liveEffects[effectIndex] || liveEffects[0];
             const showCv = (selectedLiveMode === 'camera' && !isCameraEnabled);
+            const activeCv = selectedLiveCoverDataUrl || DEFAULT_CV_SVG;
 
             if (cvImg) {
-                cvImg.src = selectedLiveCoverDataUrl || DEFAULT_CV_SVG;
+                cvImg.src = activeCv;
                 cvImg.style.display = showCv ? 'block' : 'none';
             }
             if (v) {
@@ -1976,7 +2083,7 @@
             }
             if (isLiveActive && activeLiveId && activeLivesMap.has(activeLiveId)) {
                 const cur = activeLivesMap.get(activeLiveId);
-                activeLivesMap.set(activeLiveId, { ...cur, cameraOn: selectedLiveMode === 'screen' ? true : isCameraEnabled });
+                activeLivesMap.set(activeLiveId, { ...cur, coverUrl: activeCv, cameraOn: selectedLiveMode === 'screen' ? true : isCameraEnabled });
             }
         }
 
@@ -1987,7 +2094,11 @@
             if (camRow) camRow.style.display = selectedLiveMode === 'screen' ? 'none' : 'flex';
             applyStudioCameraVisualState();
         }
-        function toggleMicPower() { isMicEnabled = !isMicEnabled; studioMediaStream?.getAudioTracks().forEach(t => t.enabled = isMicEnabled); syncStudioControlButtons(); }
+        function toggleMicPower() {
+            isMicEnabled = !isMicEnabled;
+            studioMediaStream?.getAudioTracks().forEach(t => t.enabled = isMicEnabled);
+            syncStudioControlButtons();
+        }
         function toggleCameraPower() {
             if (selectedLiveMode === 'camera') {
                 isCameraEnabled = !isCameraEnabled;
@@ -1998,6 +2109,7 @@
         async function flipCameraFacing() { if (selectedLiveMode === 'camera') { currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user'; await initCameraStream(currentFacingMode); } }
 
         async function initStudioMediaStream(mode = 'camera', facing = 'user') {
+            stopMicAudioStreaming();
             const v = document.getElementById('studio-video');
             if (studioMediaStream) {
                 try { studioMediaStream.getTracks().forEach(t => t.stop()); } catch (e) {}
@@ -2022,6 +2134,7 @@
                     v.srcObject = studioMediaStream || null;
                     if (studioMediaStream) await v.play().catch(() => {});
                 }
+                if (isLiveActive) startMicAudioStreaming();
                 syncStudioControlButtons();
                 return;
             }
@@ -2046,6 +2159,7 @@
                     v.srcObject = null;
                 }
             }
+            if (isLiveActive) startMicAudioStreaming();
             syncStudioControlButtons();
         }
 
@@ -2082,6 +2196,7 @@
                 endLiveBroadcast(activeLiveId);
                 return;
             }
+            stopMicAudioStreaming();
             if (studioTimerInterval) { clearInterval(studioTimerInterval); studioTimerInterval = null; }
             if (broadcastFrameInterval) { clearInterval(broadcastFrameInterval); broadcastFrameInterval = null; }
             broadcasterChannelReady = false;
@@ -2121,7 +2236,7 @@
             const srcW = v.videoWidth;
             const srcH = v.videoHeight;
             const isPortrait = srcH > srcW;
-            const maxDim = 360;
+            const maxDim = 320;
             let outW, outH;
             if (srcW >= srcH) {
                 outW = Math.min(maxDim, srcW);
@@ -2145,7 +2260,7 @@
             ctx.drawImage(v, 0, 0, outW, outH);
             ctx.restore();
             return {
-                frame: captureCanvas.toDataURL('image/jpeg', 0.28),
+                frame: captureCanvas.toDataURL('image/jpeg', 0.24),
                 w: outW,
                 h: outH,
                 isPortrait
@@ -2164,13 +2279,14 @@
                 liveStartTimeMs = Date.now();
                 const hostName = currentProfileData?.username || document.getElementById('profile-name')?.textContent || 'User';
                 const hostVerified = Boolean(currentProfileData?.is_verified);
+                const coverToUse = selectedLiveCoverDataUrl || DEFAULT_CV_SVG;
 
                 const liveObj = {
                     liveId: activeLiveId,
                     hostId: currentUser.id,
                     hostName,
                     hostVerified,
-                    coverUrl: selectedLiveCoverDataUrl || DEFAULT_CV_SVG,
+                    coverUrl: coverToUse,
                     caption: selectedLiveCaption || '',
                     startedAt: liveStartTimeMs,
                     mode: selectedLiveMode,
@@ -2182,6 +2298,7 @@
                 if (actBtn) { actBtn.disabled = false; actBtn.textContent = 'End Live'; }
 
                 renderActiveLivesSections();
+                startMicAudioStreaming();
 
                 if (studioTimerInterval) clearInterval(studioTimerInterval);
                 studioTimerInterval = setInterval(() => {
@@ -2235,7 +2352,7 @@
                     if (payload) {
                         broadcasterChannel.send({ type: 'broadcast', event: 'live_frame', payload }).catch(() => {});
                     }
-                }, 65);
+                }, 40);
 
                 await broadcastLiveStartToAllUsers(liveObj);
             } catch (err) {
@@ -2257,6 +2374,7 @@
                 isStartingLive = false;
                 activeLiveId = null;
                 broadcasterChannelReady = false;
+                stopMicAudioStreaming();
                 if (studioTimerInterval) { clearInterval(studioTimerInterval); studioTimerInterval = null; }
                 if (broadcastFrameInterval) { clearInterval(broadcastFrameInterval); broadcastFrameInterval = null; }
                 try { studioMediaStream?.getTracks().forEach(t => t.stop()); } catch (e) {}
@@ -2279,8 +2397,12 @@
             const canvas = document.getElementById('viewer-video-canvas');
             const cvImg = document.getElementById('viewer-cv-placeholder');
             const showCv = (viewingMode === 'camera' && !viewingCameraOn);
+            const mapObj = viewingLiveId ? activeLivesMap.get(viewingLiveId) : null;
+            const effectiveCv = (mapObj && mapObj.coverUrl) || viewingCoverUrl || DEFAULT_CV_SVG;
+            viewingCoverUrl = effectiveCv;
+
             if (cvImg) {
-                cvImg.src = viewingCoverUrl || DEFAULT_CV_SVG;
+                cvImg.src = effectiveCv;
                 cvImg.style.display = showCv ? 'block' : 'none';
             }
             if (canvas) {
@@ -2294,13 +2416,14 @@
                 renderActiveLivesSections();
                 return;
             }
+            const mapObj = activeLivesMap.get(liveId) || {};
             viewingLiveId = liveId;
-            viewingHostId = hostId || null;
-            viewingCoverUrl = coverUrl || DEFAULT_CV_SVG;
-            viewingCaption = caption || '';
-            viewingMode = mode || 'camera';
-            viewingCameraOn = viewingMode === 'screen' ? true : (cameraOn !== false);
-            viewingStartedAtMs = startedAtMs || Date.now();
+            viewingHostId = hostId || mapObj.hostId || null;
+            viewingCoverUrl = mapObj.coverUrl || coverUrl || DEFAULT_CV_SVG;
+            viewingCaption = caption || mapObj.caption || '';
+            viewingMode = mode || mapObj.mode || 'camera';
+            viewingCameraOn = viewingMode === 'screen' ? true : (cameraOn !== false && mapObj.cameraOn !== false);
+            viewingStartedAtMs = startedAtMs || mapObj.startedAt || Date.now();
             liveCommentsQueue = [];
             localViewerCount = 1;
             isRenderingFrame = false;
@@ -2315,13 +2438,14 @@
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
 
-            document.getElementById('viewer-host-name').textContent = hostName || 'Host';
-            document.getElementById('viewer-caption-text').textContent = caption || '';
+            document.getElementById('viewer-host-name').textContent = hostName || mapObj.hostName || 'Host';
+            document.getElementById('viewer-caption-text').textContent = viewingCaption || '';
             document.getElementById('viewer-comments-list').innerHTML = '';
             document.getElementById('viewer-timer-display').textContent = formatElapsedMMSS(viewingStartedAtMs);
             document.getElementById('viewer-bottom-time').textContent = '⏱ ' + formatElapsedMMSS(viewingStartedAtMs);
             document.getElementById('viewer-count-display').textContent = `👁 ${localViewerCount}`;
             document.getElementById('live-viewer-modal').style.display = 'flex';
+            ensureViewerAudioContext();
             applyViewerCameraVisualState();
 
             if (viewerTimerInterval) clearInterval(viewerTimerInterval);
@@ -2380,6 +2504,9 @@
                         viewerFrameImg.src = pl.frame;
                     }
                 })
+                .on('broadcast', { event: 'live_audio' }, p => {
+                    playIncomingLiveAudioChunk(p?.payload);
+                })
                 .on('broadcast', { event: 'live_comment' }, p => {
                     if (p?.payload) {
                         liveCommentsQueue.push(p.payload);
@@ -2414,6 +2541,7 @@
             viewerManualOrientation = null;
             viewerChannelReady = false;
             viewerFrameImg.src = '';
+            stopViewerAudioContext();
             if (viewerTimerInterval) { clearInterval(viewerTimerInterval); viewerTimerInterval = null; }
             document.getElementById('live-viewer-modal').style.display = 'none';
             if (viewerChannel) {
@@ -2424,7 +2552,9 @@
                 viewerChannel = null;
             }
         }
-        function unlockViewerAudioContext() {}
+        function unlockViewerAudioContext() {
+            ensureViewerAudioContext();
+        }
         function toggleViewerOrientation() {
             const currentlyPortrait = document.getElementById('viewer-video-container')?.classList.contains('portrait-mode');
             viewerManualOrientation = currentlyPortrait ? 'landscape' : 'portrait';
