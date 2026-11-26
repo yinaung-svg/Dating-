@@ -136,6 +136,8 @@
         .noti-item:hover { background: var(--bg-muted); }
         .noti-item.unread { background: rgba(24,119,242,0.12); border-color: var(--accent); }
         .noti-tag-pill { background: var(--accent); color: #fff; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+        .noti-tag-pill.ban-pill { background: #e41e3f; }
+        .noti-tag-pill.blue-pill { background: #1877f2; }
 
         .action-bar { display: flex; justify-content: space-around; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); padding: 8px 0; margin-top: 10px; font-size: 13px; color: var(--text-sub); cursor: pointer; }
         .action-bar span:hover { color: var(--accent); }
@@ -672,8 +674,31 @@
         let unreadBySenderMap = {}, totalUnreadMessages = 0;
         let selectedPostPhotos = [], feedTabClickCount = 0;
         let notificationsList = [], unreadNotiCount = 0, globalNotiChannel = null, globalNotiSubscribed = false, handledNotiKeys = new Set(), postStateSnapshotMap = {};
+        let lastKnownVerifiedState = null;
         let currentLightboxMeta = { url: '', name: 'photo.jpg', canSave: false }, currentFilePreviewMeta = { url: '', name: 'file', size: 0 }, currentLocationMeta = { lat: 0, lng: 0, browserUrl: '' };
         let pendingDeleteTarget = null, localDeletedForMeSet = new Set(), localDeletedForEveryoneSet = new Set();
+
+        function getNotiCacheKey() {
+            return currentUser?.id ? `sc_noti_cache_${currentUser.id}` : 'sc_noti_cache_guest';
+        }
+        function saveNotificationsToCache() {
+            if (!currentUser?.id) return;
+            try {
+                const clean = notificationsList
+                    .filter(n => n && n.type !== 'message')
+                    .slice(0, 300);
+                localStorage.setItem(getNotiCacheKey(), JSON.stringify(clean));
+            } catch (e) {}
+        }
+        function loadNotificationsFromCache() {
+            if (!currentUser?.id) return [];
+            try {
+                const raw = localStorage.getItem(getNotiCacheKey());
+                if (!raw) return [];
+                const parsed = JSON.parse(raw);
+                return Array.isArray(parsed) ? parsed.filter(n => n && n.type !== 'message') : [];
+            } catch (e) { return []; }
+        }
 
         function renderBlueMarkHtml(flag) { return flag ? `<span class="blue-mark-badge" title="Verified">✓</span>` : ''; }
         function showAccountBanScreen(isBanned) {
@@ -682,19 +707,36 @@
             screen.style.display = isBanned ? 'flex' : 'none';
             if (isBanned && app) app.style.display = 'none';
         }
+
         async function checkCurrentUserBanStatus() {
             if (!currentUser) return false;
             try {
                 const { data } = await supabaseClient.from('profiles').select('is_banned, is_verified, username, bio, avatar_url').eq('id', currentUser.id).maybeSingle();
                 if (data) {
+                    const prevVerified = lastKnownVerifiedState;
+                    const nowVerified = Boolean(data.is_verified);
                     currentProfileData = { ...(currentProfileData || {}), ...data };
                     cachedUsersMap[currentUser.id] = currentProfileData;
+
+                    if (prevVerified === false && nowVerified === true) {
+                        addNotificationItem({
+                            id: `blue_mark_granted_${currentUser.id}_${Date.now()}`,
+                            type: 'blue_mark',
+                            actorName: 'Owner Admin',
+                            message: 'congratulation you have blue mark',
+                            detailText: 'Tap to open your profile',
+                            persistDb: true
+                        });
+                    }
+                    lastKnownVerifiedState = nowVerified;
+
                     if (data.is_banned === true) { showAccountBanScreen(true); return true; }
                     showAccountBanScreen(false);
                 }
             } catch (e) {}
             return false;
         }
+
         function loadLocalDeletedSets() {
             try {
                 localDeletedForMeSet = new Set(JSON.parse(localStorage.getItem('sc_msg_del_me') || '[]').map(String));
@@ -721,10 +763,10 @@
                 if (document.visibilityState === 'hidden') globalPresenceChannel?.untrack().catch(() => {});
                 else if (document.visibilityState === 'visible') {
                     checkCurrentUserBanStatus(); trackMyPresence(); updateMyLastSeen();
-                    refreshUnreadMessageCounts(); checkMyPostsEngagementChanges(); refreshAllPresenceDisplays();
+                    refreshUnreadMessageCounts(); checkMyPostsEngagementChanges(); refreshAllPresenceDisplays(); loadNotificationsFromDB(true);
                 }
             });
-            window.addEventListener('beforeunload', () => { if (currentUser) updateMyLastSeen(); });
+            window.addEventListener('beforeunload', () => { if (currentUser) { updateMyLastSeen(); saveNotificationsToCache(); } });
 
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
@@ -803,7 +845,22 @@
                 let changed = false;
                 data.forEach(p => {
                     if (!p || !p.id) return;
-                    if (p.id === currentUser.id && p.is_banned === true) showAccountBanScreen(true);
+                    if (p.id === currentUser.id) {
+                        const prevV = lastKnownVerifiedState;
+                        const nowV = Boolean(p.is_verified);
+                        if (prevV === false && nowV === true) {
+                            addNotificationItem({
+                                id: `blue_mark_granted_${currentUser.id}_${Date.now()}`,
+                                type: 'blue_mark',
+                                actorName: 'Owner Admin',
+                                message: 'congratulation you have blue mark',
+                                detailText: 'Tap to open your profile',
+                                persistDb: true
+                            });
+                        }
+                        lastKnownVerifiedState = nowV;
+                        if (p.is_banned === true) showAccountBanScreen(true);
+                    }
                     const prev = cachedUsersMap[p.id];
                     const wasOnline = prev ? isUserRecentlyActive(p.id, prev.last_seen) : false;
                     const wasVerified = prev ? Boolean(prev.is_verified) : false;
@@ -1077,18 +1134,121 @@
             if (!feedTabEl?.classList.contains('active')) { switchTab('feed'); feedTabClickCount = 1; return; }
             feedTabEl.scrollTo({ top: 0, behavior: 'smooth' }); feedTabClickCount = 0; loadFeed();
         }
-        function addNotificationItem(noti) {
-            if (!noti || noti.type === 'message') return;
-            const key = noti.id || `${noti.type}_${noti.actorId}_${noti.message}_${noti.detailText}`;
-            if (key && handledNotiKeys.has(key)) return;
-            if (key) handledNotiKeys.add(key);
-            notificationsList.unshift({ ...noti, id: key, isRead: false, createdAt: noti.createdAt || new Date().toISOString() });
-            if (notificationsList.length > 120) notificationsList = notificationsList.slice(0, 120);
-            if (!document.getElementById('notification-tab')?.classList.contains('active')) { unreadNotiCount++; updateNotiBadgeDisplay(); }
-            else { notificationsList[0].isRead = true; unreadNotiCount = 0; updateNotiBadgeDisplay(); }
+
+        async function persistNotificationToDB(item, targetUserId = null) {
+            const uid = targetUserId || currentUser?.id;
+            if (!uid || !item || item.type === 'message') return;
+            try {
+                await supabaseClient.from('notifications').upsert([{
+                    id: String(item.id),
+                    user_id: uid,
+                    type: item.type || 'post',
+                    actor_id: item.actorId || null,
+                    actor_name: item.actorName || 'Someone',
+                    message: item.message || '',
+                    detail_text: item.detailText || '',
+                    post_id: item.postId || null,
+                    live_id: item.liveId || null,
+                    cover_url: item.coverUrl || '',
+                    caption: item.caption || '',
+                    is_read: Boolean(item.isRead),
+                    created_at: item.createdAt || new Date().toISOString()
+                }], { onConflict: 'id' });
+            } catch (e) {}
+        }
+
+        async function loadNotificationsFromDB(mergeWithCache = true) {
+            if (!currentUser?.id) return;
+            const cached = mergeWithCache ? loadNotificationsFromCache() : [];
+            let dbRows = [];
+            try {
+                const { data, error } = await supabaseClient
+                    .from('notifications')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .order('created_at', { ascending: false })
+                    .limit(200);
+                if (!error && Array.isArray(data)) {
+                    dbRows = data.map(r => ({
+                        id: String(r.id),
+                        type: r.type || 'post',
+                        actorId: r.actor_id || null,
+                        actorName: r.actor_name || 'Someone',
+                        message: r.message || '',
+                        detailText: r.detail_text || '',
+                        postId: r.post_id || null,
+                        liveId: r.live_id || null,
+                        coverUrl: r.cover_url || '',
+                        caption: r.caption || '',
+                        isRead: Boolean(r.is_read),
+                        createdAt: r.created_at || new Date().toISOString()
+                    }));
+                }
+            } catch (e) {}
+
+            const mergedMap = new Map();
+            [...dbRows, ...cached].forEach(item => {
+                if (!item || !item.id || item.type === 'message' || item.type === 'live_comment') return;
+                if (!mergedMap.has(item.id)) mergedMap.set(item.id, item);
+            });
+
+            const sorted = Array.from(mergedMap.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            notificationsList = sorted;
+            handledNotiKeys = new Set(sorted.map(n => n.id));
+
+            const notiTabActive = document.getElementById('notification-tab')?.classList.contains('active');
+            if (notiTabActive) {
+                notificationsList.forEach(n => { n.isRead = true; });
+                unreadNotiCount = 0;
+            } else {
+                unreadNotiCount = notificationsList.filter(n => !n.isRead).length;
+            }
+            updateNotiBadgeDisplay();
+            saveNotificationsToCache();
             renderNotificationsList();
         }
-        function markAllNotificationsRead() { unreadNotiCount = 0; notificationsList.forEach(n => { n.isRead = true; }); updateNotiBadgeDisplay(); }
+
+        function addNotificationItem(noti) {
+            if (!noti || noti.type === 'message' || noti.type === 'live_comment') return;
+            const key = String(noti.id || `${noti.type}_${noti.actorId || ''}_${noti.message || ''}_${noti.detailText || ''}_${Date.now()}`);
+            if (handledNotiKeys.has(key)) return;
+            handledNotiKeys.add(key);
+
+            const notiTabActive = document.getElementById('notification-tab')?.classList.contains('active');
+            const entry = {
+                ...noti,
+                id: key,
+                isRead: notiTabActive ? true : Boolean(noti.isRead),
+                createdAt: noti.createdAt || new Date().toISOString()
+            };
+            notificationsList.unshift(entry);
+            notificationsList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            if (notificationsList.length > 300) notificationsList = notificationsList.slice(0, 300);
+
+            if (!notiTabActive && !entry.isRead) {
+                unreadNotiCount++;
+            } else if (notiTabActive) {
+                unreadNotiCount = 0;
+            }
+            updateNotiBadgeDisplay();
+            saveNotificationsToCache();
+            renderNotificationsList();
+
+            if (noti.persistDb !== false && currentUser?.id) {
+                persistNotificationToDB(entry, currentUser.id);
+            }
+        }
+
+        async function markAllNotificationsRead() {
+            unreadNotiCount = 0;
+            notificationsList.forEach(n => { n.isRead = true; });
+            updateNotiBadgeDisplay();
+            saveNotificationsToCache();
+            if (currentUser?.id) {
+                try { await supabaseClient.from('notifications').update({ is_read: true }).eq('user_id', currentUser.id); } catch (e) {}
+            }
+        }
+
         async function getUsernameById(userId) {
             if (!userId) return 'Someone';
             if (cachedUsersMap[userId]?.username) return cachedUsersMap[userId].username;
@@ -1107,14 +1267,27 @@
                 const { data: postRow } = await supabaseClient.from('posts').select('id, user_id').eq('id', postId).maybeSingle();
                 if (!postRow?.user_id || postRow.user_id === currentUser.id) return;
                 const actorName = currentProfileData?.username || await getUsernameById(currentUser.id);
+                const payload = {
+                    id: `post_act_${actionType}_${postId}_${currentUser.id}_${Date.now()}`,
+                    type: 'post_' + actionType,
+                    actionType,
+                    postId,
+                    postOwnerId: postRow.user_id,
+                    actorId: currentUser.id,
+                    actorName,
+                    detailText,
+                    createdAt: new Date().toISOString()
+                };
+                const msgMap = { like: 'liked your post', comment: 'commented on your post', share: 'shared your post' };
+                await persistNotificationToDB({ ...payload, message: msgMap[actionType] || 'interacted with your post', isRead: false }, postRow.user_id);
                 const ch = await ensureGlobalNotiChannel();
-                if (ch) await ch.send({ type: 'broadcast', event: 'post_interaction', payload: { id: `post_act_${actionType}_${postId}_${currentUser.id}_${Date.now()}`, type: 'post_' + actionType, actionType, postId, postOwnerId: postRow.user_id, actorId: currentUser.id, actorName, detailText, createdAt: new Date().toISOString() } });
+                if (ch) await ch.send({ type: 'broadcast', event: 'post_interaction', payload });
             } catch (e) {}
         }
         function handleIncomingPostInteractionNoti(payload) {
             if (!payload || !currentUser || payload.postOwnerId !== currentUser.id || payload.actorId === currentUser.id) return;
             const msgMap = { like: 'liked your post', comment: 'commented on your post', share: 'shared your post' };
-            addNotificationItem({ ...payload, message: msgMap[payload.actionType] || 'interacted with your post' });
+            addNotificationItem({ ...payload, message: msgMap[payload.actionType] || 'interacted with your post', persistDb: true });
         }
         async function checkMyPostsEngagementChanges(postRowOverride = null) {
             if (!currentUser) return;
@@ -1124,45 +1297,152 @@
                 myPosts.forEach(p => {
                     const likes = Number(p.likes_count || 0), cArr = Array.isArray(p.comments) ? p.comments : [], shares = Number(p.shares_count || 0), prev = postStateSnapshotMap[p.id];
                     if (!prev) { postStateSnapshotMap[p.id] = { likes, commentsLen: cArr.length, shares }; return; }
-                    if (cArr.length > prev.commentsLen) for (let i = prev.commentsLen; i < cArr.length; i++) if (!myName || cArr[i]?.username !== myName) addNotificationItem({ id: `db_cmt_${p.id}_${i}`, type: 'post_comment', postId: p.id, actorName: cArr[i]?.username || 'Someone', message: 'commented on your post', detailText: cArr[i]?.text ? `"${cArr[i].text}"` : '' });
-                    if (likes > prev.likes) addNotificationItem({ id: `db_like_${p.id}_${likes}`, type: 'post_like', postId: p.id, actorName: 'Someone', message: 'liked your post' });
-                    if (shares > prev.shares) addNotificationItem({ id: `db_share_${p.id}_${shares}`, type: 'post_share', postId: p.id, actorName: 'Someone', message: 'shared your post' });
+                    if (cArr.length > prev.commentsLen) for (let i = prev.commentsLen; i < cArr.length; i++) if (!myName || cArr[i]?.username !== myName) addNotificationItem({ id: `db_cmt_${p.id}_${i}`, type: 'post_comment', postId: p.id, actorName: cArr[i]?.username || 'Someone', message: 'commented on your post', detailText: cArr[i]?.text ? `"${cArr[i].text}"` : '', persistDb: true });
+                    if (likes > prev.likes) addNotificationItem({ id: `db_like_${p.id}_${likes}`, type: 'post_like', postId: p.id, actorName: 'Someone', message: 'liked your post', persistDb: true });
+                    if (shares > prev.shares) addNotificationItem({ id: `db_share_${p.id}_${shares}`, type: 'post_share', postId: p.id, actorName: 'Someone', message: 'shared your post', persistDb: true });
                     postStateSnapshotMap[p.id] = { likes, commentsLen: cArr.length, shares };
                 });
             } catch (e) {}
         }
+
         function renderNotificationsList() {
             const container = document.getElementById('notifications-list'); if (!container) return;
-            const filtered = notificationsList.filter(item => item.type !== 'message');
+            const filtered = notificationsList.filter(item => item.type !== 'message' && item.type !== 'live_comment');
             if (!filtered.length) { container.innerHTML = '<p style="color: var(--text-sub); font-size: 14px;">No new notifications right now.</p>'; return; }
             container.innerHTML = '';
             filtered.forEach(item => {
-                const div = document.createElement('div'); div.className = 'noti-item' + (!item.isRead ? ' unread' : '');
-                div.innerHTML = `<div style="min-width:0;"><div style="font-size:13px;"><b>${item.actorName}</b> ${item.message}</div>${item.detailText ? `<div style="font-size:12px; color:var(--text-sub);">${item.detailText}</div>` : ''}<div style="font-size:11px; color:#8a8d91;">${new Date(item.createdAt).toLocaleTimeString()}</div></div><span class="noti-tag-pill">${item.type === 'live' ? 'LIVE' : 'POST'}</span>`;
-                div.onclick = () => { item.isRead = true; div.classList.remove('unread'); if (item.type === 'live' && item.liveId) openLiveViewer(item.liveId, item.actorName, item.coverUrl, item.caption); else switchTab('feed'); };
+                const div = document.createElement('div');
+                div.className = 'noti-item' + (!item.isRead ? ' unread' : '');
+                let pillText = 'POST', pillClass = 'noti-tag-pill';
+                if (item.type === 'live') { pillText = 'LIVE'; }
+                else if (item.type === 'blue_mark') { pillText = 'BLUE MARK'; pillClass += ' blue-pill'; }
+                else if (item.type === 'ban_notice') { pillText = 'BAN'; pillClass += ' ban-pill'; }
+
+                const mainLine = item.type === 'blue_mark'
+                    ? `<b>${item.message}</b>`
+                    : (item.type === 'ban_notice'
+                        ? `<b>${item.message}</b>`
+                        : `<b>${item.actorName || 'Someone'}</b> ${item.message}`);
+
+                div.innerHTML = `<div style="min-width:0;"><div style="font-size:13px;">${mainLine}</div>${item.detailText ? `<div style="font-size:12px; color:var(--text-sub);">${item.detailText}</div>` : ''}<div style="font-size:11px; color:#8a8d91;">${new Date(item.createdAt).toLocaleString()}</div></div><span class="${pillClass}">${pillText}</span>`;
+
+                div.onclick = async () => {
+                    item.isRead = true;
+                    div.classList.remove('unread');
+                    saveNotificationsToCache();
+                    if (currentUser?.id && item.id) {
+                        try { await supabaseClient.from('notifications').update({ is_read: true }).eq('id', item.id); } catch (e) {}
+                    }
+                    if (item.type === 'blue_mark') {
+                        await loadProfile();
+                        switchTab('profile');
+                    } else if (item.type === 'live' && item.liveId) {
+                        openLiveViewer(item.liveId, item.actorName, item.coverUrl, item.caption, item.actorId);
+                    } else {
+                        switchTab('feed');
+                    }
+                };
                 container.appendChild(div);
             });
         }
+
+        async function broadcastLiveStartToAllUsers(liveId, coverUrl, caption, startedAtMs) {
+            if (!currentUser) return;
+            const actorName = currentProfileData?.username || document.getElementById('profile-name')?.textContent || 'User';
+            const notiItem = {
+                id: 'live_noti_' + liveId,
+                type: 'live',
+                actorId: currentUser.id,
+                actorName,
+                message: 'started a live stream!',
+                liveId,
+                coverUrl,
+                caption,
+                startedAt: startedAtMs,
+                createdAt: new Date().toISOString()
+            };
+            try {
+                const { data: allUsers } = await supabaseClient.from('profiles').select('id');
+                if (Array.isArray(allUsers) && allUsers.length) {
+                    const rows = allUsers
+                        .filter(u => u && u.id && u.id !== currentUser.id)
+                        .map(u => ({
+                            id: `${notiItem.id}_${u.id}`,
+                            user_id: u.id,
+                            type: 'live',
+                            actor_id: currentUser.id,
+                            actor_name: actorName,
+                            message: 'started a live stream!',
+                            detail_text: caption || '',
+                            post_id: null,
+                            live_id: liveId,
+                            cover_url: coverUrl || '',
+                            caption: caption || '',
+                            is_read: false,
+                            created_at: notiItem.createdAt
+                        }));
+                    if (rows.length) {
+                        await supabaseClient.from('notifications').upsert(rows, { onConflict: 'id' });
+                    }
+                }
+            } catch (e) {}
+            const ch = await ensureGlobalNotiChannel();
+            if (ch) await ch.send({ type: 'broadcast', event: 'live_started', payload: notiItem });
+        }
+
         async function ensureGlobalNotiChannel() {
             if (globalNotiChannel && globalNotiSubscribed) return globalNotiChannel;
             return new Promise(resolve => {
                 const ch = supabaseClient.channel('global-live-notifications')
-                    .on('broadcast', { event: 'live_started' }, p => { if (p?.payload && currentUser && p.payload.actorId !== currentUser.id) addNotificationItem({ ...p.payload, type: 'live' }); })
-                    .on('broadcast', { event: 'post_interaction' }, p => { if (p?.payload && currentUser) handleIncomingPostInteractionNoti(p.payload); })
+                    .on('broadcast', { event: 'live_started' }, p => {
+                        if (p?.payload && currentUser && p.payload.actorId !== currentUser.id) {
+                            addNotificationItem({ ...p.payload, type: 'live', persistDb: true });
+                        }
+                    })
+                    .on('broadcast', { event: 'post_interaction' }, p => {
+                        if (p?.payload && currentUser) handleIncomingPostInteractionNoti(p.payload);
+                    })
+                    .on('broadcast', { event: 'blue_mark_noti' }, async p => {
+                        const row = p?.payload;
+                        if (!row || !currentUser || row.targetUserId !== currentUser.id) return;
+                        if (row.isVerified === true) {
+                            lastKnownVerifiedState = true;
+                            if (currentProfileData) currentProfileData.is_verified = true;
+                            addNotificationItem({
+                                id: row.id || `blue_mark_${currentUser.id}_${Date.now()}`,
+                                type: 'blue_mark',
+                                actorName: 'Owner Admin',
+                                message: 'congratulation you have blue mark',
+                                detailText: 'Tap to open your profile',
+                                persistDb: true
+                            });
+                            await loadProfile();
+                            await loadFeed();
+                        }
+                    })
+                    .on('broadcast', { event: 'ban_noti' }, async p => {
+                        const row = p?.payload;
+                        if (!row || !currentUser || row.targetUserId !== currentUser.id) return;
+                        addNotificationItem({
+                            id: row.id || `ban_${row.banKind || 'item'}_${currentUser.id}_${Date.now()}`,
+                            type: 'ban_notice',
+                            actorName: 'Owner Admin',
+                            message: row.message || (row.banKind === 'comment' ? 'your comment has been banned' : 'your post has been banned'),
+                            detailText: row.detailText || '',
+                            persistDb: true
+                        });
+                        await loadFeed();
+                        await loadProfile();
+                    })
                     .subscribe(status => { if (status === 'SUBSCRIBED') { globalNotiChannel = ch; globalNotiSubscribed = true; resolve(ch); } });
                 setTimeout(() => resolve(globalNotiChannel || ch), 1000);
             });
         }
+
         async function handleLivePostInsertedNoti(postRow) {
             if (!postRow || !currentUser || postRow.user_id === currentUser.id) return;
             const liveInfo = parseLivePost(postRow);
-            if (liveInfo?.liveId) addNotificationItem({ id: 'live_post_noti_' + postRow.id, type: 'live', actorId: postRow.user_id, actorName: await getUsernameById(postRow.user_id), message: 'started a live stream!', liveId: liveInfo.liveId, coverUrl: postRow.media_url || '', caption: liveInfo.caption || '' });
-        }
-        async function broadcastLiveStartNotification(liveId, coverUrl, caption, startedAtMs) {
-            if (!currentUser) return;
-            const actorName = currentProfileData?.username || document.getElementById('profile-name')?.textContent || 'User';
-            const ch = await ensureGlobalNotiChannel();
-            if (ch) await ch.send({ type: 'broadcast', event: 'live_started', payload: { id: 'live_noti_' + liveId, type: 'live', actorId: currentUser.id, actorName, message: 'started a live stream!', liveId, coverUrl, caption, startedAt: startedAtMs } });
+            if (liveInfo?.liveId) addNotificationItem({ id: 'live_post_noti_' + postRow.id, type: 'live', actorId: postRow.user_id, actorName: await getUsernameById(postRow.user_id), message: 'started a live stream!', liveId: liveInfo.liveId, coverUrl: postRow.media_url || '', caption: liveInfo.caption || '', persistDb: true });
         }
 
         function toggleMode() {
@@ -1213,12 +1493,20 @@
 
         async function onLoginSuccess(user, explicitUsername = '') {
             currentUser = user;
+            notificationsList = loadNotificationsFromCache();
+            handledNotiKeys = new Set(notificationsList.map(n => n.id));
+            unreadNotiCount = notificationsList.filter(n => !n.isRead).length;
+            updateNotiBadgeDisplay();
+            renderNotificationsList();
+
             document.getElementById('auth-container').style.display = 'none';
             await ensureProfileExists(user, explicitUsername);
+            lastKnownVerifiedState = Boolean(currentProfileData?.is_verified);
             if (await checkCurrentUserBanStatus()) return;
 
             document.getElementById('app-container').style.display = 'flex';
             initGlobalPresence(); loadFeed(); loadChatList(); loadProfile(); ensureGlobalNotiChannel(); markIncomingMessagesDelivered();
+            await loadNotificationsFromDB(true);
             await refreshUnreadMessageCounts(); await checkMyPostsEngagementChanges();
 
             if (badgeSyncInterval) clearInterval(badgeSyncInterval);
@@ -1247,11 +1535,47 @@
             supabaseClient.channel('public:profiles:chat-list').on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, payload => {
                 if (payload?.new?.id) {
                     cachedUsersMap[payload.new.id] = { ...(cachedUsersMap[payload.new.id] || {}), ...payload.new };
-                    if (payload.new.id === currentUser.id && payload.new.is_banned === true) { showAccountBanScreen(true); return; }
+                    if (payload.new.id === currentUser.id) {
+                        const prevV = lastKnownVerifiedState;
+                        const nowV = Boolean(payload.new.is_verified);
+                        if (prevV === false && nowV === true) {
+                            addNotificationItem({
+                                id: `blue_mark_rt_${currentUser.id}_${Date.now()}`,
+                                type: 'blue_mark',
+                                actorName: 'Owner Admin',
+                                message: 'congratulation you have blue mark',
+                                detailText: 'Tap to open your profile',
+                                persistDb: true
+                            });
+                        }
+                        lastKnownVerifiedState = nowV;
+                        if (payload.new.is_banned === true) { showAccountBanScreen(true); return; }
+                    }
                 }
                 refreshAllPresenceDisplays();
                 if (document.getElementById('chat-list-view')?.style.display !== 'none') loadChatList();
             }).subscribe();
+
+            supabaseClient.channel('public:notifications:user')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` }, payload => {
+                    const r = payload?.new;
+                    if (!r || r.type === 'message' || r.type === 'live_comment') return;
+                    addNotificationItem({
+                        id: String(r.id),
+                        type: r.type || 'post',
+                        actorId: r.actor_id || null,
+                        actorName: r.actor_name || 'Someone',
+                        message: r.message || '',
+                        detailText: r.detail_text || '',
+                        postId: r.post_id || null,
+                        liveId: r.live_id || null,
+                        coverUrl: r.cover_url || '',
+                        caption: r.caption || '',
+                        isRead: Boolean(r.is_read),
+                        createdAt: r.created_at || new Date().toISOString(),
+                        persistDb: false
+                    });
+                }).subscribe();
 
             supabaseClient.channel('public:posts:live-noti')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, payload => { if (payload?.new) handleLivePostInsertedNoti(payload.new); })
@@ -1291,7 +1615,7 @@
             if (currentProfileData) cachedUsersMap[user.id] = currentProfileData;
         }
 
-        function switchTab(tabName) {
+        async function switchTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             const tabs = { 'feed': 0, 'post': 1, 'chat': 2, 'notification': 3, 'profile': 4, 'menu': 5 };
@@ -1299,8 +1623,11 @@
             else {
                 document.getElementById(`${tabName}-tab`).classList.add('active');
                 if (tabs[tabName] !== undefined) document.querySelectorAll('.tab-btn')[tabs[tabName]]?.classList.add('active');
-                if (tabName === 'notification') { markAllNotificationsRead(); renderNotificationsList(); }
-                else if (tabName === 'chat') {
+                if (tabName === 'notification') {
+                    await loadNotificationsFromDB(true);
+                    await markAllNotificationsRead();
+                    renderNotificationsList();
+                } else if (tabName === 'chat') {
                     if (activeChatUser) { document.getElementById('chat-list-view').style.display = 'none'; document.getElementById('chat-box-view').style.display = 'flex'; loadMessages(); startChatPolling(); }
                     else backToChatList();
                 } else if (tabName === 'menu') populateOpenedMailsDropdown('top-fp-mail-select');
@@ -1313,7 +1640,7 @@
         const liveEffects = [{ label: 'Normal', category: 'Default', filter: 'none' }, { label: 'Fair Bright', category: 'Whitening', filter: 'brightness(1.16) contrast(1.03) saturate(1.06)' }, { label: 'Silk Smooth 1', category: 'Smooth', filter: 'brightness(1.08) contrast(0.92) saturate(1.04)' }];
         let isLiveActive = false, activeLiveId = null, activeLivePostId = null, broadcasterChannel = null, broadcastFrameInterval = null, isSendingFrame = false, captureCanvas = document.createElement('canvas');
         captureCanvas.width = 373; captureCanvas.height = 210;
-        let viewerChannel = null, viewingLiveId = null, liveCommentsQueue = [], isRenderingFrame = false, viewerFrameImg = new Image();
+        let viewerChannel = null, viewingLiveId = null, viewingHostId = null, viewingCoverUrl = '', viewingCaption = '', liveCommentsQueue = [], isRenderingFrame = false, viewerFrameImg = new Image();
 
         function openLiveModeModal() { document.getElementById('live-mode-modal').style.display = 'flex'; }
         function closeLiveModeModal() { document.getElementById('live-mode-modal').style.display = 'none'; }
@@ -1352,8 +1679,21 @@
             if (!currentUser) return; activeLiveId = 'live_' + currentUser.id + '_' + Date.now(); const startMs = Date.now();
             const { data: post } = await supabaseClient.from('posts').insert([{ content: `[LIVE_STREAM:${activeLiveId}:${selectedLiveMode}:${startMs}] ${selectedLiveCaption}`, media_url: selectedLiveCoverDataUrl, privacy: 'public', user_id: currentUser.id }]).select().single();
             activeLivePostId = post?.id || null; isLiveActive = true; document.getElementById('live-action-btn').textContent = 'End Live';
-            broadcastLiveStartNotification(activeLiveId, selectedLiveCoverDataUrl, selectedLiveCaption, startMs);
-            broadcasterChannel = supabaseClient.channel(`live-room:${activeLiveId}`).subscribe();
+            await broadcastLiveStartToAllUsers(activeLiveId, selectedLiveCoverDataUrl, selectedLiveCaption, startMs);
+            broadcasterChannel = supabaseClient.channel(`live-room:${activeLiveId}`)
+                .on('broadcast', { event: 'live_comment' }, p => {
+                    if (p?.payload) {
+                        liveCommentsQueue.push(p.payload);
+                        const box = document.getElementById('studio-comments-list');
+                        if (box) {
+                            box.innerHTML = '';
+                            liveCommentsQueue.slice(-5).forEach(c => {
+                                box.innerHTML += `<div class="viewer-comment-line"><b>${c.username}:</b> ${c.text}</div>`;
+                            });
+                        }
+                    }
+                })
+                .subscribe();
             broadcastFrameInterval = setInterval(() => {
                 if (!isLiveActive || !broadcasterChannel || isSendingFrame) return; isSendingFrame = true;
                 try {
@@ -1376,8 +1716,9 @@
             const parts = post.content.slice('[LIVE_STREAM:'.length, endIdx).split(':');
             return { liveId: parts[0] || '', mode: parts[1] || 'camera', startedAt: parts[2] ? Number(parts[2]) : Date.now(), caption: post.content.slice(endIdx + 1).trim() };
         }
-        function openLiveViewer(liveId, hostName, coverUrl, caption) {
-            viewingLiveId = liveId; liveCommentsQueue = [];
+        function openLiveViewer(liveId, hostName, coverUrl, caption, hostId = null) {
+            viewingLiveId = liveId; viewingHostId = hostId || null; viewingCoverUrl = coverUrl || ''; viewingCaption = caption || '';
+            liveCommentsQueue = [];
             document.getElementById('viewer-host-name').textContent = hostName || 'Host';
             document.getElementById('viewer-caption-text').textContent = caption || '';
             document.getElementById('live-viewer-modal').style.display = 'flex';
@@ -1388,7 +1729,7 @@
                 .on('broadcast', { event: 'live_comment' }, p => { if (p?.payload) { liveCommentsQueue.push(p.payload); renderLiveComments(); } })
                 .on('broadcast', { event: 'live_ended' }, () => { alert('Live has ended.'); closeLiveViewer(); loadFeed(); }).subscribe();
         }
-        function closeLiveViewer() { viewingLiveId = null; document.getElementById('live-viewer-modal').style.display = 'none'; if (viewerChannel) { supabaseClient.removeChannel(viewerChannel); viewerChannel = null; } }
+        function closeLiveViewer() { viewingLiveId = null; viewingHostId = null; document.getElementById('live-viewer-modal').style.display = 'none'; if (viewerChannel) { supabaseClient.removeChannel(viewerChannel); viewerChannel = null; } }
         function unlockViewerAudioContext() {}
         function toggleViewerOrientation() {}
         function renderLiveComments() {
@@ -1397,10 +1738,11 @@
         }
         function handleLiveCommentKey(e) { if (e.key === 'Enter') sendLiveComment(); }
         async function sendLiveComment() {
-            const inp = document.getElementById('viewer-comment-input'), text = inp.value.trim(); if (!text || !viewingLiveId) return;
-            const uname = document.getElementById('profile-name').textContent || 'Viewer';
+            const inp = document.getElementById('viewer-comment-input'), text = inp.value.trim(); if (!text || !viewingLiveId || !currentUser) return;
+            const uname = currentProfileData?.username || document.getElementById('profile-name').textContent || 'Viewer';
             liveCommentsQueue.push({ username: uname, text }); renderLiveComments();
-            await (viewerChannel || supabaseClient.channel(`live-room:${viewingLiveId}`)).send({ type: 'broadcast', event: 'live_comment', payload: { username: uname, text } });
+            const ch = viewerChannel || supabaseClient.channel(`live-room:${viewingLiveId}`);
+            await ch.send({ type: 'broadcast', event: 'live_comment', payload: { username: uname, text } });
             inp.value = '';
         }
 
@@ -1428,7 +1770,7 @@
             const liveInfo = parseLivePost(post);
             if (liveInfo) {
                 const endBtnHtml = post.user_id === currentUser.id ? `<button onclick="endLiveBroadcast('${post.id}')" style="width:auto; padding:4px 10px; font-size:11px; background:#e41e3f; margin:0;">End Live</button>` : '';
-                return `<div class="card post-item" data-post-id="${post.id}"><div style="display:flex; justify-content:space-between; align-items:center;"><div>${showAuthorHeader ? `<span class="post-author" onclick="viewUserProfile('${post.user_id}', '${uname.replace(/'/g, "\\'")}', '${uBio.replace(/'/g, "\\'")}', '${uAvatar.replace(/'/g, "\\'")}', ${uVerified})">${uname}${badgeHtml}</span><span class="live-badge">LIVE</span>` : `<span style="font-weight:bold; font-size:13px;">Live Stream</span><span class="live-badge">LIVE</span>`}<div class="post-time">${time} (${post.privacy})</div></div><div>${endBtnHtml}</div></div>${isPostBanned ? `<div class="banned-content-notice">This post is ban</div>` : `<div class="post-body">${liveInfo.caption || ''}</div><div class="live-cover-wrapper" onclick="openLiveViewer('${liveInfo.liveId}', '${uname.replace(/'/g, "\\'")}', '${(post.media_url || '').replace(/'/g, "\\'")}', '${(liveInfo.caption || '').replace(/'/g, "\\'")}')"><img src="${post.media_url || ''}" alt="Live Cover"><div class="live-cover-overlay-badge">LIVE</div><div class="live-cover-play-hint">▶ Tap to watch</div></div>`}</div>`;
+                return `<div class="card post-item" data-post-id="${post.id}"><div style="display:flex; justify-content:space-between; align-items:center;"><div>${showAuthorHeader ? `<span class="post-author" onclick="viewUserProfile('${post.user_id}', '${uname.replace(/'/g, "\\'")}', '${uBio.replace(/'/g, "\\'")}', '${uAvatar.replace(/'/g, "\\'")}', ${uVerified})">${uname}${badgeHtml}</span><span class="live-badge">LIVE</span>` : `<span style="font-weight:bold; font-size:13px;">Live Stream</span><span class="live-badge">LIVE</span>`}<div class="post-time">${time} (${post.privacy})</div></div><div>${endBtnHtml}</div></div>${isPostBanned ? `<div class="banned-content-notice">This post is ban</div>` : `<div class="post-body">${liveInfo.caption || ''}</div><div class="live-cover-wrapper" onclick="openLiveViewer('${liveInfo.liveId}', '${uname.replace(/'/g, "\\'")}', '${(post.media_url || '').replace(/'/g, "\\'")}', '${(liveInfo.caption || '').replace(/'/g, "\\'")}', '${post.user_id}')"><img src="${post.media_url || ''}" alt="Live Cover"><div class="live-cover-overlay-badge">LIVE</div><div class="live-cover-play-hint">▶ Tap to watch</div></div>`}</div>`;
             }
 
             const parsedContent = parseMultiPhotoContent(post.content || '');
@@ -1658,7 +2000,7 @@
             if (!text) return;
             const { data: postData } = await supabaseClient.from('posts').select('comments').eq('id', targetPostId).maybeSingle();
             const comments = Array.isArray(postData?.comments) ? [...postData.comments] : [];
-            comments.push({ username: currentProfileData?.username || 'User', text });
+            comments.push({ username: currentProfileData?.username || 'User', user_id: currentUser.id, text });
             await supabaseClient.from('posts').update({ comments }).eq('id', targetPostId);
             await emitPostInteractionNotification(targetPostId, 'comment', `"${text}"`);
             if (input) input.value = ''; loadFeed(); loadProfile();
@@ -1673,7 +2015,7 @@
         async function saveCurrentLightboxPhoto() { if (currentLightboxMeta.url) await savePhotoAsImage(currentLightboxMeta.url, currentLightboxMeta.name); }
         async function loadProfile() {
             const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
-            if (profile) { currentProfileData = profile; cachedUsersMap[currentUser.id] = profile; }
+            if (profile) { currentProfileData = profile; cachedUsersMap[currentUser.id] = profile; lastKnownVerifiedState = Boolean(profile.is_verified); }
             const uname = profile?.username || 'User', isVerified = Boolean(profile?.is_verified);
             document.getElementById('profile-name').innerHTML = `${uname}${renderBlueMarkHtml(isVerified)}`;
             document.getElementById('edit-username').value = uname; document.getElementById('profile-bio-text').textContent = profile?.bio || ''; document.getElementById('edit-bio').value = profile?.bio || '';
