@@ -1762,13 +1762,13 @@
             updateMyLastSeen(); trackMyPresence(); refreshAllPresenceDisplays();
         }
 
-        // Live Studio & Viewer (Live-only, zero DB/storage persistence, no recording/replay, matches source orientation)
+        // Live Studio & Viewer (Live-only, zero DB/storage persistence, no recording/replay, matches source orientation, higher smooth frame rate)
         const DEFAULT_CV_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#1c1e21"/><text x="50%" y="50%" fill="#ffffff" font-size="28" font-family="Arial" dominant-baseline="middle" text-anchor="middle">LIVE STREAM</text></svg>');
 
         let selectedLiveMode = 'camera', selectedLiveCoverDataUrl = '', selectedLiveCaption = '', studioMediaStream = null, currentFacingMode = 'user', isCameraEnabled = true, isMicEnabled = true, effectIndex = 0;
         const liveEffects = [{ label: 'Normal', category: 'Default', filter: 'none' }, { label: 'Fair Bright', category: 'Whitening', filter: 'brightness(1.16) contrast(1.03) saturate(1.06)' }, { label: 'Silk Smooth 1', category: 'Smooth', filter: 'brightness(1.08) contrast(0.92) saturate(1.04)' }];
         let isLiveActive = false, isStartingLive = false, activeLiveId = null, liveStartTimeMs = 0, studioTimerInterval = null, broadcasterChannel = null, broadcasterChannelReady = false, broadcastFrameInterval = null, isSendingFrame = false, captureCanvas = document.createElement('canvas');
-        captureCanvas.width = 480; captureCanvas.height = 270;
+        captureCanvas.width = 360; captureCanvas.height = 202;
         let viewerChannel = null, viewerChannelReady = false, viewingLiveId = null, viewingHostId = null, viewingCoverUrl = '', viewingCaption = '', viewingCameraOn = true, viewingMode = 'camera', liveCommentsQueue = [], isRenderingFrame = false, viewerFrameImg = new Image(), viewerManualOrientation = null, lastStreamIsPortrait = false;
 
         function formatElapsedMMSS(startMs) {
@@ -2121,7 +2121,7 @@
             const srcW = v.videoWidth;
             const srcH = v.videoHeight;
             const isPortrait = srcH > srcW;
-            const maxDim = 480;
+            const maxDim = 360;
             let outW, outH;
             if (srcW >= srcH) {
                 outW = Math.min(maxDim, srcW);
@@ -2134,9 +2134,8 @@
                 captureCanvas.width = outW;
                 captureCanvas.height = outH;
             }
-            const ctx = captureCanvas.getContext('2d');
+            const ctx = captureCanvas.getContext('2d', { alpha: false });
             const fx = liveEffects[effectIndex] || liveEffects[0];
-            ctx.clearRect(0, 0, outW, outH);
             ctx.save();
             ctx.filter = (selectedLiveMode === 'camera' && fx.filter) ? fx.filter : 'none';
             if (v.classList.contains('mirrored')) {
@@ -2146,7 +2145,7 @@
             ctx.drawImage(v, 0, 0, outW, outH);
             ctx.restore();
             return {
-                frame: captureCanvas.toDataURL('image/jpeg', 0.35),
+                frame: captureCanvas.toDataURL('image/jpeg', 0.28),
                 w: outW,
                 h: outH,
                 isPortrait
@@ -2230,16 +2229,13 @@
 
                 if (broadcastFrameInterval) clearInterval(broadcastFrameInterval);
                 broadcastFrameInterval = setInterval(() => {
-                    if (!isLiveActive || !broadcasterChannel || !broadcasterChannelReady || isSendingFrame) return;
+                    if (!isLiveActive || !broadcasterChannel || !broadcasterChannelReady) return;
                     if (selectedLiveMode === 'camera' && !isCameraEnabled) return;
-                    isSendingFrame = true;
-                    try {
-                        const payload = captureLiveFramePayload();
-                        if (payload) {
-                            broadcasterChannel.send({ type: 'broadcast', event: 'live_frame', payload }).catch(() => {});
-                        }
-                    } finally { isSendingFrame = false; }
-                }, 120);
+                    const payload = captureLiveFramePayload();
+                    if (payload) {
+                        broadcasterChannel.send({ type: 'broadcast', event: 'live_frame', payload }).catch(() => {});
+                    }
+                }, 65);
 
                 await broadcastLiveStartToAllUsers(liveObj);
             } catch (err) {
@@ -2314,7 +2310,7 @@
 
             const canvas = document.getElementById('viewer-video-canvas');
             if (canvas) {
-                const ctx = canvas.getContext('2d');
+                const ctx = canvas.getContext('2d', { alpha: false });
                 ctx.fillStyle = '#000';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
@@ -2339,15 +2335,12 @@
             viewerFrameImg.onload = () => {
                 const c = document.getElementById('viewer-video-canvas');
                 if (c && !(viewingMode === 'camera' && !viewingCameraOn)) {
-                    const ctx = c.getContext('2d');
-                    ctx.clearRect(0, 0, c.width, c.height);
+                    const ctx = c.getContext('2d', { alpha: false });
                     ctx.drawImage(viewerFrameImg, 0, 0, c.width, c.height);
                 }
-                viewerFrameImg.src = '';
                 isRenderingFrame = false;
             };
             viewerFrameImg.onerror = () => {
-                viewerFrameImg.src = '';
                 isRenderingFrame = false;
             };
 
