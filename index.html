@@ -325,8 +325,9 @@
 
         #live-viewer-modal { display: none; position: fixed; z-index: 1400; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: white; flex-direction: column; }
         .viewer-top-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #141414; z-index: 10; }
-        .viewer-video-container { width: 100%; max-height: 54vh; aspect-ratio: 16 / 9; background: #000; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; margin: 0 auto; }
-        #viewer-video-canvas { width: 100%; height: 100%; object-fit: contain; background: #000; }
+        .viewer-video-container { width: 100%; max-width: 480px; max-height: 52vh; aspect-ratio: 16 / 9; background: #000; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; margin: 0 auto; transition: aspect-ratio 0.2s ease, max-height 0.2s ease; }
+        .viewer-video-container.portrait-mode { aspect-ratio: 9 / 16; max-width: 340px; max-height: 56vh; }
+        #viewer-video-canvas { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
         #viewer-cv-placeholder { display: none; width: 100%; height: 100%; object-fit: cover; }
         .viewer-caption-bar { background: #101112; border-top: 1px solid #26282a; border-bottom: 1px solid #26282a; padding: 7px 12px; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #f0f2f5; }
         .viewer-caption-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #e4e6eb; }
@@ -538,7 +539,7 @@
     <div id="live-setup-modal" class="live-modal-backdrop"><div class="live-modal-card"><h3 id="live-setup-title" style="margin-top:0;">Setup Live</h3><label style="font-size:13px; color:var(--text-sub); display:block;">Cover Photo (CV):</label><input type="file" id="live-cover-input" accept="image/*" style="padding:6px;" onchange="previewLiveCover(this)"><img id="live-cover-preview" src="" style="display:none; width:100%; max-height:160px; object-fit:cover; border-radius:6px; margin-top:6px;"><label style="font-size:13px; color:var(--text-sub); display:block; margin-top:10px;">Caption:</label><textarea id="live-caption-input" class="post-input" placeholder="Write a live caption..."></textarea><button class="live-btn" onclick="goToLiveStudio()" style="margin-top:10px;">Go to Live</button><button style="background:var(--bg-muted); color:var(--text-main); margin-top:8px;" onclick="closeLiveSetupModal()">Back</button></div></div>
     <div id="effect-picker-modal" class="live-modal-backdrop" onclick="closeEffectPickerModal()"><div class="live-modal-card" onclick="event.stopPropagation()"><h3 style="margin-top:0;">✨ Choose Effect</h3><div id="effect-list-container" class="effect-list-container"></div><button style="background:var(--bg-muted); color:var(--text-main); margin-top:12px;" onclick="closeEffectPickerModal()">Close</button></div></div>
     <div id="live-studio-modal"><div class="studio-top"><div style="display:flex; align-items:center; gap:8px;"><span id="studio-live-badge" class="live-badge" style="margin-left:0;">LIVE</span><span id="studio-timer-display" class="live-meta-pill">00:00</span><span id="studio-viewer-count" class="live-meta-pill">👁 0</span></div><button onclick="closeStudioWithoutStarting()" id="studio-close-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#444; margin:0;">Close</button></div><div class="studio-stage"><div class="studio-frame-box"><button id="toggle-mic-btn" type="button" class="studio-mic-top-left-btn" onclick="toggleMicPower()">🎤 Mic: ON</button><video id="studio-video" class="mirrored" autoplay playsinline muted></video><img id="studio-cv-placeholder" src="" alt="CV Cover"></div><div id="studio-caption-display" style="margin-top:6px; font-size:13px; color:#ddd; text-align:center;"></div></div><div id="studio-camera-controls" class="studio-controls-row"><button id="toggle-cam-btn" class="studio-ctrl-btn" onclick="toggleCameraPower()">📷 Cam: ON</button><button id="flip-cam-btn" class="studio-ctrl-btn" onclick="flipCameraFacing()">🔄 Front</button><button id="brighten-effect-btn" class="studio-ctrl-btn" onclick="openEffectPickerModal()">✨ Normal</button></div><div class="studio-footer-stack"><div id="studio-comments-list" class="studio-comments-box"></div><div class="studio-bottom"><button id="live-action-btn" class="live-btn" onclick="toggleStartOrEndLive()">Start Live</button></div></div></div>
-    <div id="live-viewer-modal" onclick="unlockViewerAudioContext()"><div class="viewer-top-bar"><div style="display:flex; align-items:center; gap:8px; min-width:0;"><span class="live-badge" style="margin-left:0; flex-shrink:0;">LIVE</span><span id="viewer-timer-display" class="live-meta-pill" style="flex-shrink:0;">00:00</span><span id="viewer-count-display" class="live-meta-pill" style="flex-shrink:0;">👁 0</span><span id="viewer-host-name" style="font-weight:bold; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Host</span></div><div style="display:flex; gap:8px; flex-shrink:0;"><button id="orientation-toggle-btn" onclick="event.stopPropagation(); toggleViewerOrientation();" style="width:auto; padding:5px 10px; font-size:12px; background:#1877f2; margin:0;">🔄 Landscape</button><button onclick="event.stopPropagation(); closeLiveViewer();" style="width:auto; padding:5px 10px; font-size:12px; background:#555; margin:0;">✕ Exit</button></div></div><div id="viewer-video-container" class="viewer-video-container"><canvas id="viewer-video-canvas" width="373" height="210"></canvas><img id="viewer-cv-placeholder" src="" alt="CV Cover"></div><div id="viewer-caption-bar" class="viewer-caption-bar"><span id="viewer-bottom-time" class="live-meta-pill" style="background:rgba(228,30,63,0.22); color:#ff7b93; flex-shrink:0;">⏱ 00:00</span><span id="viewer-caption-text" class="viewer-caption-text"></span></div><div id="viewer-comments-area" class="viewer-comments-area"><div id="viewer-comments-list" class="viewer-comments-list"></div><div class="viewer-comment-input-row"><input type="text" id="viewer-comment-input" placeholder="Comment on live..." onkeypress="handleLiveCommentKey(event)"><button onclick="sendLiveComment()">Send</button></div></div></div>
+    <div id="live-viewer-modal" onclick="unlockViewerAudioContext()"><div class="viewer-top-bar"><div style="display:flex; align-items:center; gap:8px; min-width:0;"><span class="live-badge" style="margin-left:0; flex-shrink:0;">LIVE</span><span id="viewer-timer-display" class="live-meta-pill" style="flex-shrink:0;">00:00</span><span id="viewer-count-display" class="live-meta-pill" style="flex-shrink:0;">👁 0</span><span id="viewer-host-name" style="font-weight:bold; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Host</span></div><div style="display:flex; gap:8px; flex-shrink:0;"><button id="orientation-toggle-btn" onclick="event.stopPropagation(); toggleViewerOrientation();" style="width:auto; padding:5px 10px; font-size:12px; background:#1877f2; margin:0;">🔄 Portrait</button><button onclick="event.stopPropagation(); closeLiveViewer();" style="width:auto; padding:5px 10px; font-size:12px; background:#555; margin:0;">✕ Exit</button></div></div><div id="viewer-video-container" class="viewer-video-container"><canvas id="viewer-video-canvas" width="480" height="270"></canvas><img id="viewer-cv-placeholder" src="" alt="CV Cover"></div><div id="viewer-caption-bar" class="viewer-caption-bar"><span id="viewer-bottom-time" class="live-meta-pill" style="background:rgba(228,30,63,0.22); color:#ff7b93; flex-shrink:0;">⏱ 00:00</span><span id="viewer-caption-text" class="viewer-caption-text"></span></div><div id="viewer-comments-area" class="viewer-comments-area"><div id="viewer-comments-list" class="viewer-comments-list"></div><div class="viewer-comment-input-row"><input type="text" id="viewer-comment-input" placeholder="Comment on live..." onkeypress="handleLiveCommentKey(event)"><button onclick="sendLiveComment()">Send</button></div></div></div>
     <div id="lightbox-modal" onclick="closeLightbox()"><div class="lightbox-top-bar" onclick="event.stopPropagation()"><button id="lightbox-save-btn" type="button" class="lightbox-save-btn" style="display:none;" onclick="saveCurrentLightboxPhoto()">⬇ Save Photo</button><span id="lightbox-close" onclick="closeLightbox()">&times;</span></div><div class="lightbox-center-stage" onclick="event.stopPropagation()"><img id="lightbox-img" src="" onclick="closeLightbox()"></div></div>
     <div id="delete-choice-modal" onclick="closeDeleteChoiceModal()"><div class="delete-choice-card" onclick="event.stopPropagation()"><div style="font-weight:bold; font-size:16px; margin-bottom:12px;">Delete Message</div><button type="button" onclick="confirmDeleteChoice('myself')" style="background:#1877f2; margin-top:6px;">Delete Myself</button><button type="button" onclick="confirmDeleteChoice('everyone')" style="background:#e41e3f; margin-top:8px;">Delete Everyone</button><button type="button" onclick="closeDeleteChoiceModal()" style="background:var(--bg-muted); color:var(--text-main); margin-top:10px;">Cancel</button></div></div>
     <div id="file-preview-modal" onclick="closeFilePreviewModal()"><div class="file-preview-card" onclick="event.stopPropagation()"><div class="file-preview-top"><span style="font-weight:bold; font-size:15px;">📎 File Attachment</span><button type="button" class="modal-red-x-btn" onclick="closeFilePreviewModal()">✕</button></div><div id="file-preview-name" style="font-size:14px; font-weight:bold; word-break:break-word; margin-bottom:4px;">File</div><div id="file-preview-size" style="font-size:12px; color:var(--text-sub); margin-bottom:14px;">0 KB</div><button id="file-preview-save-btn" type="button" onclick="saveCurrentPreviewFile()">⬇ Save File</button></div></div>
@@ -1377,7 +1378,6 @@
                 createdAt: new Date().toISOString()
             };
 
-            // Ephemeral live object: no coverUrl or stream stored in DB
             const lightweightLiveObj = {
                 liveId: liveObj.liveId,
                 hostId: liveObj.hostId,
@@ -1762,20 +1762,52 @@
             updateMyLastSeen(); trackMyPresence(); refreshAllPresenceDisplays();
         }
 
-        // Live Studio & Viewer (Live-only, zero DB/storage persistence, no recording/replay)
+        // Live Studio & Viewer (Live-only, zero DB/storage persistence, no recording/replay, matches source orientation)
         const DEFAULT_CV_SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#1c1e21"/><text x="50%" y="50%" fill="#ffffff" font-size="28" font-family="Arial" dominant-baseline="middle" text-anchor="middle">LIVE STREAM</text></svg>');
 
         let selectedLiveMode = 'camera', selectedLiveCoverDataUrl = '', selectedLiveCaption = '', studioMediaStream = null, currentFacingMode = 'user', isCameraEnabled = true, isMicEnabled = true, effectIndex = 0;
         const liveEffects = [{ label: 'Normal', category: 'Default', filter: 'none' }, { label: 'Fair Bright', category: 'Whitening', filter: 'brightness(1.16) contrast(1.03) saturate(1.06)' }, { label: 'Silk Smooth 1', category: 'Smooth', filter: 'brightness(1.08) contrast(0.92) saturate(1.04)' }];
-        let isLiveActive = false, isStartingLive = false, activeLiveId = null, liveStartTimeMs = 0, studioTimerInterval = null, broadcasterChannel = null, broadcastFrameInterval = null, isSendingFrame = false, captureCanvas = document.createElement('canvas');
+        let isLiveActive = false, isStartingLive = false, activeLiveId = null, liveStartTimeMs = 0, studioTimerInterval = null, broadcasterChannel = null, broadcasterChannelReady = false, broadcastFrameInterval = null, isSendingFrame = false, captureCanvas = document.createElement('canvas');
         captureCanvas.width = 480; captureCanvas.height = 270;
-        let viewerChannel = null, viewingLiveId = null, viewingHostId = null, viewingCoverUrl = '', viewingCaption = '', viewingCameraOn = true, viewingMode = 'camera', liveCommentsQueue = [], isRenderingFrame = false, viewerFrameImg = new Image();
+        let viewerChannel = null, viewerChannelReady = false, viewingLiveId = null, viewingHostId = null, viewingCoverUrl = '', viewingCaption = '', viewingCameraOn = true, viewingMode = 'camera', liveCommentsQueue = [], isRenderingFrame = false, viewerFrameImg = new Image(), viewerManualOrientation = null, lastStreamIsPortrait = false;
 
         function formatElapsedMMSS(startMs) {
             const diffSec = Math.max(0, Math.floor((Date.now() - (startMs || Date.now())) / 1000));
             const mm = String(Math.floor(diffSec / 60)).padStart(2, '0');
             const ss = String(diffSec % 60).padStart(2, '0');
             return `${mm}:${ss}`;
+        }
+
+        function applyViewerAspectLayout(isPortrait) {
+            lastStreamIsPortrait = Boolean(isPortrait);
+            const effectivePortrait = viewerManualOrientation !== null ? (viewerManualOrientation === 'portrait') : lastStreamIsPortrait;
+            const box = document.getElementById('viewer-video-container');
+            const canvas = document.getElementById('viewer-video-canvas');
+            const btn = document.getElementById('orientation-toggle-btn');
+
+            if (box) {
+                box.classList.toggle('portrait-mode', effectivePortrait);
+                if (!effectivePortrait) {
+                    box.style.aspectRatio = '16 / 9';
+                    box.style.maxWidth = '480px';
+                    box.style.maxHeight = '52vh';
+                } else {
+                    box.style.aspectRatio = '9 / 16';
+                    box.style.maxWidth = '340px';
+                    box.style.maxHeight = '56vh';
+                }
+            }
+            if (canvas) {
+                const targetW = effectivePortrait ? 270 : 480;
+                const targetH = effectivePortrait ? 480 : 270;
+                if (canvas.width !== targetW || canvas.height !== targetH) {
+                    canvas.width = targetW;
+                    canvas.height = targetH;
+                }
+            }
+            if (btn) {
+                btn.textContent = effectivePortrait ? '🔄 Landscape' : '🔄 Portrait';
+            }
         }
 
         function buildLiveCardElement(liveObj, showAuthorHeader) {
@@ -1935,7 +1967,7 @@
                 v.style.filter = (selectedLiveMode === 'camera' && isCameraEnabled) ? fx.filter : 'none';
                 v.style.display = showCv ? 'none' : 'block';
             }
-            if (isLiveActive && broadcasterChannel) {
+            if (isLiveActive && broadcasterChannel && broadcasterChannelReady) {
                 broadcasterChannel.send({
                     type: 'broadcast',
                     event: 'camera_state',
@@ -2052,6 +2084,7 @@
             }
             if (studioTimerInterval) { clearInterval(studioTimerInterval); studioTimerInterval = null; }
             if (broadcastFrameInterval) { clearInterval(broadcastFrameInterval); broadcastFrameInterval = null; }
+            broadcasterChannelReady = false;
             if (broadcasterChannel) { try { supabaseClient.removeChannel(broadcasterChannel); } catch (e) {} broadcasterChannel = null; }
             try { studioMediaStream?.getTracks().forEach(t => t.stop()); } catch (e) {}
             studioMediaStream = null;
@@ -2070,21 +2103,54 @@
             if (vcEl) vcEl.textContent = `👁 ${Math.max(0, Number(count) || 0)}`;
         }
 
-        function captureLiveFrameDataUrl() {
+        function renderStudioCommentsList() {
+            const box = document.getElementById('studio-comments-list');
+            if (!box) return;
+            box.innerHTML = '';
+            liveCommentsQueue.slice(-5).forEach(c => {
+                const d = document.createElement('div');
+                d.className = 'viewer-comment-line';
+                d.innerHTML = `<b>${c.username}:</b> ${c.text}`;
+                box.appendChild(d);
+            });
+        }
+
+        function captureLiveFramePayload() {
             const v = document.getElementById('studio-video');
-            if (!v || v.readyState < 2) return null;
+            if (!v || v.readyState < 2 || !v.videoWidth || !v.videoHeight) return null;
+            const srcW = v.videoWidth;
+            const srcH = v.videoHeight;
+            const isPortrait = srcH > srcW;
+            const maxDim = 480;
+            let outW, outH;
+            if (srcW >= srcH) {
+                outW = Math.min(maxDim, srcW);
+                outH = Math.max(1, Math.round((srcH / srcW) * outW));
+            } else {
+                outH = Math.min(maxDim, srcH);
+                outW = Math.max(1, Math.round((srcW / srcH) * outH));
+            }
+            if (captureCanvas.width !== outW || captureCanvas.height !== outH) {
+                captureCanvas.width = outW;
+                captureCanvas.height = outH;
+            }
             const ctx = captureCanvas.getContext('2d');
             const fx = liveEffects[effectIndex] || liveEffects[0];
-            ctx.clearRect(0, 0, captureCanvas.width, captureCanvas.height);
+            ctx.clearRect(0, 0, outW, outH);
             ctx.save();
             ctx.filter = (selectedLiveMode === 'camera' && fx.filter) ? fx.filter : 'none';
             if (v.classList.contains('mirrored')) {
-                ctx.translate(captureCanvas.width, 0);
+                ctx.translate(outW, 0);
                 ctx.scale(-1, 1);
             }
-            ctx.drawImage(v, 0, 0, captureCanvas.width, captureCanvas.height);
+            ctx.drawImage(v, 0, 0, outW, outH);
             ctx.restore();
-            return captureCanvas.toDataURL('image/jpeg', 0.35);
+            return {
+                frame: captureCanvas.toDataURL('image/jpeg', 0.35),
+                w: outW,
+                h: outH,
+                isPortrait
+            };
         }
 
         async function startLiveBroadcast() {
@@ -2124,6 +2190,7 @@
                     if (tEl && isLiveActive) tEl.textContent = formatElapsedMMSS(liveStartTimeMs);
                 }, 1000);
 
+                broadcasterChannelReady = false;
                 if (broadcasterChannel) {
                     try { supabaseClient.removeChannel(broadcasterChannel); } catch (e) {}
                 }
@@ -2146,23 +2213,15 @@
                     .on('broadcast', { event: 'live_comment' }, p => {
                         if (p?.payload) {
                             liveCommentsQueue.push(p.payload);
-                            const box = document.getElementById('studio-comments-list');
-                            if (box) {
-                                box.innerHTML = '';
-                                liveCommentsQueue.slice(-5).forEach(c => {
-                                    const d = document.createElement('div');
-                                    d.className = 'viewer-comment-line';
-                                    d.innerHTML = `<b>${c.username}:</b> ${c.text}`;
-                                    box.appendChild(d);
-                                });
-                            }
+                            renderStudioCommentsList();
                         }
                     })
                     .subscribe(status => {
                         if (status === 'SUBSCRIBED') {
-                            const initFrame = captureLiveFrameDataUrl();
-                            if (initFrame) {
-                                broadcasterChannel.send({ type: 'broadcast', event: 'live_frame', payload: { frame: initFrame } }).catch(() => {});
+                            broadcasterChannelReady = true;
+                            const initPayload = captureLiveFramePayload();
+                            if (initPayload) {
+                                broadcasterChannel.send({ type: 'broadcast', event: 'live_frame', payload: initPayload }).catch(() => {});
                             }
                         }
                     });
@@ -2171,13 +2230,13 @@
 
                 if (broadcastFrameInterval) clearInterval(broadcastFrameInterval);
                 broadcastFrameInterval = setInterval(() => {
-                    if (!isLiveActive || !broadcasterChannel || isSendingFrame) return;
+                    if (!isLiveActive || !broadcasterChannel || !broadcasterChannelReady || isSendingFrame) return;
                     if (selectedLiveMode === 'camera' && !isCameraEnabled) return;
                     isSendingFrame = true;
                     try {
-                        const frameUrl = captureLiveFrameDataUrl();
-                        if (frameUrl) {
-                            broadcasterChannel.send({ type: 'broadcast', event: 'live_frame', payload: { frame: frameUrl } }).catch(() => {});
+                        const payload = captureLiveFramePayload();
+                        if (payload) {
+                            broadcasterChannel.send({ type: 'broadcast', event: 'live_frame', payload }).catch(() => {});
                         }
                     } finally { isSendingFrame = false; }
                 }, 120);
@@ -2201,6 +2260,7 @@
                 isLiveActive = false;
                 isStartingLive = false;
                 activeLiveId = null;
+                broadcasterChannelReady = false;
                 if (studioTimerInterval) { clearInterval(studioTimerInterval); studioTimerInterval = null; }
                 if (broadcastFrameInterval) { clearInterval(broadcastFrameInterval); broadcastFrameInterval = null; }
                 try { studioMediaStream?.getTracks().forEach(t => t.stop()); } catch (e) {}
@@ -2248,6 +2308,9 @@
             liveCommentsQueue = [];
             localViewerCount = 1;
             isRenderingFrame = false;
+            viewerManualOrientation = null;
+            viewerChannelReady = false;
+            applyViewerAspectLayout(false);
 
             const canvas = document.getElementById('viewer-video-canvas');
             if (canvas) {
@@ -2273,11 +2336,9 @@
                 document.getElementById('viewer-bottom-time').textContent = '⏱ ' + t;
             }, 1000);
 
-            // Live-only rendering: draw current live frame directly without recording/buffering history
             viewerFrameImg.onload = () => {
-                if (!isRenderingFrame || (viewingMode === 'camera' && !viewingCameraOn)) return;
                 const c = document.getElementById('viewer-video-canvas');
-                if (c) {
+                if (c && !(viewingMode === 'camera' && !viewingCameraOn)) {
                     const ctx = c.getContext('2d');
                     ctx.clearRect(0, 0, c.width, c.height);
                     ctx.drawImage(viewerFrameImg, 0, 0, c.width, c.height);
@@ -2285,6 +2346,11 @@
                 viewerFrameImg.src = '';
                 isRenderingFrame = false;
             };
+            viewerFrameImg.onerror = () => {
+                viewerFrameImg.src = '';
+                isRenderingFrame = false;
+            };
+
             if (viewerChannel) { try { supabaseClient.removeChannel(viewerChannel); } catch (e) {} }
             const activeViewers = new Set([currentUser?.id || ('guest_' + Math.random().toString(36).slice(2, 7))]);
             viewerChannel = supabaseClient.channel(`live-room:${liveId}`)
@@ -2309,13 +2375,26 @@
                     }
                 })
                 .on('broadcast', { event: 'live_frame' }, p => {
-                    if ((viewingMode === 'screen' || viewingCameraOn) && p?.payload?.frame && !isRenderingFrame) {
+                    const pl = p?.payload;
+                    if (!pl?.frame) return;
+                    const frameIsPortrait = typeof pl.isPortrait === 'boolean'
+                        ? pl.isPortrait
+                        : (pl.w && pl.h ? pl.h > pl.w : false);
+                    applyViewerAspectLayout(frameIsPortrait);
+
+                    if ((viewingMode === 'screen' || viewingCameraOn) && !isRenderingFrame) {
                         isRenderingFrame = true;
-                        viewerFrameImg.src = p.payload.frame;
+                        viewerFrameImg.src = pl.frame;
                     }
                 })
                 .on('broadcast', { event: 'live_comment' }, p => {
-                    if (p?.payload) { liveCommentsQueue.push(p.payload); renderLiveComments(); }
+                    if (p?.payload) {
+                        liveCommentsQueue.push(p.payload);
+                        renderLiveComments();
+                        if (isLiveActive && activeLiveId === viewingLiveId) {
+                            renderStudioCommentsList();
+                        }
+                    }
                 })
                 .on('broadcast', { event: 'live_ended' }, () => {
                     endedLiveIds.add(liveId);
@@ -2326,6 +2405,7 @@
                 })
                 .subscribe(status => {
                     if (status === 'SUBSCRIBED') {
+                        viewerChannelReady = true;
                         viewerChannel.send({
                             type: 'broadcast',
                             event: 'viewer_join',
@@ -2338,6 +2418,8 @@
             const lid = viewingLiveId;
             viewingLiveId = null; viewingHostId = null;
             isRenderingFrame = false;
+            viewerManualOrientation = null;
+            viewerChannelReady = false;
             viewerFrameImg.src = '';
             if (viewerTimerInterval) { clearInterval(viewerTimerInterval); viewerTimerInterval = null; }
             document.getElementById('live-viewer-modal').style.display = 'none';
@@ -2350,18 +2432,47 @@
             }
         }
         function unlockViewerAudioContext() {}
-        function toggleViewerOrientation() {}
+        function toggleViewerOrientation() {
+            const currentlyPortrait = document.getElementById('viewer-video-container')?.classList.contains('portrait-mode');
+            viewerManualOrientation = currentlyPortrait ? 'landscape' : 'portrait';
+            applyViewerAspectLayout(viewerManualOrientation === 'portrait');
+        }
         function renderLiveComments() {
-            const el = document.getElementById('viewer-comments-list'); el.innerHTML = '';
-            liveCommentsQueue.slice(-6).forEach(c => { el.innerHTML += `<div class="viewer-comment-line"><b>${c.username}:</b> ${c.text}</div>`; });
+            const el = document.getElementById('viewer-comments-list');
+            if (!el) return;
+            el.innerHTML = '';
+            liveCommentsQueue.slice(-6).forEach(c => {
+                const line = document.createElement('div');
+                line.className = 'viewer-comment-line';
+                line.innerHTML = `<b>${c.username || 'Viewer'}:</b> ${c.text || ''}`;
+                el.appendChild(line);
+            });
         }
         function handleLiveCommentKey(e) { if (e.key === 'Enter') sendLiveComment(); }
         async function sendLiveComment() {
-            const inp = document.getElementById('viewer-comment-input'), text = inp.value.trim(); if (!text || !viewingLiveId || !currentUser) return;
-            const uname = currentProfileData?.username || document.getElementById('profile-name').textContent || 'Viewer';
-            liveCommentsQueue.push({ username: uname, text }); renderLiveComments();
+            const inp = document.getElementById('viewer-comment-input');
+            if (!inp) return;
+            const text = inp.value.trim();
+            if (!text || !viewingLiveId || !currentUser) return;
+            const uname = currentProfileData?.username || document.getElementById('profile-name')?.textContent || 'Viewer';
+            const commentPayload = { username: uname, text };
+            liveCommentsQueue.push(commentPayload);
+            renderLiveComments();
+            if (isLiveActive && activeLiveId === viewingLiveId) {
+                renderStudioCommentsList();
+            }
             const ch = viewerChannel || supabaseClient.channel(`live-room:${viewingLiveId}`);
-            await ch.send({ type: 'broadcast', event: 'live_comment', payload: { username: uname, text } });
+            if (!viewerChannel) {
+                viewerChannel = ch;
+                ch.subscribe(status => {
+                    if (status === 'SUBSCRIBED') {
+                        viewerChannelReady = true;
+                        ch.send({ type: 'broadcast', event: 'live_comment', payload: commentPayload }).catch(() => {});
+                    }
+                });
+            } else {
+                await ch.send({ type: 'broadcast', event: 'live_comment', payload: commentPayload }).catch(() => {});
+            }
             inp.value = '';
         }
 
