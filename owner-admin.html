@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialChat Owner Admin Panel</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg: #0f1115;
+            --card: #181b22;
+            --soft: #222630;
+            --text: #f3f5f8;
+            --muted: #9aa3b2;
+            --border: #2c313d;
+            --blue: #1877f2;
+            --red: #e41e3f;
+            --green: #1ea653;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        #login-gate { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
+        .login-box { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+        .login-box h2 { margin: 0 0 8px 0; color: var(--blue); }
+        input { width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--soft); color: var(--text); font-size: 14px; margin-top: 8px; }
+        button { padding: 9px 14px; border: none; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; background: var(--blue); color: #fff; }
+        button:hover { opacity: 0.92; }
+        .btn-red { background: var(--red); }
+        .btn-green { background: var(--green); }
+        .btn-gray { background: var(--soft); color: var(--text); border: 1px solid var(--border); }
+
+        #admin-shell { display: none; max-width: 900px; margin: 0 auto; padding: 14px; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+        .nav-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+        .tag-btn { background: var(--card); color: var(--muted); border: 1px solid var(--border); padding: 9px 13px; border-radius: 8px; font-size: 13px; }
+        .tag-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+        .panel-section { display: none; }
+        .panel-section.active { display: block; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+        .user-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border-radius: 8px; background: var(--soft); border: 1px solid var(--border); margin-top: 8px; cursor: pointer; }
+        .user-row:hover { border-color: var(--blue); }
+        .user-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .avatar-circle { width: 42px; height: 42px; border-radius: 50%; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; flex-shrink: 0; }
+        .avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
+        .blue-tick { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 10px; margin-left: 5px; }
+        .pill-ban { background: rgba(228,30,63,0.18); color: #ff6b81; border: 1px solid rgba(228,30,63,0.4); padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: bold; margin-left: 6px; }
+        .action-drawer { display: none; margin-top: 8px; padding: 10px; border-radius: 8px; background: #14171d; border: 1px dashed var(--blue); gap: 8px; align-items: center; flex-wrap: wrap; }
+        .action-drawer.open { display: flex; }
+        .post-manage-item { background: var(--soft); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+        .comment-manage-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin-top: 6px; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+    <div id="login-gate">
+        <div class="login-box">
+            <h2>Owner Admin Panel</h2>
+            <div style="font-size:13px; color:var(--muted); margin-bottom:10px;">SocialChat Owner Login</div>
+            <input type="email" id="admin-email" placeholder="Owner Email">
+            <input type="password" id="admin-password" placeholder="Password">
+            <button style="width:100%; margin-top:12px; padding:11px;" onclick="ownerLogin()">Login to Owner Panel</button>
+            <div id="login-err" style="color:#ff6b81; font-size:13px; margin-top:8px;"></div>
+        </div>
+    </div>
+
+    <div id="admin-shell">
+        <div class="topbar">
+            <div>
+                <div style="font-weight:bold; font-size:16px; color:var(--blue);">Owner Admin Panel</div>
+                <div id="owner-email-label" style="font-size:12px; color:var(--muted);"></div>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button class="btn-gray" onclick="refreshAllAdminData()">↻ Refresh</button>
+                <button class="btn-red" onclick="ownerLogout()">Logout</button>
+            </div>
+        </div>
+
+        <div class="nav-tags">
+            <button class="tag-btn active" data-sec="sec-manage-blue" onclick="openAdminSection('sec-manage-blue')">Manage Blue Mark</button>
+            <button class="tag-btn" data-sec="sec-blue-list" onclick="openAdminSection('sec-blue-list')">Blue Mark List</button>
+            <button class="tag-btn" data-sec="sec-account-manage" onclick="openAdminSection('sec-account-manage')">Account Manage</button>
+            <button class="tag-btn" data-sec="sec-post-manage" onclick="openAdminSection('sec-post-manage')">Post Manage</button>
+            <button class="tag-btn" data-sec="sec-comment-manage" onclick="openAdminSection('sec-comment-manage')">Comment Manage</button>
+        </div>
+
+        <div id="sec-manage-blue" class="panel-section active">
+            <div class="card">
+                <h3 style="margin:0 0 8px 0;">Manage Blue Mark</h3>
+                <input type="text" id="search-blue-manage" placeholder="Search user by name..." oninput="renderManageBlueList()">
+                <div id="manage-blue-list-container"></div>
+            </div>
+        </div>
+
+        <div id="sec-blue-list" class="panel-section">
+            <div class="card">
+                <h3 style="margin:0 0 8px 0;">Blue Mark List</h3>
+                <input type="text" id="search-blue-list" placeholder="Search verified user by name..." oninput="renderVerifiedBlueList()">
+                <div id="verified-blue-list-container"></div>
+            </div>
+        </div>
+
+        <div id="sec-account-manage" class="panel-section">
+            <div class="card">
+                <h3 style="margin:0 0 8px 0;">Account Manage</h3>
+                <input type="text" id="search-account-manage" placeholder="Search account by name..." oninput="renderAccountManageList()">
+                <div id="account-manage-list-container"></div>
+            </div>
+        </div>
+
+        <div id="sec-post-manage" class="panel-section">
+            <div class="card">
+                <h3 style="margin:0 0 10px 0;">Post Manage</h3>
+                <div id="post-manage-container"></div>
+            </div>
+        </div>
+
+        <div id="sec-comment-manage" class="panel-section">
+            <div class="card">
+                <h3 style="margin:0 0 10px 0;">Comment Manage</h3>
+                <div id="comment-manage-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://dwwubrcbwmxckeklfkan.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3d3VicmNid214Y2tla2xma2FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ3NTk0NjUsImV4cCI6MjExMDMzNTQ2NX0.QYu1M4zlTkOF8yTpOl944OAF5vGiXiL4mX3hbb0DhbY';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const OWNER_EMAIL = 'yinaung303@gmail.com';
+        const OWNER_PASSWORD = 'yinaung133456';
+
+        let allProfiles = [], allPosts = [], expandedUserId = null;
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            if (sessionStorage.getItem('sc_owner_authed') === '1') {
+                enterAdminShell(OWNER_EMAIL);
+                return;
+            }
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session?.user && (session.user.email || '').trim().toLowerCase() === OWNER_EMAIL.toLowerCase()) {
+                sessionStorage.setItem('sc_owner_authed', '1');
+                enterAdminShell(session.user.email);
+            }
+        });
+
+        async function ownerLogin() {
+            const email = document.getElementById('admin-email').value.trim();
+            const password = document.getElementById('admin-password').value.trim();
+            const errEl = document.getElementById('login-err');
+            errEl.textContent = '';
+
+            if (!email || !password) { errEl.textContent = 'Email နဲ့ Password ဖြည့်ပါ။'; return; }
+            if (email.toLowerCase() !== OWNER_EMAIL.toLowerCase() || password !== OWNER_PASSWORD) {
+                errEl.textContent = 'Owner Email သို့မဟုတ် Password မှားယွင်းနေပါသည်။';
+                return;
+            }
+
+            try { await supabaseClient.auth.signInWithPassword({ email, password }); } catch (e) {}
+            sessionStorage.setItem('sc_owner_authed', '1');
+            enterAdminShell(email);
+        }
+
+        function enterAdminShell(emailLabel) {
+            document.getElementById('login-gate').style.display = 'none';
+            document.getElementById('admin-shell').style.display = 'block';
+            document.getElementById('owner-email-label').textContent = emailLabel || OWNER_EMAIL;
+            refreshAllAdminData();
+        }
+
+        async function ownerLogout() {
+            sessionStorage.removeItem('sc_owner_authed');
+            try { await supabaseClient.auth.signOut(); } catch (e) {}
+            window.location.href = 'index.html';
+        }
+
+        function openAdminSection(secId) {
+            document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(secId)?.classList.add('active');
+            document.querySelector(`.tag-btn[data-sec="${secId}"]`)?.classList.add('active');
+        }
+
+        async function refreshAllAdminData() {
+            const [profRes, postRes] = await Promise.all([
+                supabaseClient.from('profiles').select('*').order('username', { ascending: true }),
+                supabaseClient.from('posts').select('*, profiles(username)').order('created_at', { ascending: false })
+            ]);
+            allProfiles = profRes.data || [];
+            allPosts = postRes.data || [];
+
+            renderManageBlueList();
+            renderVerifiedBlueList();
+            renderAccountManageList();
+            renderPostManage();
+            renderCommentManage();
+        }
+
+        function buildUserAvatarHtml(u) {
+            const initial = (u.username || 'U').charAt(0).toUpperCase();
+            return u.avatar_url ? `<img src="${u.avatar_url}">` : `<span>${initial}</span>`;
+        }
+
+        function renderManageBlueList() {
+            const q = (document.getElementById('search-blue-manage')?.value || '').trim().toLowerCase();
+            const container = document.getElementById('manage-blue-list-container');
+            const list = allProfiles.filter(u => !q || (u.username || '').toLowerCase().includes(q));
+            container.innerHTML = '';
+            if (!list.length) { container.innerHTML = '<p style="color:var(--muted);">No users found.</p>'; return; }
+
+            list.forEach(u => {
+                const isOn = Boolean(u.is_verified), isOpen = expandedUserId === `blue_${u.id}`, wrap = document.createElement('div');
+                wrap.innerHTML = `
+                    <div class="user-row" onclick="toggleExpand('blue_${u.id}')">
+                        <div class="user-left">
+                            <div class="avatar-circle">${buildUserAvatarHtml(u)}</div>
+                            <div>
+                                <div style="font-weight:bold; display:flex; align-items:center;">${u.username || 'User'}${isOn ? `<span class="blue-tick">✓</span>` : ''}</div>
+                                <div style="font-size:12px; color:var(--muted);">Blue Mark: ${isOn ? 'ON' : 'OFF'}</div>
+                            </div>
+                        </div>
+                        <span style="font-size:12px; color:${isOn ? '#4da3ff' : 'var(--muted)'}; font-weight:bold;">${isOn ? 'ON' : 'OFF'}</span>
+                    </div>
+                    <div class="action-drawer ${isOpen ? 'open' : ''}">
+                        <span style="font-size:13px; font-weight:bold; margin-right:6px;">Blue Mark:</span>
+                        <button class="${isOn ? 'btn-green' : 'btn-gray'}" onclick="setBlueMark('${u.id}', true)">ON</button>
+                        <button class="${!isOn ? 'btn-red' : 'btn-gray'}" onclick="setBlueMark('${u.id}', false)">OFF</button>
+                    </div>`;
+                container.appendChild(wrap);
+            });
+        }
+
+        async function setBlueMark(userId, nextState) {
+            const { error } = await supabaseClient.from('profiles').update({ is_verified: Boolean(nextState) }).eq('id', userId);
+            if (error) { alert('Error: ' + error.message); return; }
+            await refreshAllAdminData();
+        }
+
+        function renderVerifiedBlueList() {
+            const q = (document.getElementById('search-blue-list')?.value || '').trim().toLowerCase();
+            const container = document.getElementById('verified-blue-list-container');
+            const list = allProfiles.filter(u => u.is_verified === true && (!q || (u.username || '').toLowerCase().includes(q)));
+            container.innerHTML = '';
+            if (!list.length) { container.innerHTML = '<p style="color:var(--muted);">No blue mark accounts.</p>'; return; }
+
+            list.forEach(u => {
+                const isOpen = expandedUserId === `vlist_${u.id}`, wrap = document.createElement('div');
+                wrap.innerHTML = `
+                    <div class="user-row" onclick="toggleExpand('vlist_${u.id}')">
+                        <div class="user-left">
+                            <div class="avatar-circle">${buildUserAvatarHtml(u)}</div>
+                            <div>
+                                <div style="font-weight:bold; display:flex; align-items:center;">${u.username || 'User'}<span class="blue-tick">✓</span></div>
+                                <div style="font-size:12px; color:#4da3ff;">Verified ON</div>
+                            </div>
+                        </div>
+                        <span style="font-size:12px; color:var(--muted);">Tap for ON/OFF</span>
+                    </div>
+                    <div class="action-drawer ${isOpen ? 'open' : ''}">
+                        <button class="btn-green" onclick="setBlueMark('${u.id}', true)">ON</button>
+                        <button class="btn-red" onclick="setBlueMark('${u.id}', false)">OFF</button>
+                    </div>`;
+                container.appendChild(wrap);
+            });
+        }
+
+        function renderAccountManageList() {
+            const q = (document.getElementById('search-account-manage')?.value || '').trim().toLowerCase();
+            const container = document.getElementById('account-manage-list-container');
+            const list = allProfiles.filter(u => !q || (u.username || '').toLowerCase().includes(q));
+            container.innerHTML = '';
+            if (!list.length) { container.innerHTML = '<p style="color:var(--muted);">No accounts found.</p>'; return; }
+
+            list.forEach(u => {
+                const isBanned = u.is_banned === true, isOpen = expandedUserId === `acc_${u.id}`, wrap = document.createElement('div');
+                wrap.innerHTML = `
+                    <div class="user-row" onclick="toggleExpand('acc_${u.id}')">
+                        <div class="user-left">
+                            <div class="avatar-circle">${buildUserAvatarHtml(u)}</div>
+                            <div>
+                                <div style="font-weight:bold; display:flex; align-items:center;">
+                                    ${u.username || 'User'}
+                                    ${u.is_verified ? `<span class="blue-tick">✓</span>` : ''}
+                                    ${isBanned ? `<span class="pill-ban">BANNED</span>` : ''}
+                                </div>
+                                <div style="font-size:12px; color:var(--muted);">ID: ${u.id}</div>
+                            </div>
+                        </div>
+                        <span style="font-size:12px; color:${isBanned ? '#ff6b81' : '#4cd964'}; font-weight:bold;">${isBanned ? 'Banned' : 'Active'}</span>
+                    </div>
+                    <div class="action-drawer ${isOpen ? 'open' : ''}">
+                        ${!isBanned
+                            ? `<button class="btn-red" onclick="setAccountBan('${u.id}', true)">Ban</button>`
+                            : `<button class="btn-green" onclick="setAccountBan('${u.id}', false)">Unban</button>`
+                        }
+                    </div>`;
+                container.appendChild(wrap);
+            });
+        }
+
+        async function setAccountBan(userId, banState) {
+            const { error } = await supabaseClient.from('profiles').update({ is_banned: Boolean(banState) }).eq('id', userId);
+            if (error) { alert('Error: ' + error.message); return; }
+            await refreshAllAdminData();
+        }
+
+        function renderPostManage() {
+            const container = document.getElementById('post-manage-container');
+            container.innerHTML = '';
+            if (!allPosts.length) { container.innerHTML = '<p style="color:var(--muted);">No posts found.</p>'; return; }
+            allPosts.forEach(p => {
+                const isBanned = p.is_banned === true, div = document.createElement('div');
+                div.className = 'post-manage-item';
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                        <div><b>${p.profiles?.username || p.user_id}</b>${isBanned ? `<span class="pill-ban">BANNED</span>` : ''}<div style="font-size:11px; color:var(--muted);">${new Date(p.created_at).toLocaleString()}</div></div>
+                        <div style="display:flex; gap:6px;"><button class="${isBanned ? 'btn-green' : 'btn-gray'}" onclick="toggleBanPost('${p.id}', ${!isBanned})">${isBanned ? 'Unban' : 'Ban'}</button><button class="btn-red" onclick="deletePostAdmin('${p.id}')">Delete</button></div>
+                    </div>
+                    <div style="margin-top:8px; font-size:13px; white-space:pre-wrap;">${p.content || '(Media post)'}</div>`;
+                container.appendChild(div);
+            });
+        }
+
+        async function toggleBanPost(postId, nextBan) {
+            const { error } = await supabaseClient.from('posts').update({ is_banned: Boolean(nextBan) }).eq('id', postId);
+            if (error) { alert('Error: ' + error.message); return; }
+            await refreshAllAdminData();
+        }
+
+        async function deletePostAdmin(postId) {
+            if (!confirm('Delete this post permanently?')) return;
+            const { error } = await supabaseClient.from('posts').delete().eq('id', postId);
+            if (error) { alert('Error: ' + error.message); return; }
+            await refreshAllAdminData();
+        }
+
+        function renderCommentManage() {
+            const container = document.getElementById('comment-manage-container');
+            container.innerHTML = '';
+            let anyComment = false;
+            allPosts.forEach(p => {
+                const comments = Array.isArray(p.comments) ? p.comments : [];
+                if (!comments.length) return;
+                anyComment = true;
+                const bannedSet = new Set(Array.isArray(p.banned_comments) ? p.banned_comments.map(Number) : []);
+                const box = document.createElement('div');
+                box.className = 'post-manage-item';
+                box.innerHTML = `<div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Post by <b>${p.profiles?.username || p.user_id}</b></div>`;
+                comments.forEach((c, idx) => {
+                    const isBanned = bannedSet.has(idx) || c?.is_banned === true, row = document.createElement('div');
+                    row.className = 'comment-manage-row';
+                    row.innerHTML = `<div style="min-width:0; flex:1;"><b>${c?.username || 'User'}:</b> ${c?.text || ''}${isBanned ? `<span class="pill-ban">BANNED</span>` : ''}</div><div style="display:flex; gap:6px; flex-shrink:0;"><button class="${isBanned ? 'btn-green' : 'btn-gray'}" onclick="toggleBanComment('${p.id}', ${idx}, ${!isBanned})">${isBanned ? 'Unban' : 'Ban'}</button><button class="btn-red" onclick="deleteCommentAdmin('${p.id}', ${idx})">Delete</button></div>`;
+                    box.appendChild(row);
+                });
+                container.appendChild(box);
+            });
+            if (!anyComment) container.innerHTML = '<p style="color:var(--muted);">No comments found.</p>';
+        }
+
+        async function toggleBanComment(postId, commentIdx, nextBan) {
+            const post = allPosts.find(x => String(x.id) === String(postId)); if (!post) return;
+            const bannedSet = new Set(Array.isArray(post.banned_comments) ? post.banned_comments.map(Number) : []);
+            if (nextBan) bannedSet.add(Number(commentIdx)); else bannedSet.delete(Number(commentIdx));
+            const { error } = await supabaseClient.from('posts').update({ banned_comments: Array.from(bannedSet) }).eq('id', postId);
+            if (error) { alert('Error: ' + error.message); return; }
+            await refreshAllAdminData();
+        }
+
+        async function deleteCommentAdmin(postId, commentIdx) {
+            const post = allPosts.find(x => String(x.id) === String(postId)); if (!post) return;
+            const comments = [...(Array.isArray(post.comments) ? post.comments : [])];
+            comments.splice(commentIdx, 1);
+            const bannedSet = new Set((Array.isArray(post.banned_comments) ? post.banned_comments : []).map(Number).filter(i => i !== commentIdx).map(i => (i > commentIdx ? i - 1 : i)));
+            const { error } = await supabaseClient.from('posts').update({ comments, banned_comments: Array.from(bannedSet) }).eq('id', postId);
+            if (error) { alert('Error: ' + error.message); return; }
+            await refreshAllAdminData();
+        }
+
+        function toggleExpand(key) {
+            expandedUserId = expandedUserId === key ? null : key;
+            renderManageBlueList(); renderVerifiedBlueList(); renderAccountManageList();
+        }
+    </script>
+</body>
+</html>
